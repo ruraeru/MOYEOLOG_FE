@@ -13,9 +13,12 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
+import MemoDetailModal from '@/components/MemoDetailModal';
 
 export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
+  const [selectedMemo, setSelectedMemo] = useState<any>(null);
   const [selectedDate, setSelectedDate] = useState('2026-04-11');
 
   const handleOpenModal = (day: number) => {
@@ -24,8 +27,13 @@ export default function HomePage() {
     setIsModalOpen(true);
   };
 
+  const handleMemoClick = (memo: any) => {
+    setSelectedMemo(memo);
+    setIsMemoModalOpen(true);
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden">
+    <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
       <Navbar />
       <main className="flex-1 w-full grid grid-cols-1 lg:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] gap-6 p-4 sm:p-6 overflow-hidden">
         
@@ -61,25 +69,47 @@ export default function HomePage() {
           <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar">
             <MemoCard 
               title="다음 주 모임 계획" 
-              content="홍대에서 만나서 저녁 먹고 영화 보기. 지민이가 좋아하는 파스타 집 예약했음. 영화는 CGV에서 7시 반 예매."
+              description="홍대에서 만나서 저녁 먹고 영화 보기. 지민이가 좋아하는 파스타 집 예약했음. 영화는 CGV에서 7시 반 예매."
               author="민수"
-              date="2026-04-05 14:30:15"
+              date="2026-04-05"
               tags={['#모임', '#계획']}
+              onClick={() => handleMemoClick({
+                title: "다음 주 모임 계획",
+                description: "홍대에서 만나서 저녁 먹고 영화 보기. 지민이가 좋아하는 파스타 집 예약했음. 영화는 CGV에서 7시 반 예매.",
+                author: "민수",
+                date: "2026-04-05",
+                tags: ['#모임', '#계획']
+              })}
             />
             <MemoCard 
               title="회의록" 
-              content="프로젝트 진행 상황 논의. 다음 마일스톤까지 2주 남음. UI 디자인 완료, 백엔드 API 개발 중."
+              description="프로젝트 진행 상황 논의. 다음 마일스톤까지 2주 남음. UI 디자인 완료, 백엔드 API 개발 중."
               author="나"
-              date="2026-04-04 16:20:45"
+              date="2026-04-04"
               tags={['#업무', '#회의']}
               isLocked
+              onClick={() => handleMemoClick({
+                title: "회의록",
+                description: "프로젝트 진행 상황 논의. 다음 마일스톤까지 2주 남음. UI 디자인 완료, 백엔드 API 개발 중.",
+                author: "나",
+                date: "2026-04-04",
+                tags: ['#업무', '#회의'],
+                locked: true
+              })}
             />
             <MemoCard 
               title="주말 계획" 
-              content="토요일 오전 10시 운동, 오후 2시 친구 만나기. 일요일은 집에서 쉬면서 책 읽기."
+              description="토요일 오전 10시 운동, 오후 2시 친구 만나기. 일요일은 집에서 쉬면서 책 읽기."
               author="나"
-              date="2026-04-03 09:15:30"
+              date="2026-04-03"
               tags={['#개인', '#주말']}
+              onClick={() => handleMemoClick({
+                title: "주말 계획",
+                description: "토요일 오전 10시 운동, 오후 2시 친구 만나기. 일요일은 집에서 쉬면서 책 읽기.",
+                author: "나",
+                date: "2026-04-03",
+                tags: ['#개인', '#주말']
+              })}
             />
           </div>
         </section>
@@ -146,13 +176,22 @@ export default function HomePage() {
         onClose={() => setIsModalOpen(false)} 
         initialDate={selectedDate}
       />
+
+      <MemoDetailModal 
+        isOpen={isMemoModalOpen} 
+        onClose={() => setIsMemoModalOpen(false)} 
+        memo={selectedMemo} 
+      />
     </div>
   );
 }
 
-function MemoCard({ title, content, author, date, tags, isLocked = false }: any) {
+function MemoCard({ title, description, author, date, tags, isLocked = false, onClick }: any) {
   return (
-    <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 relative group hover:border-indigo-200 transition-all">
+    <div 
+      onClick={onClick}
+      className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 relative group hover:border-indigo-200 transition-all cursor-pointer"
+    >
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm text-gray-800">{title}</h3>
         {isLocked ? (
@@ -161,10 +200,10 @@ function MemoCard({ title, content, author, date, tags, isLocked = false }: any)
           <Share2 className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
         )}
       </div>
-      <p className="text-xs text-gray-500 line-clamp-3 leading-relaxed">{content}</p>
+      <p className="text-xs text-gray-500 line-clamp-3 leading-relaxed">{description}</p>
       <div className="flex items-center justify-between mt-1">
         <span className="text-[10px] text-gray-400 font-medium">{author}</span>
-        <span className="text-[10px] text-gray-400">{date.split(' ')[0]}</span>
+        <span className="text-[10px] text-gray-400">{date}</span>
       </div>
       <div className="flex gap-1.5 mt-1">
         {tags.map((tag: string) => (
