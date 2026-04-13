@@ -1,12 +1,11 @@
 'use client';
 
-import React from 'react';
-import { 
-  X, 
-  Share2, 
-  Users, 
-  Sparkles, 
-  Tag as TagIcon, 
+import {
+  X,
+  Share2,
+  Users,
+  Sparkles,
+  Tag as TagIcon,
   FileText,
   MessageSquare
 } from 'lucide-react';
@@ -31,15 +30,15 @@ export default function MemoDetailModal({ isOpen, onClose, memo }: MemoDetailMod
   const keywords = ['홍대', '저녁', '영화', '파스타', 'CGV'];
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
       onClick={onClose}
     >
-      <div 
+      <div
         className="bg-white rounded-3xl w-full max-w-5xl max-h-[85vh] flex shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        
+
         {/* Main Content Area (Left) */}
         <div className="flex-1 flex flex-col p-10 overflow-y-auto no-scrollbar border-r border-gray-100">
           <div className="flex items-center justify-between mb-8">
@@ -98,7 +97,7 @@ export default function MemoDetailModal({ isOpen, onClose, memo }: MemoDetailMod
               <Sparkles className="w-5 h-5 text-blue-500" />
               <span>AI 인사이트</span>
             </div>
-            
+
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
               <div className="space-y-2">
                 <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded uppercase">요약</span>
@@ -152,7 +151,7 @@ export default function MemoDetailModal({ isOpen, onClose, memo }: MemoDetailMod
               <span className="text-sm">OCR 인식 텍스트</span>
             </div>
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm italic text-xs text-gray-500 leading-relaxed font-medium">
-              "2026년 4월 8일 저녁 7시 홍대입구역 3번 출구에서 만나요!"
+              &quot;2026년 4월 8일 저녁 7시 홍대입구역 3번 출구에서 만나요!&quot;
             </div>
           </div>
         </div>

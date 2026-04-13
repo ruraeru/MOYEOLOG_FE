@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { 
-  Home, 
-  Calendar, 
-  FileText, 
-  Users, 
-  UserPlus, 
-  Bell, 
+import {
+  Home,
+  Calendar,
+  FileText,
+  Users,
+  UserPlus,
+  Bell,
   Settings,
   LogOut
 } from 'lucide-react';
@@ -52,11 +52,10 @@ export default function Navbar() {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive 
-                      ? 'bg-[#F0F2FF] text-[#6366F1]' 
-                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isActive
+                    ? 'bg-[#F0F2FF] text-[#6366F1]'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
                 >
                   <div className="relative">
                     <item.icon className="w-5 h-5" />
@@ -79,8 +78,8 @@ export default function Navbar() {
             <Bell className="w-6 h-6" />
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 border-2 border-white"></span>
           </Link>
-          
-          <button 
+
+          <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             className="h-8 w-8 rounded-full bg-[#D1D5DB] flex items-center justify-center text-xs font-bold text-white overflow-hidden border border-gray-100 hover:ring-2 hover:ring-indigo-100 transition-all"
           >
@@ -93,10 +92,10 @@ export default function Navbar() {
         </div>
       </div>
 
-      <ProfileModal 
-        isOpen={isProfileOpen} 
-        onClose={() => setIsProfileOpen(false)} 
-        user={session?.user} 
+      <ProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        user={session?.user}
       />
     </nav>
   );

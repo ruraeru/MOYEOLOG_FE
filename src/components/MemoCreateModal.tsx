@@ -1,17 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  X, 
-  Upload, 
-  Type, 
-  Bold, 
-  Italic, 
-  Heading1, 
-  Heading2, 
-  Users, 
-  Tag as TagIcon, 
-  Sparkles, 
+import {
+  X,
+  Upload,
+  Type,
+  Bold,
+  Italic,
+  Heading1,
+  Heading2,
+  Users,
+  Tag as TagIcon,
+  Sparkles,
   FileSearch,
   Lightbulb
 } from 'lucide-react';
@@ -25,15 +25,15 @@ export default function MemoCreateModal({ isOpen, onClose }: MemoCreateModalProp
   if (!isOpen) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
       onClick={onClose}
     >
-      <div 
+      <div
         className="bg-white rounded-3xl w-full max-w-5xl flex flex-col shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        
+
         {/* Header */}
         <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
           <h2 className="text-xl font-bold text-gray-800">새 메모 작성</h2>
@@ -44,12 +44,12 @@ export default function MemoCreateModal({ isOpen, onClose }: MemoCreateModalProp
 
         {/* Content Container */}
         <div className="flex h-[600px]">
-          
+
           {/* Main Input Area (Left) */}
           <div className="flex-1 flex flex-col p-8 border-r border-gray-100 overflow-y-auto no-scrollbar">
-            <input 
-              type="text" 
-              placeholder="메모 제목을 입력하세요" 
+            <input
+              type="text"
+              placeholder="메모 제목을 입력하세요"
               className="text-2xl font-bold text-gray-900 placeholder:text-gray-300 border-none outline-none mb-6 w-full"
             />
 
@@ -66,8 +66,8 @@ export default function MemoCreateModal({ isOpen, onClose }: MemoCreateModalProp
 
             {/* Content Textarea Area */}
             <div className="flex-1 min-h-[200px] border border-gray-100 rounded-2xl p-5 relative bg-white">
-              <textarea 
-                placeholder="내용을 입력하세요..." 
+              <textarea
+                placeholder="내용을 입력하세요..."
                 className="w-full h-full resize-none border-none outline-none text-sm text-gray-600 placeholder:text-gray-300 leading-relaxed"
               />
             </div>
@@ -75,15 +75,15 @@ export default function MemoCreateModal({ isOpen, onClose }: MemoCreateModalProp
 
           {/* Sidebar Area (Right) */}
           <div className="w-[340px] bg-gray-50/30 p-8 flex flex-col gap-8 shrink-0 overflow-y-auto no-scrollbar">
-            
+
             {/* Share Group */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
                 <Users className="w-4 h-4" />
                 <span>공유할 그룹 선택</span>
               </div>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-400 transition-all shadow-sm"
               />
             </div>
@@ -95,8 +95,8 @@ export default function MemoCreateModal({ isOpen, onClose }: MemoCreateModalProp
                 <span>태그</span>
               </div>
               <div className="flex gap-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="태그 입력"
                   className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-400 transition-all shadow-sm"
                 />
@@ -150,13 +150,13 @@ export default function MemoCreateModal({ isOpen, onClose }: MemoCreateModalProp
           </div>
 
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={onClose}
               className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors"
             >
               취소
             </button>
-            <button 
+            <button
               onClick={onClose}
               className="px-6 py-2.5 bg-[#B4BDFF] text-white rounded-xl text-sm font-bold hover:bg-[#A3ADFF] shadow-lg shadow-blue-50 transition-all"
             >

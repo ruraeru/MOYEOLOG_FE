@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
-import { 
-  Search, 
-  Plus, 
-  Grid, 
-  List, 
+import {
+  Search,
+  Plus,
+  Grid,
+  List,
   ChevronDown,
   Archive,
   User,
@@ -109,10 +109,10 @@ export default function MemoPage() {
     <div className="h-screen flex flex-col bg-white text-gray-900 overflow-hidden font-sans">
       <Navbar />
       <div className="flex-1 flex overflow-hidden">
-        
+
         {/* Sidebar */}
-        <aside className="w-[260px] border-r border-gray-100 flex flex-col p-5 gap-10 overflow-y-auto no-scrollbar hidden lg:flex">
-          
+        <aside className="w-65 border-r border-gray-100 flex flex-col p-5 gap-10 overflow-y-auto no-scrollbar lg:flex">
+
           {/* Categories Section */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-gray-400 flex items-center gap-2">
@@ -155,16 +155,16 @@ export default function MemoPage() {
 
         {/* Main Content */}
         <main className="flex-1 flex flex-col overflow-hidden bg-[#F8F9FB]">
-          
+
           {/* Header & Search */}
           <div className="p-8 pb-4 space-y-6">
             <h2 className="text-2xl font-bold text-gray-800">메모 보관함</h2>
-            
-            <div className="flex items-center gap-4">
-              <div className="relative flex-1 max-w-2xl">
-                <input 
-                  type="text" 
-                  placeholder="AI 통합 검색..." 
+
+            <div className="flex items-center gap-4 justify-between">
+              <div className="relative flex-1 max-w-5xl">
+                <input
+                  type="text"
+                  placeholder="AI 통합 검색..."
                   className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all outline-none shadow-sm"
                 />
                 <Search className="w-5 h-5 absolute left-3.5 top-3 text-gray-300" />
@@ -177,13 +177,13 @@ export default function MemoPage() {
                   </button>
                 </div>
                 <div className="flex p-1 bg-white border border-gray-200 rounded-lg shadow-sm">
-                  <button 
+                  <button
                     onClick={() => setViewMode('grid')}
                     className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
                   >
                     <Grid className="w-4 h-4" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => setViewMode('list')}
                     className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
                   >
@@ -206,7 +206,7 @@ export default function MemoPage() {
           </div>
 
           {/* FAB */}
-          <button 
+          <button
             onClick={() => setIsCreateOpen(true)}
             className="fixed bottom-10 right-10 w-14 h-14 bg-[#6366F1] text-white rounded-full flex items-center justify-center shadow-xl hover:bg-[#5558E6] transition-all transform hover:scale-110 group"
           >
@@ -215,15 +215,15 @@ export default function MemoPage() {
         </main>
       </div>
 
-      <MemoDetailModal 
-        isOpen={isDetailOpen} 
-        onClose={() => setIsDetailOpen(false)} 
-        memo={selectedMemo} 
+      <MemoDetailModal
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        memo={selectedMemo}
       />
 
-      <MemoCreateModal 
-        isOpen={isCreateOpen} 
-        onClose={() => setIsCreateOpen(false)} 
+      <MemoCreateModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
       />
     </div>
   );
@@ -251,22 +251,22 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
     return (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:border-indigo-100 transition-all group flex overflow-hidden p-6 gap-6 relative cursor-pointer">
         {image && (
-          <div className="w-[120px] h-[120px] relative rounded-xl overflow-hidden shrink-0 bg-gray-50 border border-gray-50">
-            <Image 
-              src={image} 
-              alt={title} 
-              fill 
+          <div className="w-30 h-30 relative rounded-xl overflow-hidden shrink-0 bg-gray-50 border border-gray-50">
+            <Image
+              src={image}
+              alt={title}
+              fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-500" 
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
           </div>
         )}
-        
+
         <div className="flex flex-col flex-1 min-w-0 py-1">
           <div className="flex items-start justify-between gap-4 mb-2">
             <h4 className="font-bold text-gray-800 text-[17px] truncate">{title}</h4>
           </div>
-          
+
           <p className="text-sm text-gray-500 leading-relaxed line-clamp-2 mb-4">
             {locked ? '이 메모는 잠겨 있습니다. 내용을 보려면 비밀번호를 입력하세요.' : description}
           </p>
@@ -278,7 +278,7 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
               </span>
             ))}
           </div>
-          
+
           <div className="flex items-center justify-between mt-auto">
             <div className="flex items-center gap-3">
               {category && (
@@ -300,22 +300,22 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-100 hover:shadow-md transition-all group flex flex-col overflow-hidden relative cursor-pointer">
       {image && (
         <div className="h-44 w-full relative bg-gray-50">
-          <Image 
-            src={image} 
-            alt={title} 
-            fill 
+          <Image
+            src={image}
+            alt={title}
+            fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-500" 
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </div>
       )}
-      
+
       <div className="p-5 flex flex-col gap-3 flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h4 className="font-bold text-gray-800 text-[15px] truncate">{title}</h4>
           {locked && <Lock className="w-3.5 h-3.5 text-gray-300 shrink-0" />}
         </div>
-        
+
         <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 flex-1">
           {locked ? '이 메모는 잠겨 있습니다. 내용을 보려면 비밀번호를 입력하세요.' : description}
         </p>
@@ -328,7 +328,7 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
               </span>
             ))}
           </div>
-          
+
           <div className="flex items-center justify-between pt-2 border-t border-gray-50">
             <div className="flex items-center gap-1.5">
               {category && (
