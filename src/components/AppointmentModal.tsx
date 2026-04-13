@@ -29,6 +29,17 @@ interface AppointmentModalProps {
   initialDate?: string;
 }
 
+interface Recommendation {
+  id: string | number;
+  name: string;
+  category: string;
+  rating: string;
+  distance: string;
+  desc: string;
+  tags: string[];
+  image: string;
+}
+
 export default function AppointmentModal({ isOpen, onClose, initialDate }: AppointmentModalProps) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(initialDate || '2026-04-11');
@@ -65,19 +76,19 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
     }, 500);
 
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
   // Recommendations States
-  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
 
   const fetchRecommendations = async (lat: number, lng: number) => {
     if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) return;
     setIsRecommending(true);
-    
+
     const ps = new window.kakao.maps.services.Places();
-    
+
     // 주변 1km 반경 카페(CE7) 검색
     ps.categorySearch('CE7', async (data: any, status: any) => {
       if (status === window.kakao.maps.services.Status.OK) {
@@ -87,7 +98,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
             try {
               const res = await fetch(`/api/search-image?query=${encodeURIComponent(place.place_name)}`);
               const { imageUrl } = await res.json();
-              
+
               return {
                 id: place.id,
                 name: place.place_name,
@@ -112,7 +123,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
       setIsRecommending(false);
     }, {
       location: new window.kakao.maps.LatLng(lat, lng),
-      radius: 1000 
+      radius: 1000
     });
   };
 
@@ -129,7 +140,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
       newMarker.setMap(newMap);
       setMap(newMap);
       setMarker(newMarker);
-      
+
       // 초기 렌더링 시 주변 장소 추천 실행
       fetchRecommendations(lat, lng);
     };
@@ -165,7 +176,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
         initMap();
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const searchPlaces = (keyword: string) => {
@@ -360,8 +371,8 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
                 </div>
               ) : recommendations.length > 0 ? (
                 recommendations.map((rec) => (
-                  <div 
-                    key={rec.id} 
+                  <div
+                    key={rec.id}
                     onClick={() => handleRecommendationSelect(rec)}
                     className="min-w-60 bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:border-indigo-200 transition-all group cursor-pointer"
                   >
