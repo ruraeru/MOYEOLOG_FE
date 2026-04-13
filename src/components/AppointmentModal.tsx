@@ -17,9 +17,47 @@ import {
   Loader2
 } from 'lucide-react';
 
+interface KakaoMap {
+  setCenter: (coords: unknown) => void;
+  getCenter: () => unknown;
+}
+
+interface KakaoMarker {
+  setMap: (map: unknown) => void;
+  setPosition: (coords: unknown) => void;
+}
+
 declare global {
   interface Window {
-    kakao: any;
+    kakao: {
+      maps: {
+        load: (callback: () => void) => void;
+        LatLng: new (lat: number | string, lng: number | string) => unknown;
+        Map: new (container: HTMLElement, options: unknown) => KakaoMap;
+        Marker: new (options: unknown) => KakaoMarker;
+        services: {
+          Status: {
+            OK: string;
+            ZERO_RESULT: string;
+            ERROR: string;
+          };
+          Places: new () => {
+            categorySearch: (
+              categoryCode: string,
+              callback: (data: SearchResult[], status: string) => void,
+              options?: {
+                location?: unknown;
+                radius?: number;
+              }
+            ) => void;
+            keywordSearch: (
+              keyword: string,
+              callback: (data: SearchResult[], status: string) => void
+            ) => void;
+          };
+        };
+      };
+    };
   }
 }
 
@@ -40,6 +78,17 @@ interface Recommendation {
   image: string;
 }
 
+interface SearchResult {
+  place_name: string;
+  address_name: string;
+  road_address_name?: string;
+  x: string;
+  y: string;
+  id: string;
+  category_group_name?: string;
+  distance?: string;
+}
+
 export default function AppointmentModal({ isOpen, onClose, initialDate }: AppointmentModalProps) {
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(initialDate || '2026-04-11');
@@ -52,11 +101,11 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
   const [tagInput, setTagInput] = useState('');
 
   // Kakao Map States
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [map, setMap] = useState<any>(null);
-  const [marker, setMarker] = useState<any>(null);
+  const [map, setMap] = useState<KakaoMap | null>(null);
+  const [marker, setMarker] = useState<KakaoMarker | null>(null);
 
   // Debounced search logic
   useEffect(() => {
@@ -90,11 +139,11 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
     const ps = new window.kakao.maps.services.Places();
 
     // 주변 1km 반경 카페(CE7) 검색
-    ps.categorySearch('CE7', async (data: any, status: any) => {
+    ps.categorySearch('CE7', async (data: SearchResult[], status: string) => {
       if (status === window.kakao.maps.services.Status.OK) {
         // 각 장소에 대해 실제 이미지 검색 수행
         const results = await Promise.all(
-          data.slice(0, 5).map(async (place: any) => {
+          data.slice(0, 5).map(async (place: SearchResult) => {
             try {
               const res = await fetch(`/api/search-image?query=${encodeURIComponent(place.place_name)}`);
               const { imageUrl } = await res.json();
@@ -109,14 +158,14 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
                 tags: ['#실시간_추천', '#모임_최적'],
                 image: imageUrl || 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=200&auto=format&fit=crop'
               };
-            } catch (error) {
+            } catch {
               console.error('Image fetch failed for:', place.place_name);
               return null;
             }
           })
         );
 
-        setRecommendations(results.filter(Boolean));
+        setRecommendations(results.filter(Boolean) as Recommendation[]);
       } else {
         setRecommendations([]);
       }
@@ -191,7 +240,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
     setIsSearching(true);
     const ps = new window.kakao.maps.services.Places();
 
-    ps.keywordSearch(keyword, (data: any, status: any) => {
+    ps.keywordSearch(keyword, (data: SearchResult[], status: string) => {
       if (status === window.kakao.maps.services.Status.OK) {
         setSearchResults(data);
         setShowResults(true);
@@ -202,7 +251,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
     });
   };
 
-  const handleLocationSelect = (place: any) => {
+  const handleLocationSelect = (place: SearchResult) => {
     setLocation(place.place_name);
     setShowResults(false);
 
@@ -213,7 +262,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
       marker.setMap(map);
 
       // 선택한 장소를 기준으로 추천 리스트 갱신
-      fetchRecommendations(place.y, place.x);
+      fetchRecommendations(parseFloat(place.y), parseFloat(place.x));
     }
   };
 
@@ -233,7 +282,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
     }
   };
 
-  const handleRecommendationSelect = (rec: any) => {
+  const handleRecommendationSelect = (rec: Recommendation) => {
     setLocation(rec.name);
     if (map && marker) {
       // 추천 장소의 경우 좌표를 직접 넘겨받거나 다시 검색이 필요할 수 있지만, 

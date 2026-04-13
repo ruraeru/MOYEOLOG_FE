@@ -6,14 +6,20 @@ import {
   Users,
   Sparkles,
   Tag as TagIcon,
-  FileText,
   MessageSquare
 } from 'lucide-react';
+
+interface MemoDetail {
+  title: string;
+  description: string;
+  author?: string;
+  date: string;
+}
 
 interface MemoDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
-  memo: any;
+  memo: MemoDetail | null;
 }
 
 export default function MemoDetailModal({ isOpen, onClose, memo }: MemoDetailModalProps) {

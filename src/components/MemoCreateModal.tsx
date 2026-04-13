@@ -1,14 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   X,
   Upload,
-  Type,
   Bold,
   Italic,
-  Heading1,
-  Heading2,
   Users,
   Tag as TagIcon,
   Sparkles,

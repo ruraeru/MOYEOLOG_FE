@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Navbar from '@/components/Navbar';
 import { Search, UserPlus, MessageCircle, MoreHorizontal, UserCheck, Clock } from 'lucide-react';
 import Image from 'next/image';

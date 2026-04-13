@@ -12,7 +12,7 @@ const handler = NextAuth({
   callbacks: {
     async session({ session, token }) {
       if (session.user) {
-        // @ts-ignore
+        // @ts-expect-error: sub is not in SessionUser type
         session.user.id = token.sub;
       }
       return session;

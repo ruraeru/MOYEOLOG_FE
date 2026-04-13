@@ -12,8 +12,7 @@ import {
   Users,
   UserPlus,
   Bell,
-  Settings,
-  LogOut
+  Settings
 } from 'lucide-react';
 import ProfileModal from './ProfileModal';
 

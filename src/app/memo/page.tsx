@@ -13,7 +13,6 @@ import {
   Share2,
   Star,
   Lock,
-  Tag as TagIcon,
   Circle
 } from 'lucide-react';
 import Image from 'next/image';
@@ -94,13 +93,25 @@ const memos = [
   }
 ];
 
+interface Memo {
+  id: number;
+  title: string;
+  description: string;
+  image?: string;
+  tags: string[];
+  category?: string;
+  categoryColor?: string;
+  date: string;
+  locked?: boolean;
+}
+
 export default function MemoPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedMemo, setSelectedMemo] = useState<any>(null);
+  const [selectedMemo, setSelectedMemo] = useState<Memo | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const handleMemoClick = (memo: any) => {
+  const handleMemoClick = (memo: Memo) => {
     setSelectedMemo(memo);
     setIsDetailOpen(true);
   };
@@ -229,7 +240,15 @@ export default function MemoPage() {
   );
 }
 
-function SidebarItem({ icon: Icon, label, count, active, color }: any) {
+interface SidebarItemProps {
+  icon?: React.ElementType;
+  label: string;
+  count?: number;
+  active?: boolean;
+  color?: string;
+}
+
+function SidebarItem({ icon: Icon, label, count, active, color }: SidebarItemProps) {
   return (
     <div className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${active ? 'bg-[#F0F2FF] text-[#6366F1]' : 'hover:bg-gray-50 text-gray-600'}`}>
       <div className="flex items-center gap-3">
@@ -246,7 +265,11 @@ function SidebarItem({ icon: Icon, label, count, active, color }: any) {
   );
 }
 
-function MemoCard({ title, description, image, tags, category, categoryColor, date, locked, viewMode }: any) {
+interface MemoCardProps extends Omit<Memo, 'id'> {
+  viewMode: 'grid' | 'list';
+}
+
+function MemoCard({ title, description, image, tags, category, categoryColor, date, locked, viewMode }: MemoCardProps) {
   if (viewMode === 'list') {
     return (
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:border-indigo-100 transition-all group flex overflow-hidden p-6 gap-6 relative cursor-pointer">

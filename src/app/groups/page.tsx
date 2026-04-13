@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Navbar from '@/components/Navbar';
-import { Plus, Users, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight } from 'lucide-react';
 
 const groups = [
   {
@@ -85,7 +85,19 @@ export default function GroupsPage() {
   );
 }
 
-function GroupCard({ name, description, initial, iconBg, borderColor, members, memberCount, memberBg, memberText }: any) {
+interface GroupCardProps {
+  name: string;
+  description: string;
+  initial: string;
+  iconBg: string;
+  borderColor: string;
+  members: string[];
+  memberCount: number;
+  memberBg: string;
+  memberText: string;
+}
+
+function GroupCard({ name, description, initial, iconBg, borderColor, members, memberCount, memberBg, memberText }: GroupCardProps) {
   return (
     <div className={`bg-white rounded-2xl border ${borderColor} p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden`}>
       <div className="flex flex-col gap-4">

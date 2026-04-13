@@ -7,7 +7,6 @@ import {
   Bell, 
   Lock, 
   Eye, 
-  Smartphone, 
   Globe, 
   LogOut,
   ChevronRight,
@@ -142,7 +141,13 @@ export default function SettingsPage() {
   );
 }
 
-function SettingToggle({ label, desc, defaultChecked }: any) {
+interface SettingToggleProps {
+  label: string;
+  desc: string;
+  defaultChecked?: boolean;
+}
+
+function SettingToggle({ label, desc, defaultChecked }: SettingToggleProps) {
   const [checked, setChecked] = useState(defaultChecked);
   return (
     <div className="flex items-center justify-between p-6 border-b border-gray-50 last:border-none">

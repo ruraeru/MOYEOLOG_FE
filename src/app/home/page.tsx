@@ -8,17 +8,25 @@ import {
   Plus, 
   Lock, 
   Share2, 
-  Users, 
-  Calendar as CalendarIcon 
+  Users 
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
 import MemoDetailModal from '@/components/MemoDetailModal';
 
+interface Memo {
+  title: string;
+  description: string;
+  author: string;
+  date: string;
+  tags: string[];
+  locked?: boolean;
+}
+
 export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
-  const [selectedMemo, setSelectedMemo] = useState<any>(null);
+  const [selectedMemo, setSelectedMemo] = useState<Memo | null>(null);
   const [selectedDate, setSelectedDate] = useState('2026-04-11');
 
   const handleOpenModal = (day: number) => {
@@ -27,7 +35,7 @@ export default function HomePage() {
     setIsModalOpen(true);
   };
 
-  const handleMemoClick = (memo: any) => {
+  const handleMemoClick = (memo: Memo) => {
     setSelectedMemo(memo);
     setIsMemoModalOpen(true);
   };
@@ -186,7 +194,17 @@ export default function HomePage() {
   );
 }
 
-function MemoCard({ title, description, author, date, tags, isLocked = false, onClick }: any) {
+interface MemoCardProps {
+  title: string;
+  description: string;
+  author: string;
+  date: string;
+  tags: string[];
+  isLocked?: boolean;
+  onClick: () => void;
+}
+
+function MemoCard({ title, description, author, date, tags, isLocked = false, onClick }: MemoCardProps) {
   return (
     <div 
       onClick={onClick}
@@ -222,7 +240,14 @@ function EventBadge({ color, text }: { color: string, text: string }) {
   );
 }
 
-function GroupCard({ icon, title, desc, members }: any) {
+interface GroupCardProps {
+  icon: string;
+  title: string;
+  desc: string;
+  members: string;
+}
+
+function GroupCard({ icon, title, desc, members }: GroupCardProps) {
   return (
     <div className="bg-white p-4 rounded-2xl border border-gray-50 shadow-sm flex items-center gap-4 hover:bg-gray-50 transition-colors cursor-pointer group">
       <div className={`w-10 h-10 ${icon} rounded-xl flex items-center justify-center text-white`}>
