@@ -1,10 +1,21 @@
 'use client';
 
+import { useSyncExternalStore } from 'react';
 import Image from "next/image";
 import { useSession, signIn, signOut } from "next-auth/react";
 
+const emptySubscribe = () => () => {};
+
 export default function Home() {
   const { data: session } = useSession();
+  
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
+  if (!isMounted) return null;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">

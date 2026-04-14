@@ -427,9 +427,11 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
                   >
                     <div className="relative h-28 overflow-hidden">
                       <Image
-                        src={rec.image}
+                        src={`/api/proxy-image?url=${encodeURIComponent(rec.image)}`}
                         alt={rec.name}
                         fill
+                        unoptimized
+                        referrerPolicy="no-referrer"
                         sizes="(max-width: 768px) 100vw, 240px"
                         className="object-cover group-hover:scale-110 transition-transform duration-500"
                       />
