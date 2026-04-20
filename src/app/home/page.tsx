@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
+import AppointmentListModal from '@/components/AppointmentListModal';
+import AppointmentDetailModal from '@/components/AppointmentDetailModal';
 import MemoDetailModal from '@/components/MemoDetailModal';
 
 interface Memo {
@@ -25,12 +27,76 @@ interface Memo {
   locked?: boolean;
 }
 
+interface Appointment {
+  id: number;
+  date: string;
+  title: string;
+  time: string;
+  location: string;
+  participants: string[];
+  color: string;
+  memo?: string;
+  tags?: string[];
+  group?: string;
+}
+
+const MOCK_APPOINTMENTS: Appointment[] = [
+  { 
+    id: 1, 
+    date: '2026-04-06', 
+    title: '팀 회의', 
+    time: '14:00', 
+    location: '회의실 A', 
+    participants: ['나', '지민', '민수'], 
+    color: 'bg-indigo-500',
+    group: '대학 동기들',
+    tags: ['#업무', '#프로젝트'],
+    memo: '다음 마일스톤 일정 확정 및 역할 분담 논의 예정입니다.'
+  },
+  { 
+    id: 2, 
+    date: '2026-04-07', 
+    title: '헬스', 
+    time: '08:00', 
+    location: '짐박스', 
+    participants: ['나'], 
+    color: 'bg-emerald-500',
+    tags: ['#운동', '#오운완']
+  },
+  { 
+    id: 3, 
+    date: '2026-04-08', 
+    title: '친구들과 저녁', 
+    time: '19:00', 
+    location: '홍대입구역', 
+    participants: ['나', '지민', '현우'], 
+    color: 'bg-blue-500',
+    group: '대학 동기들',
+    memo: '지민이가 가고 싶다던 파스타집 예약함.'
+  },
+  { 
+    id: 4, 
+    date: '2026-04-12', 
+    title: '독서 모임', 
+    time: '15:00', 
+    location: '강남역 스타벅스', 
+    participants: ['나', '예진', '동휘'], 
+    color: 'bg-orange-500',
+    group: '독서 모임',
+    tags: ['#취미', '#독서'],
+    memo: '이번 달 선정 도서: "사피엔스"'
+  },
+];
+
 const emptySubscribe = () => () => { };
 
 export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
   const [selectedMemo, setSelectedMemo] = useState<Memo | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -40,9 +106,19 @@ export default function HomePage() {
     () => false
   );
 
-  const handleOpenModal = (date: Date) => {
+  const handleOpenCreateModal = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'));
     setIsModalOpen(true);
+  };
+
+  const handleOpenListModal = (date: Date) => {
+    setSelectedDate(format(date, 'yyyy-MM-dd'));
+    setIsListModalOpen(true);
+  };
+
+  const handleAppointmentClick = (apt: Appointment) => {
+    setSelectedAppointment(apt);
+    setIsDetailModalOpen(true);
   };
 
   const handleMemoClick = (memo: Memo) => {
@@ -53,10 +129,8 @@ export default function HomePage() {
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
 
-    const day = date.getDate();
-    const month = date.getMonth();
-    // 2026년 4월 기준 모크업 데이터 (현재 날짜가 2026년 4월인 경우에만 표시하도록 조건 추가 가능)
-    const isApril2026 = date.getFullYear() === 2026 && month === 3;
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dayAppointments = MOCK_APPOINTMENTS.filter(apt => apt.date === dateStr);
 
     return (
       <div className="mt-1 flex flex-col gap-0.5 w-full">
@@ -65,21 +139,16 @@ export default function HomePage() {
             role="button"
             onClick={(e) => {
               e.stopPropagation();
-              handleOpenModal(date);
+              handleOpenCreateModal(date);
             }}
             className="bg-indigo-50 text-indigo-600 p-1 rounded-md hover:bg-indigo-100 cursor-pointer"
           >
             <Plus className="w-3 h-3" />
           </div>
         </div>
-        {isApril2026 && (
-          <>
-            {day === 6 && <EventBadge color="bg-indigo-500" text="팀 회의" />}
-            {day === 7 && <EventBadge color="bg-emerald-500" text="헬스" />}
-            {day === 8 && <EventBadge color="bg-blue-500" text="친구들과 저녁" />}
-            {day === 12 && <EventBadge color="bg-orange-500" text="독서 모임" />}
-          </>
-        )}
+        {dayAppointments.map(apt => (
+          <EventBadge key={apt.id} color={apt.color} text={apt.title} />
+        ))}
       </div>
     );
   };
@@ -168,7 +237,7 @@ export default function HomePage() {
               tileContent={getTileContent}
               formatDay={(locale, date) => format(date, 'd')}
               calendarType="gregory"
-              onClickDay={handleOpenModal}
+              onClickDay={handleOpenListModal}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">
@@ -193,6 +262,21 @@ export default function HomePage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         initialDate={selectedDate}
+      />
+
+      <AppointmentListModal
+        isOpen={isListModalOpen}
+        onClose={() => setIsListModalOpen(false)}
+        date={selectedDate}
+        appointments={MOCK_APPOINTMENTS.filter(apt => apt.date === selectedDate)}
+        onCreateNew={() => setIsModalOpen(true)}
+        onAppointmentClick={handleAppointmentClick}
+      />
+
+      <AppointmentDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        appointment={selectedAppointment}
       />
 
       <MemoDetailModal

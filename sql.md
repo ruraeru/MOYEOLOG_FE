@@ -1,238 +1,267 @@
-# MOYEOLOG (모여로그) 데이터베이스 테이블 명세 및 SQL DDL
+# 🚀 MOYEOLOG (모여로그) 데이터베이스 설계서
 
-본 문서는 모여로그 서비스에 적합한 데이터베이스 테이블(ERD) 구조와 생성용 SQL 스크립트를 포함하고 있습니다.
+본 문서는 모여로그 서비스의 데이터베이스 구조, 엔티티 간의 관계(ERD) 및 MySQL 기준의 DDL 스크립트를 포함합니다.
 
-## 1. 테이블 명세 (ERD)
+## 1. ERD (Entity Relationship Diagram)
 
-### 1. 사용자 및 소셜 (User & Social)
+```mermaid
+erDiagram
+    USERS ||--o{ FRIENDSHIPS : "요청/수신"
+    USERS ||--o{ GROUPS : "생성"
+    USERS ||--o{ GROUP_MEMBERS : "소속"
+    USERS ||--o{ MEMOS : "작성"
+    USERS ||--o{ SCHEDULES : "주최"
+    USERS ||--o{ NOTIFICATIONS : "수신"
 
-**`users` (사용자)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | 고유 식별자 |
-| `kakao_id` | VARCHAR | UNIQUE, NOT NULL | 카카오 고유 ID |
-| `email` | VARCHAR | UNIQUE | 사용자 이메일 |
-| `nickname` | VARCHAR | NOT NULL | 닉네임 |
-| `profile_image` | VARCHAR | | 프로필 이미지 URL |
-| `bio` | TEXT | | 자기소개 |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | 가입일시 |
+    GROUPS ||--o{ GROUP_MEMBERS : "멤버 포함"
+    GROUPS ||--o{ MEMOS : "메모 포함"
+    GROUPS ||--o{ SCHEDULES : "일정 포함"
 
-**`friendships` (친구 관계)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | BIGINT | PK, AUTO_INCREMENT | |
-| `user_id` | UUID | FK (`users.id`) | 요청한 사용자 ID |
-| `friend_id` | UUID | FK (`users.id`) | 요청받은 사용자 ID |
-| `status` | ENUM | 'PENDING', 'ACCEPTED' | 친구 상태 |
-| `created_at`| TIMESTAMP | DEFAULT NOW() | 생성일시 |
+    MEMOS ||--o{ MEMO_TAGS : "태그됨"
+    MEMOS ||--|| MEMO_AI_INSIGHTS : "AI 분석됨"
 
-### 2. 모임 및 그룹 (Group)
+    SCHEDULES ||--o{ SCHEDULE_PARTICIPANTS : "참여자 포함"
+    USERS ||--o{ SCHEDULE_PARTICIPANTS : "일정 참여"
 
-**`groups` (모임)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | 고유 식별자 |
-| `name` | VARCHAR | NOT NULL | 모임 이름 |
-| `description` | TEXT | | 모임 설명 |
-| `color` | VARCHAR | | 모임 고유 색상 |
-| `theme` | VARCHAR | | 모임 테마 |
-| `created_by` | UUID | FK (`users.id`) | 모임 생성자 |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | 생성일시 |
+    USERS {
+        char(36) id PK "고유 식별자"
+        varchar(255) kakao_id UK "카카오 고유 ID"
+        varchar(255) email UK "이메일 주소"
+        varchar(50) nickname "사용자 닉네임"
+        varchar(255) profile_image "프로필 이미지 URL"
+        text bio "자기소개"
+        datetime created_at "가입 일시"
+    }
 
-**`group_members` (모임 멤버)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | BIGINT | PK, AUTO_INCREMENT | |
-| `group_id` | UUID | FK (`groups.id`) | 모임 ID |
-| `user_id` | UUID | FK (`users.id`) | 사용자 ID |
-| `role` | ENUM | 'ADMIN', 'MEMBER' | 그룹 내 권한 |
-| `joined_at` | TIMESTAMP | DEFAULT NOW() | 참여일시 |
+    FRIENDSHIPS {
+        bigint id PK "고유 식별자"
+        char(36) user_id FK "요청자 ID"
+        char(36) friend_id FK "수신자 ID"
+        enum status "상태 (PENDING/ACCEPTED)"
+        datetime created_at "생성 일시"
+    }
 
-### 3. 메모 및 AI 기능 (Memo & AI Insights)
+    GROUPS {
+        char(36) id PK "모임 고유 ID"
+        varchar(100) name "모임 이름"
+        text description "모임 설명"
+        varchar(20) color "모임 고유 색상"
+        varchar(50) theme "모임 테마"
+        char(36) created_by FK "생성자 ID"
+        datetime created_at "생성 일시"
+    }
 
-**`memos` (메모 본체)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | 고유 식별자 |
-| `author_id` | UUID | FK (`users.id`) | 작성자 ID |
-| `group_id` | UUID | FK (`groups.id`), NULL | 모임 ID (NULL이면 개인) |
-| `title` | VARCHAR | NOT NULL | 메모 제목 |
-| `content` | TEXT | | 본문 내용 |
-| `image_url` | VARCHAR | | 첨부 이미지 URL |
-| `target_date` | DATE | | 메모 연관 날짜 |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | 작성일시 |
-| `updated_at` | TIMESTAMP | | 수정일시 |
+    GROUP_MEMBERS {
+        bigint id PK "고유 식별자"
+        char(36) group_id FK "모임 ID"
+        char(36) user_id FK "사용자 ID"
+        enum role "권한 (ADMIN/MEMBER)"
+        datetime joined_at "참여 일시"
+    }
 
-**`memo_tags` (메모 태그)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | BIGINT | PK, AUTO_INCREMENT | |
-| `memo_id` | UUID | FK (`memos.id`) | 메모 ID |
-| `name` | VARCHAR | NOT NULL | 태그 이름 |
+    MEMOS {
+        char(36) id PK "메모 고유 ID"
+        char(36) author_id FK "작성자 ID"
+        char(36) group_id FK "모임 ID (카테고리)"
+        varchar(255) title "메모 제목"
+        text content "메모 본문"
+        varchar(255) image_url "이미지 URL"
+        date target_date "연관 날짜"
+        datetime created_at "작성 일시"
+        datetime updated_at "수정 일시"
+    }
 
-**`memo_ai_insights` (AI 분석 데이터)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `memo_id` | UUID | PK, FK (`memos.id`) | 대상 메모 ID |
-| `ocr_text` | TEXT | | 추출된 이미지 텍스트 |
-| `summary` | TEXT | | AI 요약 |
-| `emotion` | VARCHAR | | 감정 분석 |
-| `keywords` | JSON | | 키워드 배열 |
-| `analyzed_at`| TIMESTAMP | | 분석 일시 |
+    MEMO_TAGS {
+        bigint id PK "고유 식별자"
+        char(36) memo_id FK "메모 ID"
+        varchar(50) name "태그 이름"
+    }
 
-### 4. 일정 및 추천 장소 (Schedule & Location)
+    MEMO_AI_INSIGHTS {
+        char(36) memo_id PK "메모 ID"
+        text ocr_text "추출된 텍스트"
+        text summary "AI 요약 내용"
+        varchar(50) emotion "감정 분석 결과"
+        json keywords "핵심 키워드 목록"
+        datetime analyzed_at "분석 일시"
+    }
 
-**`schedules` (일정)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | 고유 식별자 |
-| `author_id` | UUID | FK (`users.id`) | 등록자 ID |
-| `group_id` | UUID | FK (`groups.id`), NULL | 그룹 일정 시 그룹 ID |
-| `title` | VARCHAR | NOT NULL | 일정 제목 |
-| `description` | TEXT | | 일정 내용/메모 |
-| `start_time` | TIMESTAMP | NOT NULL | 시작 시간 |
-| `end_time` | TIMESTAMP | NOT NULL | 종료 시간 |
-| `location_name`| VARCHAR | | 장소 이름 |
-| `location_addr`| VARCHAR | | 장소 주소 |
-| `lat` | DECIMAL | | 위도 |
-| `lng` | DECIMAL | | 경도 |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | 생성일시 |
+    SCHEDULES {
+        char(36) id PK "일정 고유 ID"
+        char(36) author_id FK "작성자 ID"
+        char(36) group_id FK "모임 ID"
+        varchar(255) title "일정 제목"
+        text description "일정 설명"
+        datetime start_time "시작 시간"
+        datetime end_time "종료 시간"
+        varchar(255) location_name "장소명"
+        varchar(255) location_addr "상세 주소"
+        decimal lat "위도"
+        decimal lng "경도"
+        datetime created_at "생성 일시"
+    }
 
-**`schedule_participants` (일정 참여자)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | BIGINT | PK, AUTO_INCREMENT | |
-| `schedule_id`| UUID | FK (`schedules.id`) | 일정 ID |
-| `user_id` | UUID | FK (`users.id`) | 참여자 ID |
-| `status` | ENUM | 'PENDING', 'ACCEPTED' | 수락 여부 |
+    SCHEDULE_PARTICIPANTS {
+        bigint id PK "고유 식별자"
+        char(36) schedule_id FK "일정 ID"
+        char(36) user_id FK "참여자 ID"
+        enum status "상태 (PENDING/ACCEPTED)"
+    }
 
-### 5. 알림 (Notification)
+    NOTIFICATIONS {
+        char(36) id PK "알림 고유 ID"
+        char(36) user_id FK "수신자 ID"
+        enum type "유형 (SCHEDULE/FRIEND/GROUP/MEMO)"
+        varchar(255) message "알림 메시지"
+        char(36) related_id "연관 데이터 ID"
+        boolean is_read "읽음 여부"
+        datetime created_at "발생 일시"
+    }
+```
 
-**`notifications` (알림 및 활동 기록)**
-| 컬럼명 | 타입 | 제약조건 | 설명 |
-| :--- | :--- | :--- | :--- |
-| `id` | UUID | PK | 고유 식별자 |
-| `user_id` | UUID | FK (`users.id`) | 수신자 ID |
-| `type` | ENUM | 'SCHEDULE', 'FRIEND', 'GROUP', 'MEMO' | 알림 유형 |
-| `message` | VARCHAR | NOT NULL | 알림 메시지 |
-| `related_id` | UUID | | 연관 엔티티 ID |
-| `is_read` | BOOLEAN | DEFAULT FALSE | 읽음 여부 |
-| `created_at` | TIMESTAMP | DEFAULT NOW() | 발생일시 |
+## 2. 테이블 명세
 
-## 2. SQL DDL 스크립트 (PostgreSQL 기준)
+### 2.1 사용자 및 관계
+- **`users`**: 카카오 소셜 로그인을 기반으로 한 사용자 정보.
+- **`friendships`**: 사용자 간의 친구 요청 및 수락 상태 관리.
+
+### 2.2 모임 (Groups)
+- **`groups`**: 사용자들이 생성한 모임. 고유 컬러와 테마 정보를 저장하여 UI에 반영.
+- **`group_members`**: 모임에 소속된 멤버와 권한(방장/일반) 관리.
+
+### 2.3 메모 (Memos)
+- **`memos`**: 텍스트, 이미지, 태그를 포함한 메모. 특정 모임(카테고리)에 속할 수 있음.
+- **`memo_tags`**: 메모 검색 및 분류를 위한 태그.
+- **`memo_ai_insights`**: AI가 분석한 OCR 텍스트, 요약, 감정, 키워드 데이터.
+
+### 2.4 일정 (Schedules)
+- **`schedules`**: 개인 또는 그룹의 일정. 장소 정보(위도/경도 포함) 저장.
+- **`schedule_participants`**: 일정에 초대된 멤버들의 수락 상태.
+
+### 2.5 알림 (Notifications)
+- **`notifications`**: 활동 발생 시 사용자에게 전달되는 알림 히스토리.
+
+## 3. SQL DDL (MySQL 기준)
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- 1. Users
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    kakao_id VARCHAR UNIQUE NOT NULL,
-    email VARCHAR UNIQUE,
-    nickname VARCHAR NOT NULL,
-    profile_image VARCHAR,
+    id CHAR(36) PRIMARY KEY,
+    kakao_id VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    nickname VARCHAR(50) NOT NULL,
+    profile_image VARCHAR(255),
     bio TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
 
 -- 2. Friendships
-CREATE TYPE friend_status AS ENUM ('PENDING', 'ACCEPTED');
 CREATE TABLE friendships (
-    id BIGSERIAL PRIMARY KEY,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    friend_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    status friend_status DEFAULT 'PENDING',
-    created_at TIMESTAMP DEFAULT NOW(),
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    friend_id CHAR(36) NOT NULL,
+    status ENUM('PENDING', 'ACCEPTED') DEFAULT 'PENDING',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_friend_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_friend_target FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE(user_id, friend_id)
-);
+) ENGINE=InnoDB;
 
 -- 3. Groups
 CREATE TABLE groups (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR NOT NULL,
+    id CHAR(36) PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
     description TEXT,
-    color VARCHAR,
-    theme VARCHAR,
-    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
+    color VARCHAR(20),
+    theme VARCHAR(50),
+    created_by CHAR(36),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_group_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
 
 -- 4. Group Members
-CREATE TYPE group_role AS ENUM ('ADMIN', 'MEMBER');
 CREATE TABLE group_members (
-    id BIGSERIAL PRIMARY KEY,
-    group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    role group_role DEFAULT 'MEMBER',
-    joined_at TIMESTAMP DEFAULT NOW(),
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    group_id CHAR(36) NOT NULL,
+    user_id CHAR(36) NOT NULL,
+    role ENUM('ADMIN', 'MEMBER') DEFAULT 'MEMBER',
+    joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_gm_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+    CONSTRAINT fk_gm_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE(group_id, user_id)
-);
+) ENGINE=InnoDB;
 
 -- 5. Memos
 CREATE TABLE memos (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    author_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
-    title VARCHAR NOT NULL,
+    id CHAR(36) PRIMARY KEY,
+    author_id CHAR(36) NOT NULL,
+    group_id CHAR(36), -- NULL이면 개인 메모, 값이 있으면 해당 모임 메모(카테고리 역할)
+    title VARCHAR(255) NOT NULL,
     content TEXT,
-    image_url VARCHAR,
+    image_url VARCHAR(255),
     target_date DATE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_memo_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_memo_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
 
 -- 6. Memo Tags
 CREATE TABLE memo_tags (
-    id BIGSERIAL PRIMARY KEY,
-    memo_id UUID REFERENCES memos(id) ON DELETE CASCADE,
-    name VARCHAR NOT NULL
-);
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    memo_id CHAR(36) NOT NULL,
+    name VARCHAR(50) NOT NULL,
+    CONSTRAINT fk_tag_memo FOREIGN KEY (memo_id) REFERENCES memos(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
 -- 7. Memo AI Insights
 CREATE TABLE memo_ai_insights (
-    memo_id UUID PRIMARY KEY REFERENCES memos(id) ON DELETE CASCADE,
+    memo_id CHAR(36) PRIMARY KEY,
     ocr_text TEXT,
     summary TEXT,
-    emotion VARCHAR,
-    keywords JSONB,
-    analyzed_at TIMESTAMP DEFAULT NOW()
-);
+    emotion VARCHAR(50),
+    keywords JSON,
+    analyzed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ai_memo FOREIGN KEY (memo_id) REFERENCES memos(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
 -- 8. Schedules
 CREATE TABLE schedules (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    author_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
-    title VARCHAR NOT NULL,
+    id CHAR(36) PRIMARY KEY,
+    author_id CHAR(36) NOT NULL,
+    group_id CHAR(36),
+    title VARCHAR(255) NOT NULL,
     description TEXT,
-    start_time TIMESTAMP NOT NULL,
-    end_time TIMESTAMP NOT NULL,
-    location_name VARCHAR,
-    location_addr VARCHAR,
+    start_time DATETIME NOT NULL,
+    end_time DATETIME NOT NULL,
+    location_name VARCHAR(255),
+    location_addr VARCHAR(255),
     lat DECIMAL(10, 8),
     lng DECIMAL(11, 8),
-    created_at TIMESTAMP DEFAULT NOW()
-);
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_schedule_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_schedule_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
 
 -- 9. Schedule Participants
-CREATE TYPE schedule_status AS ENUM ('PENDING', 'ACCEPTED');
 CREATE TABLE schedule_participants (
-    id BIGSERIAL PRIMARY KEY,
-    schedule_id UUID REFERENCES schedules(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    status schedule_status DEFAULT 'PENDING',
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    schedule_id CHAR(36) NOT NULL,
+    user_id CHAR(36) NOT NULL,
+    status ENUM('PENDING', 'ACCEPTED') DEFAULT 'PENDING',
+    CONSTRAINT fk_sp_schedule FOREIGN KEY (schedule_id) REFERENCES schedules(id) ON DELETE CASCADE,
+    CONSTRAINT fk_sp_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE(schedule_id, user_id)
-);
+) ENGINE=InnoDB;
 
 -- 10. Notifications
-CREATE TYPE notification_type AS ENUM ('SCHEDULE', 'FRIEND', 'GROUP', 'MEMO');
 CREATE TABLE notifications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    type notification_type NOT NULL,
-    message VARCHAR NOT NULL,
-    related_id UUID,
+    id CHAR(36) PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    type ENUM('SCHEDULE', 'FRIEND', 'GROUP', 'MEMO') NOT NULL,
+    message VARCHAR(255) NOT NULL,
+    related_id CHAR(36),
     is_read BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-```
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_noti_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

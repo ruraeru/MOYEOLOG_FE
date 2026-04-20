@@ -94,11 +94,58 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
   const [date, setDate] = useState(initialDate || '2026-04-11');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
-  const [memo, setMemo] = useState('');
+  const [memo, setMemo] = useState(''); // This will be used for Additional Notes
   const [participants, setParticipants] = useState(['나']);
   const [participantInput, setParticipantInput] = useState('');
+  const [taggedMemos, setTaggedMemos] = useState<string[]>([]);
+  const [memoTagInput, setMemoTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+
+  // Mentions States
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [activeMentionField, setActiveMentionField] = useState<'participants' | 'memos' | null>(null);
+
+  // Mock Data for Mentions
+  const mockFriends = ['지민', '민수', '현우', '예진', '동휘', '서연', '도윤'];
+  const mockMemos = ['다음 주 모임 계획', '회의록', '주말 계획', '식단 기록', '독서 리스트', '프로젝트 아이디어', '여행 체크리스트'];
+
+  const handleMentionInput = (value: string, field: 'participants' | 'memos') => {
+    if (field === 'participants') setParticipantInput(value);
+    else setMemoTagInput(value);
+
+    if (value.includes('@')) {
+      const parts = value.split('@');
+      const query = parts[parts.length - 1];
+      setMentionQuery(query);
+      setShowMentions(true);
+      setActiveMentionField(field);
+    } else {
+      setShowMentions(false);
+      setActiveMentionField(null);
+    }
+  };
+
+  const handleMentionSelect = (item: string) => {
+    if (activeMentionField === 'participants') {
+      if (!participants.includes(item)) {
+        setParticipants([...participants, item]);
+      }
+      setParticipantInput('');
+    } else if (activeMentionField === 'memos') {
+      if (!taggedMemos.includes(item)) {
+        setTaggedMemos([...taggedMemos, item]);
+      }
+      setMemoTagInput('');
+    }
+    setShowMentions(false);
+    setActiveMentionField(null);
+  };
+
+  const filteredItems = activeMentionField === 'participants'
+    ? mockFriends.filter(f => f.toLowerCase().includes(mentionQuery.toLowerCase()))
+    : mockMemos.filter(m => m.toLowerCase().includes(mentionQuery.toLowerCase()));
 
   // Kakao Map States
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -410,7 +457,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
                 <span className="text-[10px] text-gray-400 font-normal ml-1">날짜와 모임 성격에 맞춘 AI 추천</span>
               </div>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar min-h-[180px]">
+            <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar min-h-45">
               {isRecommending ? (
                 <div className="w-full flex items-center justify-center bg-gray-50 rounded-xl py-8">
                   <div className="flex flex-col items-center gap-2">
@@ -480,37 +527,99 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
           </div>
 
           {/* Participants */}
-          <div className="space-y-2">
+          <div className="space-y-2 relative">
             <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
               <Users className="w-4 h-4 text-gray-400" />
               참여자
             </label>
-            <div className="flex gap-2">
+            <div className="relative">
               <input
                 type="text"
                 value={participantInput}
-                onChange={(e) => setParticipantInput(e.target.value)}
-                placeholder="참여자 이름 입력"
-                className="flex-1 bg-gray-50 border border-transparent rounded-xl px-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none"
-                onKeyPress={(e) => e.key === 'Enter' && handleAddParticipant()}
+                onChange={(e) => handleMentionInput(e.target.value, 'participants')}
+                placeholder="참여자 검색 (@를 입력하세요)"
+                className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none"
               />
-              <button
-                onClick={handleAddParticipant}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                추가
-              </button>
+
+              {/* Mentions for Participants */}
+              {showMentions && activeMentionField === 'participants' && (
+                <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden z-20 max-h-48 overflow-y-auto no-scrollbar">
+                  <div className="p-2 border-b border-gray-50 bg-gray-50/50 text-[10px] font-bold text-gray-400 uppercase">친구 선택</div>
+                  {filteredItems.map((person) => (
+                    <button
+                      key={person}
+                      onClick={() => handleMentionSelect(person)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors flex items-center gap-3 border-b border-gray-50 last:border-0"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">{person[0]}</div>
+                      <span className="text-sm text-gray-700 font-medium">{person}</span>
+                    </button>
+                  ))}
+                  {filteredItems.length === 0 && (
+                    <div className="p-4 text-center text-xs text-gray-400">친구가 없습니다.</div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex flex-wrap gap-2 mt-2">
               {participants.map(p => (
-                <div key={p} className="bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                <div key={p} className="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100">
                   {p}
                   {p !== '나' && (
                     <button onClick={() => setParticipants(participants.filter(item => item !== p))} className="hover:text-red-500 transition-colors">
                       <X className="w-3 h-3" />
                     </button>
                   )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Tag Memos */}
+          <div className="space-y-2 relative">
+            <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-gray-400" />
+              연관 메모 태그
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={memoTagInput}
+                onChange={(e) => handleMentionInput(e.target.value, 'memos')}
+                placeholder="연관된 메모 검색 (@를 입력하세요)"
+                className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none"
+              />
+
+              {/* Mentions for Memos */}
+              {showMentions && activeMentionField === 'memos' && (
+                <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden z-20 max-h-48 overflow-y-auto no-scrollbar">
+                  <div className="p-2 border-b border-gray-50 bg-gray-50/50 text-[10px] font-bold text-gray-400 uppercase">메모 선택</div>
+                  {filteredItems.map((memoTitle) => (
+                    <button
+                      key={memoTitle}
+                      onClick={() => handleMentionSelect(memoTitle)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 transition-colors flex items-center gap-3 border-b border-gray-50 last:border-0"
+                    >
+                      <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-sm text-gray-700 font-medium truncate">{memoTitle}</span>
+                    </button>
+                  ))}
+                  {filteredItems.length === 0 && (
+                    <div className="p-4 text-center text-xs text-gray-400">메모가 없습니다.</div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {taggedMemos.map(m => (
+                <div key={m} className="bg-emerald-50 text-emerald-700 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-emerald-100">
+                  <FileText className="w-3 h-3" />
+                  {m}
+                  <button onClick={() => setTaggedMemos(taggedMemos.filter(item => item !== m))} className="hover:text-red-500 transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               ))}
             </div>
@@ -546,17 +655,17 @@ export default function AppointmentModal({ isOpen, onClose, initialDate }: Appoi
             </div>
           </div>
 
-          {/* Memo */}
+          {/* Additional Notes */}
           <div className="space-y-2 pb-4">
             <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
               <FileText className="w-4 h-4 text-gray-400" />
-              메모
+              기타 사항
             </label>
             <textarea
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              placeholder="추가 메모를 입력하세요"
-              className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none min-h-[100px] resize-none"
+              placeholder="일정에 대한 추가 메모나 기타 사항을 입력하세요"
+              className="w-full bg-gray-50 border border-transparent rounded-xl px-4 py-3 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none min-h-25 resize-none"
             />
           </div>
         </div>

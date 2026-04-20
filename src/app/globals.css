@@ -61,10 +61,18 @@ body {
   text-decoration: none !important;
   font-size: 0.875rem !important;
   padding: 0.5rem 0 !important;
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 1px !important;
 }
 
 .react-calendar__month-view__weekdays__weekday {
   padding: 0.5rem !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: auto !important;
+  flex: none !important;
 }
 
 .react-calendar__month-view__weekdays__weekday abbr {
@@ -72,9 +80,11 @@ body {
 }
 
 .react-calendar__month-view__days {
-  flex: 1 !important;
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
   background-color: #f3f4f6 !important; /* gray-100 */
   gap: 1px !important;
+  flex: 1 !important;
 }
 
 .react-calendar__tile {
@@ -88,6 +98,9 @@ body {
   position: relative !important;
   overflow: hidden !important;
   transition: background-color 0.2s !important;
+  width: auto !important;
+  max-width: none !important;
+  flex-basis: auto !important;
 }
 
 .react-calendar__tile:enabled:hover,

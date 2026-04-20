@@ -51,7 +51,7 @@ export default function SchedulePage() {
                   <span key={d} className={`text-[10px] font-bold ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-400'}`}>{d}</span>
                 ))}
                 {/* Placeholder days before April starts (assume starts on Wednesday for visual match) */}
-                {[...Array(3)].map((_, i) => <span key={`prev-${i}`} className="text-[10px] text-gray-200">29</span>)}
+                {[29, 30, 31].map((day, i) => <span key={`prev-${i}`} className="text-[10px] text-gray-200">{day}</span>)}
                 {[...Array(30)].map((_, i) => (
                   <button key={i} className={`text-[10px] font-medium w-6 h-6 flex items-center justify-center mx-auto rounded-full transition-colors ${i + 1 === 6 ? 'bg-indigo-600 text-white' : 'hover:bg-gray-100'}`}>
                     {i + 1}
@@ -138,7 +138,7 @@ export default function SchedulePage() {
 
           {/* Calendar Grid */}
           <div className="flex-1 overflow-y-auto no-scrollbar">
-            <div className="grid grid-cols-7 h-full min-h-[800px]">
+            <div className="grid grid-cols-7 h-full min-h-[800px] border-l border-gray-100">
               {/* Previous month placeholders */}
               {[...Array(3)].map((_, i) => (
                 <div key={`empty-${i}`} className="border-r border-b border-gray-100 bg-gray-50/30 p-2"></div>
