@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   X,
   Upload,
@@ -9,159 +9,317 @@ import {
   Users,
   Tag as TagIcon,
   Sparkles,
-  FileSearch,
-  Lightbulb
+  Lightbulb,
+  Loader2,
 } from 'lucide-react';
+import { analyzeMemo } from '@/lib/memo-analyzer';
+import { fileToDataUrl, saveInsight } from '@/lib/memo-storage';
+import { memoApi } from '@/lib/memo-api';
+import { useSession } from 'next-auth/react';
 
 interface MemoCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
+  userId: string;
+  onSuccess?: () => void;
 }
 
-export default function MemoCreateModal({ isOpen, onClose }: MemoCreateModalProps) {
+export default function MemoCreateModal({
+  isOpen,
+  onClose,
+  userId,
+  onSuccess,
+}: MemoCreateModalProps) {
+  const { data: session } = useSession();
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetForm = useCallback(() => {
+    setTitle('');
+    setContent('');
+    setTagInput('');
+    setTags([]);
+    setImagePreview(null);
+    setImageFile(null);
+    setError(null);
+  }, []);
+
+  const handleClose = () => {
+    if (isSaving) return;
+    resetForm();
+    onClose();
+  };
+
+  const handleImageSelect = async (file: File) => {
+    try {
+      setImageFile(file);
+      const dataUrl = await fileToDataUrl(file);
+      setImagePreview(dataUrl);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '이미지 처리에 실패했습니다.');
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file?.type.startsWith('image/')) handleImageSelect(file);
+  };
+
+  const addTag = () => {
+    const trimmed = tagInput.trim();
+    if (!trimmed || tags.includes(trimmed)) return;
+    setTags((prev) => [...prev, trimmed]);
+    setTagInput('');
+  };
+
+  const handleSave = async () => {
+    if (!title.trim()) {
+      setError('제목을 입력해주세요.');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      // 백엔드 API 호출 (FormData/파일 전송)
+      const memo = await memoApi.create({
+        title,
+        content,
+        imageFile: imageFile || undefined,
+        groupId: undefined,
+      }, session);
+
+      // AI 분석 (미리보기용 DataURL 활용)
+      try {
+        const insight = await analyzeMemo({
+          memoId: memo.id,
+          title: memo.title,
+          content: memo.content,
+          imageDataUrl: imagePreview ?? undefined,
+        });
+        saveInsight(userId, insight);
+      } catch (aiError) {
+        console.error('AI analysis failed:', aiError);
+      }
+
+      resetForm();
+      onSuccess?.();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-3xl w-full max-w-5xl flex flex-col shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-200"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+        onClick={handleClose}
       >
-
-        {/* Header */}
-        <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <h2 className="text-xl font-bold text-gray-800">새 메모 작성</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Content Container */}
-        <div className="flex h-[600px]">
-
-          {/* Main Input Area (Left) */}
-          <div className="flex-1 flex flex-col p-8 border-r border-gray-100 overflow-y-auto no-scrollbar">
-            <input
-              type="text"
-              placeholder="메모 제목을 입력하세요"
-              className="text-2xl font-bold text-gray-900 placeholder:text-gray-300 border-none outline-none mb-6 w-full"
-            />
-
-            {/* Upload Area */}
-            <div className="w-full border-2 border-dashed border-gray-100 rounded-2xl p-10 flex flex-col items-center justify-center gap-3 bg-gray-50/30 hover:bg-gray-50 transition-colors cursor-pointer mb-6 group">
-              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-400 group-hover:text-blue-500 group-hover:scale-110 transition-all">
-                <Upload className="w-6 h-6" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-bold text-gray-600">이미지를 드래그하거나 클릭하여 업로드</p>
-                <p className="text-[11px] text-gray-400 mt-1">PNG, JPG, GIF (최대 10MB)</p>
-              </div>
-            </div>
-
-            {/* Content Textarea Area */}
-            <div className="flex-1 min-h-[200px] border border-gray-100 rounded-2xl p-5 relative bg-white">
-              <textarea
-                placeholder="내용을 입력하세요..."
-                className="w-full h-full resize-none border-none outline-none text-sm text-gray-600 placeholder:text-gray-300 leading-relaxed"
-              />
-            </div>
+        <div
+          className="bg-white rounded-3xl w-full max-w-5xl flex flex-col shadow-2xl overflow-hidden relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
+            <h2 className="text-xl font-bold text-gray-800">새 메모 작성</h2>
+            <button
+              onClick={handleClose}
+              disabled={isSaving}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 disabled:opacity-50"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
 
-          {/* Sidebar Area (Right) */}
-          <div className="w-[340px] bg-gray-50/30 p-8 flex flex-col gap-8 shrink-0 overflow-y-auto no-scrollbar">
-
-            {/* Share Group */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <Users className="w-4 h-4" />
-                <span>공유할 그룹 선택</span>
-              </div>
+          <div className="flex h-[600px]">
+            <div className="flex-1 flex flex-col p-8 border-r border-gray-100 overflow-y-auto no-scrollbar">
               <input
                 type="text"
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-400 transition-all shadow-sm"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="메모 제목을 입력하세요"
+                className="text-2xl font-bold text-gray-900 placeholder:text-gray-300 border-none outline-none mb-6 w-full"
               />
+
+              <div
+                className="w-full border-2 border-dashed border-gray-100 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-gray-50/30 hover:bg-gray-50 transition-colors cursor-pointer mb-6 group relative overflow-hidden min-h-[120px]"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageSelect(file);
+                  }}
+                />
+                {imagePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imagePreview}
+                    alt="미리보기"
+                    className="max-h-40 rounded-xl object-contain"
+                  />
+                ) : (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-400 group-hover:text-blue-500 transition-all">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-gray-600">
+                        이미지를 드래그하거나 클릭하여 업로드
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-1">PNG, JPG, GIF (최대 10MB)</p>
+                    </div>
+                  </>
+                )}
+                {imagePreview && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setImagePreview(null);
+                    }}
+                    className="absolute top-3 right-3 text-xs font-bold text-red-500 bg-white px-2 py-1 rounded-lg shadow-sm"
+                  >
+                    제거
+                  </button>
+                )}
+              </div>
+
+              <div className="flex-1 min-h-[200px] border border-gray-100 rounded-2xl p-5 bg-white">
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="내용을 입력하세요..."
+                  className="w-full h-full min-h-[180px] resize-none border-none outline-none text-sm text-gray-600 placeholder:text-gray-300 leading-relaxed"
+                />
+              </div>
             </div>
 
-            {/* Tags */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <TagIcon className="w-4 h-4" />
-                <span>태그</span>
-              </div>
-              <div className="flex gap-2">
+            <div className="w-[340px] bg-gray-50/30 p-8 flex flex-col gap-8 shrink-0 overflow-y-auto no-scrollbar">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                  <Users className="w-4 h-4" />
+                  <span>공유할 그룹 선택</span>
+                </div>
                 <input
                   type="text"
-                  placeholder="태그 입력"
-                  className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-400 transition-all shadow-sm"
+                  disabled
+                  placeholder="서버 연동 후 사용 가능"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs text-gray-400 shadow-sm"
                 />
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-100 shrink-0">
-                  추가
-                </button>
               </div>
-            </div>
 
-            {/* AI Features */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <Sparkles className="w-4 h-4 text-blue-500" />
-                <span>AI 기능</span>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                  <TagIcon className="w-4 h-4" />
+                  <span>태그</span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTag();
+                      }
+                    }}
+                    placeholder="태그 입력"
+                    className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-400 shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={addTag}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 shrink-0"
+                  >
+                    추가
+                  </button>
+                </div>
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <button className="w-full bg-[#E0E7FF] text-[#6366F1] py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-[#D1DBFF] transition-all shadow-sm">
-                  <FileSearch className="w-4 h-4" />
-                  이미지에서 글자 추출
-                </button>
-                <button className="w-full bg-[#F3E8FF] text-[#A855F7] py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-[#E9D5FF] transition-all shadow-sm">
-                  <Sparkles className="w-4 h-4" />
-                  AI 내용 요약
-                </button>
-              </div>
-            </div>
 
-            {/* Tips */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-yellow-500">
-                <Lightbulb className="w-3.5 h-3.5" />
-                <span>팁</span>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                  <Sparkles className="w-4 h-4 text-blue-500" />
+                  <span>AI 기능</span>
+                </div>
+                <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
+                  저장 시 자동으로 요약·키워드·감정 분석이 실행됩니다. (서버 연동 전 목 분석)
+                </p>
               </div>
-              <ul className="text-[10px] text-gray-400 space-y-2 leading-relaxed font-medium">
-                <li>• 이미지를 첨부하면 AI가 텍스트를 추출합니다</li>
-                <li>• 태그를 활용해 메모를 쉽게 찾을 수 있어요</li>
-                <li>• 그룹 공유 시 멤버들도 확인할 수 있습니다</li>
-              </ul>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-yellow-500">
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  <span>팁</span>
+                </div>
+                <ul className="text-[10px] text-gray-400 space-y-2 leading-relaxed font-medium">
+                  <li>• 이미지를 첨부하면 AI가 텍스트를 추출합니다</li>
+                  <li>• 태그를 활용해 메모를 쉽게 찾을 수 있어요</li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Toolbar & Footer */}
-        <div className="border-t border-gray-100 p-6 px-8 bg-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-6 text-gray-400">
-            <button className="hover:text-gray-600 transition-colors"><Bold className="w-5 h-5" /></button>
-            <button className="hover:text-gray-600 transition-colors"><Italic className="w-5 h-5" /></button>
-            <div className="w-px h-5 bg-gray-200 mx-1" />
-            <button className="hover:text-gray-600 transition-colors font-bold text-sm">H1</button>
-            <button className="hover:text-gray-600 transition-colors font-bold text-sm">H2</button>
-          </div>
+          {error && <p className="px-8 pb-2 text-sm font-medium text-red-500">{error}</p>}
 
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors"
-            >
-              취소
-            </button>
-            <button
-              onClick={onClose}
-              className="px-6 py-2.5 bg-[#B4BDFF] text-white rounded-xl text-sm font-bold hover:bg-[#A3ADFF] shadow-lg shadow-blue-50 transition-all"
-            >
-              메모 저장
-            </button>
+          <div className="border-t border-gray-100 p-6 px-8 bg-white flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-6 text-gray-400">
+              <Bold className="w-5 h-5" />
+              <Italic className="w-5 h-5" />
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleClose}
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-50 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-[#6366F1] text-white rounded-xl text-sm font-bold hover:bg-[#5558E6] disabled:opacity-70 flex items-center gap-2"
+              >
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isSaving ? '저장 중…' : '메모 저장'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
   );
 }

@@ -64,8 +64,8 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
               )}
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">{user?.name || '박민수'}</h3>
-              <p className="text-xs text-white/70 font-medium truncate w-40">{user?.email || 'minsoo@example.com'}</p>
+              <h3 className="text-lg font-bold text-white">{user?.name || '게스트'}</h3>
+              <p className="text-xs text-white/70 font-medium truncate w-40">{user?.email || '로그인이 필요합니다'}</p>
             </div>
           </div>
         </div>
@@ -101,7 +101,7 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
         {/* Footer */}
         <div className="p-4 border-t border-gray-50 bg-gray-50/50">
           <button
-            onClick={() => signOut()}
+            onClick={() => signOut({ callbackUrl: '/' })}
             className="w-full flex items-center justify-center gap-2 py-3 bg-white border border-gray-100 text-red-500 font-bold text-sm rounded-2xl hover:bg-red-50 hover:border-red-100 transition-all shadow-sm"
           >
             <LogOut className="w-4 h-4" />

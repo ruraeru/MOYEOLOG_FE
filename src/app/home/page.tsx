@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useSession } from 'next-auth/react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format } from 'date-fns';
@@ -17,15 +18,8 @@ import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
 import MemoDetailModal from '@/components/MemoDetailModal';
-
-interface Memo {
-  title: string;
-  description: string;
-  author: string;
-  date: string;
-  tags: string[];
-  locked?: boolean;
-}
+import { listMemos, memoToCardView } from '@/lib/memo-storage';
+import type { MemoCardView } from '@/types/memo';
 
 interface Appointment {
   id: number;
@@ -91,11 +85,15 @@ const MOCK_APPOINTMENTS: Appointment[] = [
 const emptySubscribe = () => () => { };
 
 export default function HomePage() {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
-  const [selectedMemo, setSelectedMemo] = useState<Memo | null>(null);
+  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
+  const [recentMemos, setRecentMemos] = useState<MemoCardView[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -121,8 +119,17 @@ export default function HomePage() {
     setIsDetailModalOpen(true);
   };
 
-  const handleMemoClick = (memo: Memo) => {
-    setSelectedMemo(memo);
+  const loadRecentMemos = useCallback(() => {
+    if (!userId) return;
+    setRecentMemos(listMemos(userId).slice(0, 3).map(memoToCardView));
+  }, [userId]);
+
+  useEffect(() => {
+    loadRecentMemos();
+  }, [loadRecentMemos]);
+
+  const handleMemoClick = (memoId: string) => {
+    setSelectedMemoId(memoId);
     setIsMemoModalOpen(true);
   };
 
@@ -180,50 +187,22 @@ export default function HomePage() {
           </div>
 
           <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar">
-            <MemoCard
-              title="다음 주 모임 계획"
-              description="홍대에서 만나서 저녁 먹고 영화 보기. 지민이가 좋아하는 파스타 집 예약했음. 영화는 CGV에서 7시 반 예매."
-              author="민수"
-              date="2026-04-05"
-              tags={['#모임', '#계획']}
-              onClick={() => handleMemoClick({
-                title: "다음 주 모임 계획",
-                description: "홍대에서 만나서 저녁 먹고 영화 보기. 지민이가 좋아하는 파스타 집 예약했음. 영화는 CGV에서 7시 반 예매.",
-                author: "민수",
-                date: "2026-04-05",
-                tags: ['#모임', '#계획']
-              })}
-            />
-            <MemoCard
-              title="회의록"
-              description="프로젝트 진행 상황 논의. 다음 마일스톤까지 2주 남음. UI 디자인 완료, 백엔드 API 개발 중."
-              author="나"
-              date="2026-04-04"
-              tags={['#업무', '#회의']}
-              isLocked
-              onClick={() => handleMemoClick({
-                title: "회의록",
-                description: "프로젝트 진행 상황 논의. 다음 마일스톤까지 2주 남음. UI 디자인 완료, 백엔드 API 개발 중.",
-                author: "나",
-                date: "2026-04-04",
-                tags: ['#업무', '#회의'],
-                locked: true
-              })}
-            />
-            <MemoCard
-              title="주말 계획"
-              description="토요일 오전 10시 운동, 오후 2시 친구 만나기. 일요일은 집에서 쉬면서 책 읽기."
-              author="나"
-              date="2026-04-03"
-              tags={['#개인', '#주말']}
-              onClick={() => handleMemoClick({
-                title: "주말 계획",
-                description: "토요일 오전 10시 운동, 오후 2시 친구 만나기. 일요일은 집에서 쉬면서 책 읽기.",
-                author: "나",
-                date: "2026-04-03",
-                tags: ['#개인', '#주말']
-              })}
-            />
+            {recentMemos.length === 0 ? (
+              <p className="text-xs text-gray-400 font-medium py-4">최근 메모가 없습니다.</p>
+            ) : (
+              recentMemos.map((memo) => (
+                <MemoCard
+                  key={memo.id}
+                  title={memo.title}
+                  description={memo.description}
+                  author={session?.user?.name || '나'}
+                  date={memo.date}
+                  tags={memo.tags.map((t) => `#${t}`)}
+                  isLocked={memo.locked}
+                  onClick={() => handleMemoClick(memo.id)}
+                />
+              ))
+            )}
           </div>
         </section>
 
@@ -279,11 +258,15 @@ export default function HomePage() {
         appointment={selectedAppointment}
       />
 
-      <MemoDetailModal
-        isOpen={isMemoModalOpen}
-        onClose={() => setIsMemoModalOpen(false)}
-        memo={selectedMemo}
-      />
+      {userId && (
+        <MemoDetailModal
+          isOpen={isMemoModalOpen}
+          onClose={() => setIsMemoModalOpen(false)}
+          memoId={selectedMemoId}
+          userId={userId}
+          authorName={session?.user?.name}
+        />
+      )}
     </div>
   );
 }

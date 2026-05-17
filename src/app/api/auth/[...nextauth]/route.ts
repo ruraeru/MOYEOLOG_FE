@@ -1,23 +1,6 @@
-import NextAuth from "next-auth";
-import KakaoProvider from "next-auth/providers/kakao";
+import NextAuth from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-const handler = NextAuth({
-  providers: [
-    KakaoProvider({
-      clientId: process.env.KAKAO_CLIENT_ID || "",
-      clientSecret: process.env.KAKAO_CLIENT_SECRET || "",
-    }),
-  ],
-  secret: process.env.NEXTAUTH_SECRET,
-  callbacks: {
-    async session({ session, token }) {
-      if (session.user) {
-        // @ts-expect-error: sub is not in SessionUser type
-        session.user.id = token.sub;
-      }
-      return session;
-    },
-  },
-});
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
