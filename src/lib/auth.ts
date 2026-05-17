@@ -1,6 +1,23 @@
 import type { NextAuthOptions } from 'next-auth';
 import KakaoProvider from 'next-auth/providers/kakao';
 
+interface KakaoProfile {
+  id: number;
+  kakao_account?: {
+    name?: string;
+    email?: string;
+    profile?: {
+      nickname?: string;
+      profile_image_url?: string;
+      thumbnail_image_url?: string;
+    };
+  };
+  properties?: {
+    nickname?: string;
+    profile_image?: string;
+  };
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     KakaoProvider({
@@ -18,7 +35,7 @@ export const authOptions: NextAuthOptions = {
       if (account && profile && user) {
         console.log('--- Auth Sync Start ---');
         
-        const kakaoProfile = profile as any;
+        const kakaoProfile = profile as unknown as KakaoProfile;
         
         // 로그(Full Raw Profile)에서 확인된 경로: kakao_account.name 에 '황태우'가 들어있음
         const nickname = kakaoProfile.kakao_account?.name || 
@@ -27,20 +44,20 @@ export const authOptions: NextAuthOptions = {
                          kakaoProfile.kakao_account?.profile?.nickname ||
                          '사용자';
 
-        const email = profile.email || kakaoProfile.kakao_account?.email || user.email;
+        const email = kakaoProfile.kakao_account?.email || user.email || '';
 
         // 이미지 추출
         const profileImage = user.image || 
                              kakaoProfile.properties?.profile_image || 
-                             kakaoProfile.kakao_account?.profile?.profile_image_url;
+                             kakaoProfile.kakao_account?.profile?.profile_image_url || '';
 
-        console.log('Extracted Data:', { nickname, email, kakaoId: profile.id });
+        console.log('Extracted Data:', { nickname, email, kakaoId: kakaoProfile.id });
 
         try {
           const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
           
           const syncData = {
-            kakaoId: profile.id?.toString(),
+            kakaoId: kakaoProfile.id.toString(),
             email: email,
             nickname: nickname,
             profileImage: profileImage,

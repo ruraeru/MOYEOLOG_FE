@@ -67,7 +67,9 @@ export default function MemoDetailModal({
 
   useEffect(() => {
     if (!isOpen || !memoId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMemo(null);
+       
       setInsight(null);
       return;
     }

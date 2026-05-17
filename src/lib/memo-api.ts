@@ -3,10 +3,10 @@ import { Session } from 'next-auth';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}, session: Session | null) {
-  const headers = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers || {}),
-  } as any;
+    ...(options.headers as Record<string, string> || {}),
+  };
 
   if (session?.user?.accessToken) {
     console.log(`[fetchWithAuth] Token found for ${url}`);
@@ -60,7 +60,7 @@ export const memoApi = {
       formData.append('image', data.imageFile);
     }
 
-    const headers = {} as any;
+    const headers: Record<string, string> = {};
     if (session?.user?.accessToken) {
       headers['Authorization'] = `Bearer ${session.user.accessToken}`;
     }
