@@ -60,3 +60,36 @@
 
 ---
 *Last Updated: 2026-05-17 by Gemini CLI*
+
+## 📝 Session Handover (인수인계 노트)
+
+다음 세션의 원활한 진행을 위해 지금까지의 핵심 작업과 결정 사항을 기록합니다.
+
+### ✅ 완료된 작업
+1.  **인증 시스템 통합**:
+    *   프론트엔드(NextAuth)와 백엔드(Spring Boot) 연동 완료.
+    *   카카오 로그인 시 백엔드 `/api/auth/sync`를 호출하여 사용자 정보를 DB(`users` 테이블)에 동기화.
+    *   백엔드 전용 JWT를 발급받아 NextAuth 세션에 `accessToken`으로 저장 및 API 호출 시 활용.
+2.  **메모 기능 (CRUD) 구현**:
+    *   메모 생성(`POST`), 목록 조회(`GET`), 상세 조회(`GET /{id}`), 삭제(`DELETE`) API 및 프론트 연동 완료.
+    *   이미지 업로드 방식을 **Base64에서 로컬 파일 시스템(`uploads/`)** 저장 방식으로 전환.
+    *   메모 태그(`memo_tags` 테이블) 연동 완료.
+3.  **환경 설정 및 보안**:
+    *   백엔드 CORS 설정 완료 (`localhost:3000` 허용).
+    *   Spring Security에서 `/uploads/**` 경로 익명 접근 허용.
+    *   서버 요청 크기 제한(10MB) 및 DB `LONGTEXT` 컬럼 적용.
+
+### 📌 기술적 결정 사항 (Context)
+*   **이미지 처리**: DB 부하를 줄이기 위해 파일로 저장하며, 프론트엔드에서 `/uploads/` 경로 접근 시 백엔드 주소를 Prefix로 붙여 처리함.
+*   **타입 안정성**: 프론트엔드의 `KakaoProfile` 인터페이스를 정의하여 `id`, `name`, `email` 추출 로직을 정교화함.
+*   **인증 흐름**: NextAuth의 `jwt` 콜백에서 백엔드 동기화를 수행하며, 이후 모든 메모 API 요청은 Bearer 토큰을 포함함.
+
+### 🏃 다음 세션에서 바로 시작할 작업
+- [ ] **모임(Groups) 기능**: 현재 프론트엔드 UI만 있는 상태이며, 백엔드 Entity/API 구축 및 연동 필요.
+- [ ] **일정(Schedules) 기능**: 캘린더 라이브러리와 백엔드 데이터 연동.
+- [ ] **AI 인사이트**: 현재는 프론트엔드에서 모의(Mock)로 수행 중이나, 백엔드에서 실제 OCR 및 요약 로직 구현 필요.
+
+### ⚠️ 주의 사항
+*   백엔드 실행 시 `uploads` 폴더가 프로젝트 루트에 자동 생성됩니다.
+*   프론트엔드 `.env.local`에 `NEXT_PUBLIC_API_URL=http://localhost:8080`이 설정되어 있어야 합니다.
+*   데이터베이스는 MySQL `moyeolog`를 사용합니다.

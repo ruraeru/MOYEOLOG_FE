@@ -33,6 +33,7 @@ export interface MemoResponse {
   content: string;
   imageUrl?: string;
   groupId?: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -44,14 +45,21 @@ export const memoApi = {
     return response.json();
   },
 
-  async create(data: { title: string; content: string; imageFile?: File; groupId?: string }, session: Session | null): Promise<MemoResponse> {
+  async getById(id: string, session: Session | null): Promise<MemoResponse> {
+    const response = await fetchWithAuth(`/api/memos/${id}`, {}, session);
+    if (!response.ok) throw new Error('Failed to fetch memo');
+    return response.json();
+  },
+
+  async create(data: { title: string; content: string; imageFile?: File; groupId?: string; tags?: string[] }, session: Session | null): Promise<MemoResponse> {
     const formData = new FormData();
     
     // JSON 데이터를 Blob으로 만들어 'memo' 파트에 넣음
     const memoData = {
       title: data.title,
       content: data.content,
-      groupId: data.groupId
+      groupId: data.groupId,
+      tags: data.tags // tags 추가
     };
     formData.append('memo', new Blob([JSON.stringify(memoData)], { type: 'application/json' }));
 

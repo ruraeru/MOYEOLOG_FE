@@ -42,7 +42,7 @@ export default function MemoPage() {
         title: m.title,
         description: m.content,
         image: m.imageUrl ? (m.imageUrl.startsWith('/uploads/') ? `${apiUrl}${m.imageUrl}` : m.imageUrl) : undefined,
-        tags: [], // 우선 빈 배열
+        tags: m.tags || [], // 태그 매핑
         category: '내 메모',
         categoryColor: 'bg-indigo-500',
         date: new Date(m.createdAt).toLocaleDateString(),

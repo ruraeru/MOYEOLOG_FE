@@ -97,6 +97,7 @@ export default function MemoCreateModal({
         content,
         imageFile: imageFile || undefined,
         groupId: undefined,
+        tags: tags, // 태그 추가
       }, session);
 
       // AI 분석 (미리보기용 DataURL 활용)

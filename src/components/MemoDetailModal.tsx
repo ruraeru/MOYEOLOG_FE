@@ -10,9 +10,11 @@ import {
   MessageSquare,
   Loader2,
 } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { analyzeMemo } from '@/lib/memo-analyzer';
-import { getInsight, getMemo, saveInsight } from '@/lib/memo-storage';
-import type { Memo, MemoAiInsight } from '@/types/memo';
+import { getInsight, saveInsight } from '@/lib/memo-storage';
+import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import type { MemoAiInsight } from '@/types/memo';
 
 interface MemoDetailModalProps {
   isOpen: boolean;
@@ -61,55 +63,82 @@ export default function MemoDetailModal({
   userId,
   authorName,
 }: MemoDetailModalProps) {
-  const [memo, setMemo] = useState<Memo | null>(null);
+  const { data: session } = useSession();
+  const [memo, setMemo] = useState<MemoResponse | null>(null);
   const [insight, setInsight] = useState<MemoAiInsight | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
+  const [loadingMemo, setLoadingMemo] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || !memoId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!isOpen || !memoId || !session) {
+       
       setMemo(null);
        
       setInsight(null);
       return;
     }
 
-    const found = getMemo(userId, memoId);
-    setMemo(found);
-    if (!found) return;
-
-    const existing = getInsight(userId, memoId);
-    if (existing) {
-      setInsight(existing);
-      return;
-    }
-
     let cancelled = false;
-    setLoadingInsight(true);
 
-    analyzeMemo({
-      memoId: found.id,
-      title: found.title,
-      content: found.content,
-      imageDataUrl: found.imageDataUrl,
-    })
-      .then((result) => {
+    const fetchMemoDetail = async () => {
+      setLoadingMemo(true);
+      try {
+        const data = await memoApi.getById(memoId, session);
+        if (cancelled) return;
+        setMemo(data);
+
+        // 로컬 인사이트 조회
+        const existing = getInsight(userId, memoId);
+        if (existing) {
+          setInsight(existing);
+          return;
+        }
+
+        // 인사이트 없으면 분석 시도 (AI 기능 서버 연동 전 임시)
+        setLoadingInsight(true);
+        const result = await analyzeMemo({
+          memoId: data.id,
+          title: data.title,
+          content: data.content,
+          imageDataUrl: data.imageUrl,
+        });
         if (cancelled) return;
         saveInsight(userId, result);
         setInsight(result);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingInsight(false);
-      });
+      } catch (error) {
+        console.error('Failed to fetch memo detail:', error);
+      } finally {
+        if (!cancelled) {
+          setLoadingMemo(false);
+          setLoadingInsight(false);
+        }
+      }
+    };
+
+    fetchMemoDetail();
 
     return () => {
       cancelled = true;
     };
-  }, [isOpen, memoId, userId]);
+  }, [isOpen, memoId, userId, session]);
 
-  if (!isOpen || !memo) return null;
+  if (!isOpen) return null;
 
-  const imageSrc = memo.imageDataUrl ?? memo.imageUrl;
+  if (loadingMemo) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-3xl p-10 flex items-center gap-3">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+          <span className="font-bold text-gray-600">메모를 불러오는 중...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!memo) return null;
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
   const emotionStyle = insight ? emotionBarClass(insight.emotion) : null;
 
   return (
@@ -149,9 +178,7 @@ export default function MemoDetailModal({
           {imageSrc && <MemoImage src={imageSrc} alt={memo.title} />}
 
           <p className="text-lg text-gray-700 leading-relaxed font-medium whitespace-pre-wrap">
-            {memo.locked
-              ? '이 메모는 잠겨 있습니다. 내용을 보려면 비밀번호를 입력하세요.'
-              : memo.content}
+            {memo.content}
           </p>
         </div>
 
@@ -223,7 +250,7 @@ export default function MemoDetailModal({
               <span>태그</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {memo.tags.length > 0 ? (
+              {memo.tags && memo.tags.length > 0 ? (
                 memo.tags.map((tag) => (
                   <span
                     key={tag}
