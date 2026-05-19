@@ -27,7 +27,8 @@ export const scheduleApi = {
     startTime: string; 
     endTime: string; 
     location?: string; 
-    groupId?: string 
+    groupId?: string;
+    taggedMemoIds?: string[]; // 추가
   }, session: Session | null): Promise<ScheduleResponse> {
     const response = await fetchWithAuth('/api/schedules', {
       method: 'POST',
