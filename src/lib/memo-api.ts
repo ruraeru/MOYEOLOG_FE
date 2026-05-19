@@ -1,6 +1,10 @@
 import { Session } from 'next-auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+// 브라우저에서는 상대 경로를 사용하여 Vercel Proxy(Rewrite)를 거치게 하고, 
+// 서버 사이드(Next.js)에서만 절대 주소를 사용하도록 설정합니다.
+const API_BASE_URL = typeof window === 'undefined' 
+  ? (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080')
+  : '';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}, session: Session | null) {
   const headers: Record<string, string> = {
@@ -16,7 +20,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-  // /api/로 시작하는 요청을 /api-proxy/로 변환 (Rewrite 매칭을 위함)
+  // /api/로 시작하는 요청을 /api-proxy/로 변환 (Vercel Rewrite 매칭)
   const targetUrl = url.startsWith('/api/') 
     ? url.replace('/api/', '/api-proxy/') 
     : url;
@@ -65,20 +69,20 @@ export const memoApi = {
   async create(data: { title: string; content: string; imageFile?: File; groupId?: string; tags?: string[] }, session: Session | null): Promise<MemoResponse> {
     const formData = new FormData();
     
-    // JSON 데이터를 Blob으로 만들어 'memo' 파트에 넣음
     const memoData = {
       title: data.title,
       content: data.content,
       groupId: data.groupId,
-      tags: data.tags // tags 추가
+      tags: data.tags
     };
     formData.append('memo', new Blob([JSON.stringify(memoData)], { type: 'application/json' }));
 
-    // 이미지가 있으면 'image' 파트에 넣음
     if (data.imageFile) {
       formData.append('image', data.imageFile);
     }
 
+    // FormData 전송 시에는 JSON Content-Type이 들어가면 안 되므로 fetchWithAuth 대신 직접 fetch 호출
+    // 단, 주소는 Proxy를 타도록 구성
     const headers: Record<string, string> = {};
     if (session?.user?.accessToken) {
       headers['Authorization'] = `Bearer ${session.user.accessToken}`;
