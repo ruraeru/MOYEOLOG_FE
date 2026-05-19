@@ -9,22 +9,28 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
   };
 
   if (session?.user?.accessToken) {
-    console.log(`[fetchWithAuth] Token found for ${url}`);
     headers['Authorization'] = `Bearer ${session.user.accessToken}`;
-  } else {
-    console.warn(`[fetchWithAuth] No token found for ${url}. Current session:`, !!session);
   }
 
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    ...options,
-    headers,
-  });
+  // 10초 타임아웃 설정
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-  if (response.status === 401 || response.status === 403) {
-    console.error(`[fetchWithAuth] Auth Error (${response.status}) for ${url}`);
+  try {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      console.error(`[fetchWithAuth] Auth Error (${response.status}) for ${url}`);
+    }
+
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response;
 }
 
 export interface MemoResponse {

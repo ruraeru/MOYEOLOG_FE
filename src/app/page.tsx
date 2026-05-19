@@ -18,18 +18,20 @@ export default function LoginPage() {
   );
 
   useEffect(() => {
-    if (session) {
+    if (status === 'authenticated') {
       router.push('/memo');
     }
-  }, [session, router]);
+  }, [status, router]);
 
-  if (!isMounted || status === 'loading' || session) {
+  if (!isMounted || status === 'loading') {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F8F9FB]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
       </main>
     );
   }
+
+  if (status === 'authenticated') return null;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#F8F9FB] p-6">

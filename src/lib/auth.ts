@@ -65,29 +65,34 @@ export const authOptions: NextAuthOptions = {
 
           console.log('Sending to Backend:', syncData);
 
+          // 5초 타임아웃 설정으로 무한 로딩 방지
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
           const response = await fetch(`${apiUrl}/api/auth/sync`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(syncData),
+            signal: controller.signal,
           });
+          
+          clearTimeout(timeoutId);
 
           console.log('Backend Response Status:', response.status);
 
           if (response.ok) {
             const data = await response.json();
             console.log('Backend Sync Success, User ID:', data.user.id);
-            // 백엔드에서 발급한 토큰과 유저 정보를 JWT 토큰에 저장
             token.accessToken = data.accessToken;
             token.userId = data.user.id;
             token.kakaoId = data.user.kakaoId;
           } else {
-            const errorText = await response.text();
-            console.error('Backend Sync Failed:', errorText);
+            console.error('Backend Sync Failed');
           }
         } catch (error) {
-          console.error('Backend sync error:', error);
+          console.error('Backend sync error (could be timeout or unreachable):', error);
         }
         console.log('--- Auth Sync End ---');
       }
