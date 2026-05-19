@@ -115,23 +115,22 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   useEffect(() => {
     if (isOpen && mapContainer.current) {
-      const script = document.createElement('script');
-      script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_MAP_KEY&autoload=false&libraries=services`;
-      script.async = true;
-      document.head.appendChild(script);
-
-      script.onload = () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const kakao = (window as any).kakao;
+      const kakao = (window as any).kakao;
+      
+      if (kakao && kakao.maps) {
         kakao.maps.load(() => {
+          if (!mapContainer.current) return;
+
           const options = {
             center: new kakao.maps.LatLng(37.566826, 126.9786567),
             level: 3
           };
+          
           const newMap = new kakao.maps.Map(mapContainer.current, options);
           const newMarker = new kakao.maps.Marker({
             position: options.center
           });
+          
           newMarker.setMap(newMap);
           setMap(newMap as KakaoMap);
           setMarker(newMarker as KakaoMarker);
@@ -139,7 +138,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           // Initial recommendations
           fetchRecommendations();
         });
-      };
+      }
     }
   }, [isOpen]);
 
@@ -174,7 +173,6 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   const handleSearchLocation = () => {
     if (!location || !map) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const kakao = (window as any).kakao;
     const ps = new kakao.maps.services.Places();
     ps.keywordSearch(location, (data: KakaoPlace[], status: string) => {
@@ -407,7 +405,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           {/* Participants */}
           <div className="space-y-4">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2">
-              <Users className="w-3.5 h-3.5 text-blue-500" /> 참여자 (@멘션)
+              <Users className="w-3.5 h-3.5 text-blue-500" /> 참여자 추가 (@멘션)
             </label>
             <div className="relative">
               <input
@@ -456,7 +454,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="flex-1 px-4 py-4 bg-white border-2 border-gray-200 text-gray-500 rounded-2xl text-sm font-black hover:bg-gray-50 transition-all active:scale-95"
+            className="flex-1 px-4 py-4 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl text-sm font-black hover:bg-gray-50 transition-all active:scale-95"
           >
             취소
           </button>
