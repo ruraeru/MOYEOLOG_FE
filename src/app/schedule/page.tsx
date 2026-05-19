@@ -44,6 +44,9 @@ export default function SchedulePage() {
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
+  // Filtering state
+  const [activeFilter, setActiveFilter] = useState<{ type: 'all' | 'my' | 'group', id?: string }>({ type: 'all' });
+
   const fetchSchedules = useCallback(async () => {
     if (!session) return;
     try {
@@ -79,6 +82,14 @@ export default function SchedulePage() {
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const goToToday = () => setCurrentDate(new Date());
+
+  // Filtered schedules logic
+  const filteredSchedules = useMemo(() => {
+    if (activeFilter.type === 'all') return schedules;
+    if (activeFilter.type === 'my') return schedules.filter(s => !s.groupId);
+    if (activeFilter.type === 'group') return schedules.filter(s => s.groupId === activeFilter.id);
+    return schedules;
+  }, [schedules, activeFilter]);
 
   // Month Grid Days
   const monthDays = useMemo(() => {
@@ -136,9 +147,19 @@ export default function SchedulePage() {
           {/* Schedule Filter */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">일정 필터</h3>
-            <div className="flex items-center justify-between group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all">
-              <span className="text-sm font-bold text-gray-700">내 일정</span>
-              <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+            <div 
+              onClick={() => setActiveFilter({ type: 'all' })}
+              className={`flex items-center justify-between group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all ${activeFilter.type === 'all' ? 'bg-indigo-50' : ''}`}
+            >
+              <span className={`text-sm font-bold ${activeFilter.type === 'all' ? 'text-indigo-600' : 'text-gray-700'}`}>전체 일정</span>
+              {activeFilter.type === 'all' && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
+            </div>
+            <div 
+              onClick={() => setActiveFilter({ type: 'my' })}
+              className={`flex items-center justify-between group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all ${activeFilter.type === 'my' ? 'bg-indigo-50' : ''}`}
+            >
+              <span className={`text-sm font-bold ${activeFilter.type === 'my' ? 'text-indigo-600' : 'text-gray-700'}`}>내 일정</span>
+              {activeFilter.type === 'my' && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
             </div>
           </div>
 
@@ -149,6 +170,8 @@ export default function SchedulePage() {
               {userGroups.length > 0 ? userGroups.map((group) => (
                 <GroupFilterItem 
                   key={group.id} 
+                  isActive={activeFilter.type === 'group' && activeFilter.id === group.id}
+                  onClick={() => setActiveFilter({ type: 'group', id: group.id })}
                   color={group.colorTheme === 'indigo' ? 'bg-indigo-500' : 
                          group.colorTheme === 'blue' ? 'bg-blue-500' : 
                          group.colorTheme === 'emerald' ? 'bg-emerald-500' : 
@@ -245,7 +268,7 @@ export default function SchedulePage() {
                 <div className="flex-1 overflow-y-auto no-scrollbar">
                   <div className="grid grid-cols-7 h-full min-h-[840px] border-l border-gray-100">
                     {monthDays.map((day, i) => {
-                      const daySchedules = schedules.filter(s => isSameDay(parseISO(s.startTime), day));
+                      const daySchedules = filteredSchedules.filter(s => isSameDay(parseISO(s.startTime), day));
                       const isCurrMonth = isSameMonth(day, currentDate);
                       const isTodayDay = isToday(day);
 
@@ -326,14 +349,17 @@ export default function SchedulePage() {
   );
 }
 
-function GroupFilterItem({ color, name, count }: { color: string, name: string, count: number }) {
+function GroupFilterItem({ color, name, count, isActive, onClick }: { color: string, name: string, count: number, isActive: boolean, onClick: () => void }) {
   return (
-    <div className="flex items-center justify-between group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all">
+    <div 
+      onClick={onClick}
+      className={`flex items-center justify-between group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all ${isActive ? 'bg-indigo-50' : ''}`}
+    >
       <div className="flex items-center gap-3">
         <div className={`w-2.5 h-2.5 rounded-full ${color} shadow-sm`} />
-        <span className="text-sm font-bold text-gray-700 group-hover:text-gray-900">{name}</span>
+        <span className={`text-sm font-bold ${isActive ? 'text-indigo-600' : 'text-gray-700'} group-hover:text-gray-900`}>{name}</span>
       </div>
-      <span className="text-xs font-black text-gray-300 group-hover:text-indigo-600 transition-colors bg-gray-50 group-hover:bg-indigo-50 px-2 py-0.5 rounded-lg">{count}</span>
+      <span className={`text-xs font-black ${isActive ? 'text-indigo-600' : 'text-gray-300'} group-hover:text-indigo-600 transition-colors bg-gray-50 group-hover:bg-indigo-50 px-2 py-0.5 rounded-lg`}>{count}</span>
     </div>
   );
 }
