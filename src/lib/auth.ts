@@ -54,7 +54,8 @@ export const authOptions: NextAuthOptions = {
         console.log('Extracted Data:', { nickname, email, kakaoId: kakaoProfile.id });
 
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+          // 서버 사이드에서 호출하므로 브라우저 Mixed Content와 무관하게 직접 호출 가능
+          const apiUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080';
           
           const syncData = {
             kakaoId: kakaoProfile.id.toString(),

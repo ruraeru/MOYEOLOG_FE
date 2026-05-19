@@ -1,6 +1,6 @@
 import { Session } from 'next-auth';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}, session: Session | null) {
   const headers: Record<string, string> = {
@@ -16,13 +16,18 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+  // /api/로 시작하는 요청을 /api-proxy/로 변환 (Rewrite 매칭을 위함)
+  const targetUrl = url.startsWith('/api/') 
+    ? url.replace('/api/', '/api-proxy/') 
+    : url;
+
   try {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+    const response = await fetch(`${API_BASE_URL}${targetUrl}`, {
       ...options,
       headers,
       signal: controller.signal,
     });
-
+...
     if (response.status === 401 || response.status === 403) {
       console.error(`[fetchWithAuth] Auth Error (${response.status}) for ${url}`);
     }
@@ -79,7 +84,7 @@ export const memoApi = {
       headers['Authorization'] = `Bearer ${session.user.accessToken}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/memos`, {
+    const response = await fetch(`${API_BASE_URL}/api-proxy/memos`, {
       method: 'POST',
       headers,
       body: formData,
