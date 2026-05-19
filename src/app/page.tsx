@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 const emptySubscribe = () => () => {};
 
 export default function LoginPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
 
   const isMounted = useSyncExternalStore(

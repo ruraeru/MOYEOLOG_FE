@@ -25,6 +25,11 @@ interface KakaoMap {
   relayout: () => void;
 }
 
+interface KakaoMarker {
+  setMap: (map: unknown) => void;
+  setPosition: (latlng: unknown) => void;
+}
+
 interface AppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,6 +55,14 @@ interface KakaoPlace {
   id: string;
   category_group_name?: string;
   distance?: string;
+  y: string;
+  x: string;
+}
+
+declare global {
+  interface Window {
+    kakao: unknown;
+  }
 }
 
 export default function AppointmentModal({ isOpen, onClose, initialDate, onSuccess }: AppointmentModalProps) {
@@ -91,7 +104,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   // Kakao Map States
   const [map, setMap] = useState<KakaoMap | null>(null);
-  const [marker, setMarker] = useState<unknown>(null);
+  const [marker, setMarker] = useState<KakaoMarker | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loadingRecs, setLoadingLoadingRecs] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -107,20 +120,22 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       document.head.appendChild(script);
 
       script.onload = () => {
-        (window as any).kakao.maps.load(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const kakao = window.kakao as any;
+        kakao.maps.load(() => {
           const options = {
-            center: new (window as any).kakao.maps.LatLng(37.566826, 126.9786567),
+            center: new kakao.maps.LatLng(37.566826, 126.9786567),
             level: 3
           };
-          const newMap = new (window as any).kakao.maps.Map(mapContainer.current, options);
-          const newMarker = new (window as any).kakao.maps.Marker({
+          const newMap = new kakao.maps.Map(mapContainer.current, options);
+          const newMarker = new kakao.maps.Marker({
             position: options.center
           });
           newMarker.setMap(newMap);
-          setMap(newMap);
-          setMarker(newMarker);
+          setMap(newMap as KakaoMap);
+          setMarker(newMarker as KakaoMarker);
 
-          // Initial recommendations for Seoul Station
+          // Initial recommendations
           fetchRecommendations();
         });
       };
@@ -129,8 +144,6 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   const fetchRecommendations = async () => {
     setLoadingLoadingRecs(true);
-    // In a real implementation, this would call Kakao Category Search or a backend API
-    // Category codes: FD6 (Food), CE7 (Cafe), AT4 (Tourist Attraction)
     setTimeout(() => {
       setRecommendations([
         {
@@ -160,17 +173,18 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   const handleSearchLocation = () => {
     if (!location || !map) return;
-    const ps = new (window as any).kakao.maps.services.Places();
-    ps.keywordSearch(location, (data: KakaoPlace[], status: unknown) => {
-      if (status === (window as any).kakao.maps.services.Status.OK) {
-        // In real use, you'd use data[0].y, data[0].x
-        const lat = parseFloat((data[0] as any).y);
-        const lng = parseFloat((data[0] as any).x);
-        const realCoords = new (window as any).kakao.maps.LatLng(lat, lng);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const kakao = window.kakao as any;
+    const ps = new kakao.maps.services.Places();
+    ps.keywordSearch(location, (data: KakaoPlace[], status: string) => {
+      if (status === kakao.maps.services.Status.OK) {
+        const lat = parseFloat(data[0].y);
+        const lng = parseFloat(data[0].x);
+        const realCoords = new kakao.maps.LatLng(lat, lng);
 
         map.setCenter(realCoords);
-        if (marker && (marker as any).setPosition) {
-          (marker as any).setPosition(realCoords);
+        if (marker) {
+          marker.setPosition(realCoords);
         }
         fetchRecommendations();
       }
@@ -300,7 +314,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
                   className="flex gap-4 p-3 bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
                 >
                   <div className="relative w-20 h-20 rounded-xl overflow-hidden shrink-0">
-                    <Image src={rec.image} alt={rec.name} fill className="object-cover group-hover:scale-110 transition-transform" />
+                    <Image src={rec.image} alt={rec.name} width={80} height={80} className="object-cover group-hover:scale-110 transition-transform" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">

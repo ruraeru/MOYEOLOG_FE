@@ -27,7 +27,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
       headers,
       signal: controller.signal,
     });
-...
+
     if (response.status === 401 || response.status === 403) {
       console.error(`[fetchWithAuth] Auth Error (${response.status}) for ${url}`);
     }
