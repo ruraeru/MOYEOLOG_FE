@@ -5,14 +5,17 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
   async rewrites() {
+    const backendUrl = process.env.BACKEND_INTERNAL_URL || 
+                      (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'http://moyeolog.kro.kr:8080');
+    
     return [
       {
         source: '/api-proxy/:path*',
-        destination: `${process.env.BACKEND_INTERNAL_URL || 'http://moyeolog.kro.kr:8080'}/api/:path*`,
+        destination: `${backendUrl}/api/:path*`,
       },
       {
         source: '/uploads/:path*',
-        destination: `${process.env.BACKEND_INTERNAL_URL || 'http://moyeolog.kro.kr:8080'}/uploads/:path*`,
+        destination: `${backendUrl}/uploads/:path*`,
       },
     ];
   },
