@@ -1,9 +1,10 @@
-import { X, Calendar, Clock, MapPin, Trash2, Loader2 } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Trash2, Loader2, FileText, MessageSquare, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
+import MemoDetailModal from './MemoDetailModal';
 
 interface AppointmentDetailModalProps {
   isOpen: boolean;
@@ -20,6 +21,8 @@ export default function AppointmentDetailModal({
 }: AppointmentDetailModalProps) {
   const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
+  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
 
   if (!isOpen || !schedule) return null;
 
@@ -37,6 +40,11 @@ export default function AppointmentDetailModal({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  const handleMemoClick = (id: string) => {
+    setSelectedMemoId(id);
+    setIsMemoModalOpen(true);
   };
 
   const startTime = parseISO(schedule.startTime);
@@ -139,6 +147,35 @@ export default function AppointmentDetailModal({
               {schedule.description || '추가된 설명이 없습니다.'}
             </div>
           </div>
+
+          {/* Tagged Memos */}
+          {schedule.taggedMemos && schedule.taggedMemos.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <FileText className="w-4 h-4" /> 연결된 메모
+              </h3>
+              <div className="grid grid-cols-1 gap-3">
+                {schedule.taggedMemos.map((memo) => (
+                  <div
+                    key={memo.id}
+                    onClick={() => handleMemoClick(memo.id)}
+                    className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
+                        {memo.title}
+                      </h4>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">클릭하여 상세 보기</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 transition-all" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -151,6 +188,15 @@ export default function AppointmentDetailModal({
           </button>
         </div>
       </div>
+
+      {session?.user?.id && (
+        <MemoDetailModal
+          isOpen={isMemoModalOpen}
+          onClose={() => setIsMemoModalOpen(false)}
+          memoId={selectedMemoId}
+          userId={session.user.id}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Session } from 'next-auth';
-import { fetchWithAuth } from './memo-api';
+import { fetchWithAuth, type MemoResponse } from './memo-api';
 
 export interface ScheduleResponse {
   id: string;
@@ -11,6 +11,7 @@ export interface ScheduleResponse {
   authorId: string;
   authorNickname: string;
   groupId?: string;
+  taggedMemos?: MemoResponse[]; // 추가
   createdAt: string;
 }
 
