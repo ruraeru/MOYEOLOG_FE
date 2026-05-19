@@ -22,6 +22,7 @@ interface MemoCreateModalProps {
   onClose: () => void;
   userId: string;
   onSuccess?: () => void;
+  groupId?: string; // groupId 추가
 }
 
 export default function MemoCreateModal({
@@ -29,6 +30,7 @@ export default function MemoCreateModal({
   onClose,
   userId,
   onSuccess,
+  groupId, // groupId 추가
 }: MemoCreateModalProps) {
   const { data: session } = useSession();
   const [title, setTitle] = useState('');
@@ -96,7 +98,7 @@ export default function MemoCreateModal({
         title,
         content,
         imageFile: imageFile || undefined,
-        groupId: undefined,
+        groupId: groupId || undefined, // 주입받은 groupId 사용
         tags: tags, // 태그 추가
       }, session);
 

@@ -1,86 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { format } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import {
-  Search,
   Plus,
   Lock,
   Share2,
   Users,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
 import MemoDetailModal from '@/components/MemoDetailModal';
-import { listMemos, memoToCardView } from '@/lib/memo-storage';
-import type { MemoCardView } from '@/types/memo';
-
-interface Appointment {
-  id: number;
-  date: string;
-  title: string;
-  time: string;
-  location: string;
-  participants: string[];
-  color: string;
-  memo?: string;
-  tags?: string[];
-  group?: string;
-}
-
-const MOCK_APPOINTMENTS: Appointment[] = [
-  { 
-    id: 1, 
-    date: '2026-04-06', 
-    title: '팀 회의', 
-    time: '14:00', 
-    location: '회의실 A', 
-    participants: ['나', '지민', '민수'], 
-    color: 'bg-indigo-500',
-    group: '대학 동기들',
-    tags: ['#업무', '#프로젝트'],
-    memo: '다음 마일스톤 일정 확정 및 역할 분담 논의 예정입니다.'
-  },
-  { 
-    id: 2, 
-    date: '2026-04-07', 
-    title: '헬스', 
-    time: '08:00', 
-    location: '짐박스', 
-    participants: ['나'], 
-    color: 'bg-emerald-500',
-    tags: ['#운동', '#오운완']
-  },
-  { 
-    id: 3, 
-    date: '2026-04-08', 
-    title: '친구들과 저녁', 
-    time: '19:00', 
-    location: '홍대입구역', 
-    participants: ['나', '지민', '현우'], 
-    color: 'bg-blue-500',
-    group: '대학 동기들',
-    memo: '지민이가 가고 싶다던 파스타집 예약함.'
-  },
-  { 
-    id: 4, 
-    date: '2026-04-12', 
-    title: '독서 모임', 
-    time: '15:00', 
-    location: '강남역 스타벅스', 
-    participants: ['나', '예진', '동휘'], 
-    color: 'bg-orange-500',
-    group: '독서 모임',
-    tags: ['#취미', '#독서'],
-    memo: '이번 달 선정 도서: "사피엔스"'
-  },
-];
+import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
+import { groupApi, type GroupResponse } from '@/lib/group-api';
 
 const emptySubscribe = () => () => { };
 
@@ -88,13 +28,18 @@ export default function HomePage() {
   const { data: session } = useSession();
   const userId = session?.user?.id;
 
+  const [recentMemos, setRecentMemos] = useState<MemoResponse[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
+  const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
+  
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
-  const [recentMemos, setRecentMemos] = useState<MemoCardView[]>([]);
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -103,6 +48,29 @@ export default function HomePage() {
     () => true,
     () => false
   );
+
+  const fetchData = useCallback(async () => {
+    if (!session) return;
+    try {
+      setLoading(true);
+      const [memoData, scheduleData, groupData] = await Promise.all([
+        memoApi.getAll(session),
+        scheduleApi.getAll(session),
+        groupApi.getAll(session)
+      ]);
+      setRecentMemos(memoData.slice(0, 5));
+      setSchedules(scheduleData);
+      setUserGroups(groupData);
+    } catch (error) {
+      console.error('Failed to fetch home data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleOpenCreateModal = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'));
@@ -114,20 +82,10 @@ export default function HomePage() {
     setIsListModalOpen(true);
   };
 
-  const handleAppointmentClick = (apt: Appointment) => {
-    setSelectedAppointment(apt);
+  const handleScheduleClick = (schedule: ScheduleResponse) => {
+    setSelectedSchedule(schedule);
     setIsDetailModalOpen(true);
   };
-
-  const loadRecentMemos = useCallback(() => {
-    if (!userId) return;
-    setRecentMemos(listMemos(userId).slice(0, 3).map(memoToCardView));
-  }, [userId]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadRecentMemos();
-  }, [loadRecentMemos]);
 
   const handleMemoClick = (memoId: string) => {
     setSelectedMemoId(memoId);
@@ -137,8 +95,7 @@ export default function HomePage() {
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
 
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const dayAppointments = MOCK_APPOINTMENTS.filter(apt => apt.date === dateStr);
+    const daySchedules = schedules.filter(s => isSameDay(parseISO(s.startTime), date));
 
     return (
       <div className="mt-1 flex flex-col gap-0.5 w-full">
@@ -154,9 +111,22 @@ export default function HomePage() {
             <Plus className="w-3 h-3" />
           </div>
         </div>
-        {dayAppointments.map(apt => (
-          <EventBadge key={apt.id} color={apt.color} text={apt.title} />
-        ))}
+        {daySchedules.slice(0, 2).map(s => {
+          const group = userGroups.find(g => g.id === s.groupId);
+          const theme = group?.colorTheme || 'indigo';
+          const colorMap = {
+            indigo: 'bg-indigo-500',
+            blue: 'bg-blue-500',
+            emerald: 'bg-emerald-500',
+            orange: 'bg-orange-500',
+            rose: 'bg-rose-500',
+            amber: 'bg-amber-500'
+          };
+          return <EventBadge key={s.id} color={colorMap[theme as keyof typeof colorMap] || 'bg-gray-400'} text={s.title} />;
+        })}
+        {daySchedules.length > 2 && (
+          <div className="text-[8px] text-gray-400 font-bold text-center">+{daySchedules.length - 2}</div>
+        )}
       </div>
     );
   };
@@ -169,37 +139,26 @@ export default function HomePage() {
         {/* Left Section: Memo */}
         <section className="hidden lg:flex flex-col gap-4 overflow-hidden h-full">
           <div className="flex items-center justify-between shrink-0">
-            <h2 className="text-xl font-bold">메모</h2>
-          </div>
-
-          <div className="relative shrink-0">
-            <input
-              type="text"
-              placeholder="검색..."
-              className="w-full bg-white border border-gray-200 rounded-lg px-9 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
-          </div>
-
-          <div className="flex gap-2 text-xs font-semibold shrink-0">
-            <button className="px-3 py-1 bg-indigo-600 text-white rounded-full">전체</button>
-            <button className="px-3 py-1 bg-white text-gray-600 border border-gray-100 rounded-full">내 메모</button>
-            <button className="px-3 py-1 bg-white text-gray-600 border border-gray-100 rounded-full">공유받음</button>
+            <h2 className="text-xl font-bold">최근 메모</h2>
           </div>
 
           <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar">
-            {recentMemos.length === 0 ? (
-              <p className="text-xs text-gray-400 font-medium py-4">최근 메모가 없습니다.</p>
+            {loading ? (
+              <div className="py-10 flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                <span className="text-xs text-gray-400 font-bold">로딩 중...</span>
+              </div>
+            ) : recentMemos.length === 0 ? (
+              <p className="text-xs text-gray-400 font-medium py-4 text-center">최근 메모가 없습니다.</p>
             ) : (
               recentMemos.map((memo) => (
                 <MemoCard
                   key={memo.id}
                   title={memo.title}
-                  description={memo.description}
+                  description={memo.content}
                   author={session?.user?.name || '나'}
-                  date={memo.date}
+                  date={format(new Date(memo.createdAt), 'yyyy.MM.dd')}
                   tags={memo.tags.map((t) => `#${t}`)}
-                  isLocked={memo.locked}
                   onClick={() => handleMemoClick(memo.id)}
                 />
               ))
@@ -208,7 +167,7 @@ export default function HomePage() {
         </section>
 
         {/* Center Section: Calendar */}
-        <section className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 shadow-sm flex flex-col h-full overflow-hidden relative">
+        <section className="bg-white rounded-3xl border border-gray-100 p-4 sm:p-8 shadow-sm flex flex-col h-full overflow-hidden relative group">
           {isMounted ? (
             <Calendar
               onChange={(val) => val instanceof Date && setCurrentDate(val)}
@@ -221,18 +180,43 @@ export default function HomePage() {
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             </div>
           )}
         </section>
 
         {/* Right Section: Groups */}
         <section className="hidden xl:flex flex-col gap-4 h-full overflow-hidden">
-          <h2 className="text-xl font-bold shrink-0">모임</h2>
+          <h2 className="text-xl font-bold shrink-0">내 모임</h2>
           <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar">
-            <GroupCard icon="bg-blue-500" title="대학 동기들" desc="같은 과 친구들과 정기적으로 모임" members="지민 외 4명" />
-            <GroupCard icon="bg-emerald-500" title="헬스 크루" desc="매주 운동하는 모임" members="현우 외 2명" />
-            <GroupCard icon="bg-orange-500" title="독서 모임" desc="한 달에 한 권씩 책 읽고 토론" members="예진 외 3명" />
+            {loading ? (
+              <div className="py-10 flex flex-col items-center gap-2">
+                <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                <span className="text-xs text-gray-400 font-bold">로딩 중...</span>
+              </div>
+            ) : userGroups.length === 0 ? (
+              <p className="text-xs text-gray-400 font-medium py-4 text-center">참여 중인 모임이 없습니다.</p>
+            ) : (
+              userGroups.map((group) => {
+                const colorMap = {
+                  indigo: 'bg-indigo-500',
+                  blue: 'bg-blue-500',
+                  emerald: 'bg-emerald-500',
+                  orange: 'bg-orange-500',
+                  rose: 'bg-rose-500',
+                  amber: 'bg-amber-500'
+                };
+                return (
+                  <GroupCard 
+                    key={group.id}
+                    icon={colorMap[group.colorTheme as keyof typeof colorMap] || 'bg-indigo-500'} 
+                    title={group.name} 
+                    desc={group.description || '모임 설명이 없습니다.'} 
+                    members={`${group.memberCount}명 참여 중`} 
+                  />
+                );
+              })
+            )}
           </div>
         </section>
 
@@ -242,21 +226,23 @@ export default function HomePage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         initialDate={selectedDate}
+        onSuccess={fetchData}
       />
 
       <AppointmentListModal
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}
         date={selectedDate}
-        appointments={MOCK_APPOINTMENTS.filter(apt => apt.date === selectedDate)}
+        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))}
         onCreateNew={() => setIsModalOpen(true)}
-        onAppointmentClick={handleAppointmentClick}
+        onAppointmentClick={handleScheduleClick}
       />
 
       <AppointmentDetailModal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        appointment={selectedAppointment}
+        schedule={selectedSchedule}
+        onSuccess={fetchData}
       />
 
       {userId && (
@@ -286,33 +272,35 @@ function MemoCard({ title, description, author, date, tags, isLocked = false, on
   return (
     <div
       onClick={onClick}
-      className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col gap-2 relative group hover:border-indigo-200 transition-all cursor-pointer"
+      className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-2 relative group hover:border-indigo-200 transition-all cursor-pointer"
     >
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-sm text-gray-800">{title}</h3>
+        <h3 className="font-black text-sm text-gray-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{title}</h3>
         {isLocked ? (
           <Lock className="w-3.5 h-3.5 text-gray-400" />
         ) : (
           <Share2 className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" />
         )}
       </div>
-      <p className="text-xs text-gray-500 line-clamp-3 leading-relaxed">{description}</p>
-      <div className="flex items-center justify-between mt-1">
-        <span className="text-[10px] text-gray-400 font-medium">{author}</span>
-        <span className="text-[10px] text-gray-400">{date}</span>
+      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed font-medium">{description}</p>
+      <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{author}</span>
+        <span className="text-[10px] text-gray-400 font-medium">{date}</span>
       </div>
-      <div className="flex gap-1.5 mt-1">
-        {tags.map((tag: string) => (
-          <span key={tag} className="text-[10px] text-indigo-500 font-bold">{tag}</span>
-        ))}
-      </div>
+      {tags.length > 0 && (
+        <div className="flex gap-1.5 mt-1 flex-wrap">
+          {tags.map((tag: string) => (
+            <span key={tag} className="text-[9px] text-indigo-500 font-black">{tag}</span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function EventBadge({ color, text }: { color: string, text: string }) {
   return (
-    <div className={`${color} text-white text-[10px] px-1.5 py-0.5 rounded font-bold truncate`}>
+    <div className={`${color} text-white text-[8px] px-1 py-0.5 rounded font-black truncate shadow-sm`}>
       {text}
     </div>
   );
@@ -327,19 +315,23 @@ interface GroupCardProps {
 
 function GroupCard({ icon, title, desc, members }: GroupCardProps) {
   return (
-    <div className="bg-white p-4 rounded-2xl border border-gray-50 shadow-sm flex items-center gap-4 hover:bg-gray-50 transition-colors cursor-pointer group">
-      <div className={`w-10 h-10 ${icon} rounded-xl flex items-center justify-center text-white`}>
-        <Users className="w-5 h-5" />
+    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:bg-gray-50 hover:border-indigo-100 transition-all cursor-pointer group">
+      <div className={`w-12 h-12 ${icon} rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100 shrink-0 group-hover:scale-105 transition-transform`}>
+        <Users className="w-6 h-6" />
       </div>
-      <div className="flex-1">
-        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
-        <p className="text-[11px] text-gray-400 mt-0.5">{desc}</p>
-        <div className="flex items-center gap-1 mt-1.5">
-          <Users className="w-3 h-3 text-gray-400" />
-          <span className="text-[10px] text-indigo-500 font-bold">{members}</span>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-black text-gray-800 truncate group-hover:text-indigo-600 transition-colors">{title}</h3>
+        <p className="text-[10px] text-gray-400 mt-1 truncate font-medium">{desc}</p>
+        <div className="flex items-center gap-1.5 mt-2">
+          <div className="flex -space-x-1.5">
+            {[1, 2].map(i => (
+              <div key={i} className="w-4 h-4 rounded-full bg-gray-100 border border-white" />
+            ))}
+          </div>
+          <span className="text-[9px] text-indigo-500 font-black uppercase tracking-wider">{members}</span>
         </div>
       </div>
-      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 transition-colors" />
+      <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
     </div>
   );
 }

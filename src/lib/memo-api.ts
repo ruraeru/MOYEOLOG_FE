@@ -88,5 +88,19 @@ export const memoApi = {
       method: 'DELETE',
     }, session);
     if (!response.ok) throw new Error('Failed to delete memo');
+  },
+
+  async share(id: string, friendIds: string[], session: Session | null): Promise<void> {
+    const response = await fetchWithAuth(`/api/memos/${id}/share`, {
+      method: 'POST',
+      body: JSON.stringify({ friendIds }),
+    }, session);
+    if (!response.ok) throw new Error('Failed to share memo');
+  },
+
+  async getSharedMemos(session: Session | null): Promise<MemoResponse[]> {
+    const response = await fetchWithAuth('/api/memos/shared', {}, session);
+    if (!response.ok) throw new Error('Failed to fetch shared memos');
+    return response.json();
   }
 };

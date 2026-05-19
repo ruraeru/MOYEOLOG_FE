@@ -1,0 +1,50 @@
+import { Session } from 'next-auth';
+import { fetchWithAuth } from './memo-api';
+import { type ScheduleResponse } from './schedule-api';
+
+export interface GroupResponse {
+  id: string;
+  name: string;
+  description: string;
+  colorTheme: string;
+  createdByNickname: string;
+  memberNicknames: string[];
+  memberCount: number;
+  createdAt: string;
+}
+
+export const groupApi = {
+  async getAll(session: Session | null): Promise<GroupResponse[]> {
+    const response = await fetchWithAuth('/api/groups', {}, session);
+    if (!response.ok) throw new Error('Failed to fetch groups');
+    return response.json();
+  },
+
+  async getById(id: string, session: Session | null): Promise<GroupResponse> {
+    const response = await fetchWithAuth(`/api/groups/${id}`, {}, session);
+    if (!response.ok) throw new Error('Failed to fetch group');
+    return response.json();
+  },
+
+  async getGroupMemos(id: string, session: Session | null): Promise<MemoResponse[]> {
+    const response = await fetchWithAuth(`/api/groups/${id}/memos`, {}, session);
+    if (!response.ok) throw new Error('Failed to fetch group memos');
+    return response.json();
+  },
+
+  async getGroupSchedules(id: string, session: Session | null): Promise<ScheduleResponse[]> {
+    const response = await fetchWithAuth(`/api/groups/${id}/schedules`, {}, session);
+    if (!response.ok) throw new Error('Failed to fetch group schedules');
+    return response.json();
+  },
+
+  async create(data: { name: string; description: string; colorTheme: string }, session: Session | null): Promise<GroupResponse> {
+    const response = await fetchWithAuth('/api/groups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, session);
+
+    if (!response.ok) throw new Error('Failed to create group');
+    return response.json();
+  }
+};
