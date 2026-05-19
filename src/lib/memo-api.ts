@@ -1,10 +1,11 @@
 import { Session } from 'next-auth';
 
-// 브라우저에서는 상대 경로를 사용하여 Vercel Proxy(Rewrite)를 거치게 하고, 
-// 서버 사이드(Next.js)에서만 절대 주소를 사용하도록 설정합니다.
-const API_BASE_URL = typeof window === 'undefined' 
-  ? (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080')
-  : '';
+// 브라우저 환경에서는 Vercel Rewrites(Proxy)를 위해 상대 경로(/api-proxy/...)를 사용합니다.
+// 서버 환경(SSR/Sync)에서는 백엔드 절대 주소를 직접 호출합니다.
+const isBrowser = typeof window !== 'undefined';
+const API_BASE_URL = isBrowser 
+  ? '' 
+  : (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080');
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}, session: Session | null) {
   const headers: Record<string, string> = {
@@ -20,8 +21,10 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-  // /api/로 시작하는 요청을 /api-proxy/로 변환 (Vercel Rewrite 매칭)
-  const targetUrl = url.startsWith('/api/') 
+  // URL 변환 로직:
+  // 1. 브라우저인 경우: /api/ -> /api-proxy/ (Vercel Proxy 활성화)
+  // 2. 서버인 경우: /api/ 그대로 유지 (백엔드 직접 호출)
+  const targetUrl = (isBrowser && url.startsWith('/api/'))
     ? url.replace('/api/', '/api-proxy/') 
     : url;
 
@@ -81,14 +84,14 @@ export const memoApi = {
       formData.append('image', data.imageFile);
     }
 
-    // FormData 전송 시에는 JSON Content-Type이 들어가면 안 되므로 fetchWithAuth 대신 직접 fetch 호출
-    // 단, 주소는 Proxy를 타도록 구성
     const headers: Record<string, string> = {};
     if (session?.user?.accessToken) {
       headers['Authorization'] = `Bearer ${session.user.accessToken}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api-proxy/memos`, {
+    // create에서도 동일한 Proxy 로직 적용
+    const path = isBrowser ? '/api-proxy/memos' : '/api/memos';
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
       headers,
       body: formData,
