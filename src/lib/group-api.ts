@@ -1,5 +1,5 @@
 import { Session } from 'next-auth';
-import { fetchWithAuth } from './memo-api';
+import { fetchWithAuth, type MemoResponse } from './memo-api';
 import { type ScheduleResponse } from './schedule-api';
 
 export interface GroupResponse {

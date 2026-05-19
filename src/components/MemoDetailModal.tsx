@@ -9,6 +9,7 @@ import {
   Tag as TagIcon,
   MessageSquare,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { analyzeMemo } from '@/lib/memo-analyzer';
@@ -23,6 +24,7 @@ interface MemoDetailModalProps {
   memoId: string | null;
   userId: string;
   authorName?: string | null;
+  onDelete?: () => void;
 }
 
 function formatDateTime(iso: string) {
@@ -63,6 +65,7 @@ export default function MemoDetailModal({
   memoId,
   userId,
   authorName,
+  onDelete,
 }: MemoDetailModalProps) {
   const { data: session } = useSession();
   const [memo, setMemo] = useState<MemoResponse | null>(null);
@@ -70,6 +73,7 @@ export default function MemoDetailModal({
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [loadingMemo, setLoadingMemo] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !memoId || !session) {
@@ -137,6 +141,21 @@ export default function MemoDetailModal({
 
   if (!memo) return null;
 
+  const handleDelete = async () => {
+    if (!confirm('정말로 이 메모를 삭제하시겠습니까?')) return;
+    setIsDeleting(true);
+    try {
+      await memoApi.delete(memo.id, session);
+      onDelete?.();
+      onClose();
+    } catch (error) {
+      console.error('Failed to delete memo:', error);
+      alert('메모 삭제에 실패했습니다.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
   const emotionStyle = insight ? emotionBarClass(insight.emotion) : null;
@@ -161,6 +180,14 @@ export default function MemoDetailModal({
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
                 >
                   <Share2 className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="p-2 hover:bg-red-50 rounded-full transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
+                >
+                  {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
                 </button>
               </div>
               <button

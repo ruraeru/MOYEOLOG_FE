@@ -40,6 +40,7 @@ export default function GroupDetailPage() {
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
@@ -76,7 +77,7 @@ export default function GroupDetailPage() {
 
   const handleScheduleClick = (schedule: ScheduleResponse) => {
     setSelectedSchedule(schedule);
-    setIsDetailModalOpen(true);
+    setIsDetailOpen(true);
   };
 
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {

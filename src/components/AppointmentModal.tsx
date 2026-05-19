@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 
 interface KakaoMap {
-  setCenter: (latlng: any) => void;
+  setCenter: (latlng: unknown) => void;
   relayout: () => void;
 }
 
@@ -91,7 +91,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   // Kakao Map States
   const [map, setMap] = useState<KakaoMap | null>(null);
-  const [marker, setMarker] = useState<any>(null);
+  const [marker, setMarker] = useState<unknown>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loadingRecs, setLoadingLoadingRecs] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -121,13 +121,13 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           setMarker(newMarker);
 
           // Initial recommendations for Seoul Station
-          fetchRecommendations(37.566826, 126.9786567);
+          fetchRecommendations();
         });
       };
     }
   }, [isOpen]);
 
-  const fetchRecommendations = async (lat: number, lng: number) => {
+  const fetchRecommendations = async () => {
     setLoadingLoadingRecs(true);
     // In a real implementation, this would call Kakao Category Search or a backend API
     // Category codes: FD6 (Food), CE7 (Cafe), AT4 (Tourist Attraction)
@@ -161,17 +161,18 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const handleSearchLocation = () => {
     if (!location || !map) return;
     const ps = new (window as any).kakao.maps.services.Places();
-    ps.keywordSearch(location, (data: KakaoPlace[], status: any) => {
+    ps.keywordSearch(location, (data: KakaoPlace[], status: unknown) => {
       if (status === (window as any).kakao.maps.services.Status.OK) {
-        const coords = new (window as any).kakao.maps.LatLng(data[0].address_name); // Simplified
         // In real use, you'd use data[0].y, data[0].x
-        const lat = parseFloat(data[0] as any).y;
-        const lng = parseFloat(data[0] as any).x;
+        const lat = parseFloat((data[0] as any).y);
+        const lng = parseFloat((data[0] as any).x);
         const realCoords = new (window as any).kakao.maps.LatLng(lat, lng);
 
         map.setCenter(realCoords);
-        marker.setPosition(realCoords);
-        fetchRecommendations(lat, lng);
+        if (marker && (marker as any).setPosition) {
+          (marker as any).setPosition(realCoords);
+        }
+        fetchRecommendations();
       }
     });
   };
@@ -254,8 +255,6 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const handleRecommendationSelect = (rec: Recommendation) => {
     setLocation(rec.name);
     if (map && marker) {
-      // For demo, we just set the location name. 
-      // In real app, we'd search for this specific place to get coordinates
       handleSearchLocation();
     }
   };
