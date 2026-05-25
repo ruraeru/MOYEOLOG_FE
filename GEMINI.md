@@ -41,6 +41,11 @@
 
 ## 📐 주요 구현 가이드라인
 
+### 커밋 메시지 규칙 (Commit Message Convention)
+- 모든 커밋 메시지는 **한글**로 작성합니다.
+- `feat:`, `fix:`, `chore:`, `refactor:` 등의 접두어(Prefix)는 영문으로 유지하되, 이후 설명은 한글을 사용합니다.
+  - 예: `feat: AI 인사이트 기능 연동 완료`, `fix: 로그아웃 시 세션 초기화 버그 수정`
+
 ### 모달 시스템 (Modal System)
 - 모든 모달은 `isOpen`, `onClose` props를 기본으로 가집니다.
 - **닫기 기능:** 우측 상단 X 버튼, 하단 취소 버튼, 그리고 **배경(Backdrop) 클릭 시 닫기** 기능이 전역 적용되어 있습니다. (`e.stopPropagation()` 사용)

@@ -17,9 +17,9 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
     headers['Authorization'] = `Bearer ${session.user.accessToken}`;
   }
 
-  // 10초 타임아웃 설정
+  // AI 분석 등 시간이 걸리는 작업을 위해 60초 타임아웃 설정
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
   // URL 변환 로직:
   // 1. 브라우저인 경우: /api/ -> /api-proxy/ (Vercel Proxy 활성화)
