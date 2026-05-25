@@ -4,6 +4,7 @@ import { fetchWithAuth } from './memo-api';
 export interface FriendResponse {
   id: string; // 관계 ID
   userId: string; // 상대방 유저 ID
+  customId: string;
   nickname: string;
   email: string;
   profileImage?: string;
@@ -23,10 +24,10 @@ export const friendApi = {
     return response.json();
   },
 
-  async sendRequest(email: string, session: Session | null): Promise<void> {
+  async sendRequest(customId: string, session: Session | null): Promise<void> {
     const response = await fetchWithAuth('/api/friends/request', {
       method: 'POST',
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ customId }),
     }, session);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

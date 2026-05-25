@@ -13,6 +13,15 @@ export interface GroupResponse {
   createdAt: string;
 }
 
+export interface GroupInvitationResponse {
+  id: string;
+  groupId: string;
+  groupName: string;
+  inviterNickname: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  invitedAt: string;
+}
+
 export const groupApi = {
   async getAll(session: Session | null): Promise<GroupResponse[]> {
     const response = await fetchWithAuth('/api/groups', {}, session);
@@ -46,5 +55,33 @@ export const groupApi = {
 
     if (!response.ok) throw new Error('Failed to create group');
     return response.json();
+  },
+
+  async inviteMembers(groupId: string, emails: string[], session: Session | null): Promise<void> {
+    const response = await fetchWithAuth(`/api/groups/${groupId}/invitations`, {
+      method: 'POST',
+      body: JSON.stringify({ emails }),
+    }, session);
+    if (!response.ok) throw new Error('Failed to invite members');
+  },
+
+  async getMyInvitations(session: Session | null): Promise<GroupInvitationResponse[]> {
+    const response = await fetchWithAuth('/api/groups/invitations', {}, session);
+    if (!response.ok) throw new Error('Failed to fetch invitations');
+    return response.json();
+  },
+
+  async acceptInvitation(invitationId: string, session: Session | null): Promise<void> {
+    const response = await fetchWithAuth(`/api/groups/invitations/${invitationId}/accept`, {
+      method: 'POST',
+    }, session);
+    if (!response.ok) throw new Error('Failed to accept invitation');
+  },
+
+  async rejectInvitation(invitationId: string, session: Session | null): Promise<void> {
+    const response = await fetchWithAuth(`/api/groups/invitations/${invitationId}/reject`, {
+      method: 'POST',
+    }, session);
+    if (!response.ok) throw new Error('Failed to reject invitation');
   }
 };

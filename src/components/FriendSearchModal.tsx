@@ -13,23 +13,23 @@ interface FriendSearchModalProps {
 
 export default function FriendSearchModal({ isOpen, onClose, onSuccess }: FriendSearchModalProps) {
   const { data: session } = useSession();
-  const [email, setEmail] = useState('');
+  const [customId, setCustomId] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const handleSendRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!customId.trim()) return;
 
     setIsSending(true);
     setError(null);
     setSuccess(false);
 
     try {
-      await friendApi.sendRequest(email, session);
+      await friendApi.sendRequest(customId, session);
       setSuccess(true);
-      setEmail('');
+      setCustomId('');
       onSuccess?.();
       setTimeout(() => {
         setSuccess(false);
@@ -56,15 +56,16 @@ export default function FriendSearchModal({ isOpen, onClose, onSuccess }: Friend
 
         <form onSubmit={handleSendRequest} className="p-6 space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-bold text-gray-700">이메일로 찾기</label>
+            <label className="text-sm font-bold text-gray-700">사용자 ID로 찾기</label>
             <div className="relative">
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="친구의 이메일을 입력하세요"
+                type="text"
+                value={customId}
+                onChange={(e) => setCustomId(e.target.value)}
+                placeholder="친구의 8자리 ID를 입력하세요"
                 className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-3 text-sm outline-none focus:border-indigo-400 focus:bg-white transition-all shadow-sm"
                 required
+                maxLength={8}
               />
               <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-gray-300" />
             </div>

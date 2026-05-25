@@ -89,6 +89,7 @@ export const authOptions: NextAuthOptions = {
             token.accessToken = data.accessToken;
             token.userId = data.user.id;
             token.kakaoId = data.user.kakaoId;
+            token.customId = data.user.customId;
           } else {
             console.error('Backend Sync Failed');
           }
@@ -104,6 +105,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = (token.userId as string) || (token.sub ?? '');
         session.user.accessToken = token.accessToken;
         session.user.kakaoId = token.kakaoId;
+        session.user.customId = token.customId as string;
       }
       return session;
     },

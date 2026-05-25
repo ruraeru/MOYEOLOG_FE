@@ -18,6 +18,7 @@ interface User {
   name?: string | null;
   email?: string | null;
   image?: string | null;
+  customId?: string;
 }
 
 interface ProfileModalProps {
@@ -65,7 +66,10 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">{user?.name || '게스트'}</h3>
-              <p className="text-xs text-white/70 font-medium truncate w-40">{user?.email || '로그인이 필요합니다'}</p>
+              <div className="flex flex-col">
+                <p className="text-[10px] text-white/70 font-bold tracking-wider uppercase mb-0.5">ID: {user?.customId || '--------'}</p>
+                <p className="text-[10px] text-white/50 font-medium truncate w-40">{user?.email || '로그인이 필요합니다'}</p>
+              </div>
             </div>
           </div>
         </div>

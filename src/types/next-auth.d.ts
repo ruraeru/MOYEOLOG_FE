@@ -9,6 +9,7 @@ declare module 'next-auth' {
       image?: string | null;
       accessToken?: string;
       kakaoId?: string;
+      customId?: string;
     };
   }
 
@@ -19,6 +20,7 @@ declare module 'next-auth' {
     image?: string | null;
     accessToken?: string;
     kakaoId?: string;
+    customId?: string;
   }
 }
 
@@ -27,5 +29,6 @@ declare module 'next-auth/jwt' {
     accessToken?: string;
     kakaoId?: string;
     userId?: string;
+    customId?: string;
   }
 }

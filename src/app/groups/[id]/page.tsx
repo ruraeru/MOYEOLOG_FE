@@ -17,6 +17,7 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
 import MemoCreateModal from '@/components/MemoCreateModal';
+import GroupInviteModal from '@/components/GroupInviteModal';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
@@ -38,6 +39,7 @@ export default function GroupDetailPage() {
   
   // Modals state
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -159,6 +161,13 @@ export default function GroupDetailPage() {
                       {nickname.substring(0, 1)}
                     </div>
                   ))}
+                  <button 
+                    onClick={() => setIsInviteModalOpen(true)}
+                    className="w-10 h-10 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center text-white hover:bg-indigo-700 transition-colors shadow-sm z-10"
+                    title="멤버 초대"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
                 </div>
                 <div className="text-white pr-2">
                   <p className="text-[10px] font-bold opacity-60">Members</p>
@@ -282,6 +291,16 @@ export default function GroupDetailPage() {
         userId={session?.user?.id || ''}
         groupId={groupId}
         onSuccess={fetchGroupData}
+      />
+
+      <GroupInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        groupId={groupId}
+        groupName={group.name}
+        onSuccess={() => {
+          // 초대가 성공적으로 보내졌을 때의 처리 (알림 등으로 표시될 예정)
+        }}
       />
 
       <AppointmentModal 
