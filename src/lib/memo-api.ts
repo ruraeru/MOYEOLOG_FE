@@ -45,6 +45,14 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
   }
 }
 
+export interface MemoInsight {
+  ocrText: string;
+  summary: string;
+  emotion: string;
+  keywords: string[];
+  analyzedAt: string;
+}
+
 export interface MemoResponse {
   id: string;
   title: string;
@@ -52,6 +60,7 @@ export interface MemoResponse {
   imageUrl?: string;
   groupId?: string;
   tags: string[];
+  insight?: MemoInsight;
   createdAt: string;
   updatedAt: string;
 }
@@ -119,6 +128,21 @@ export const memoApi = {
   async getSharedMemos(session: Session | null): Promise<MemoResponse[]> {
     const response = await fetchWithAuth('/api/memos/shared', {}, session);
     if (!response.ok) throw new Error('Failed to fetch shared memos');
+    return response.json();
+  },
+
+  async getInsight(id: string, session: Session | null): Promise<MemoInsight | null> {
+    const response = await fetchWithAuth(`/api/memos/${id}/insight`, {}, session);
+    if (response.status === 404 || response.status === 204) return null;
+    if (!response.ok) throw new Error('Failed to fetch memo insight');
+    return response.json();
+  },
+
+  async analyze(id: string, session: Session | null): Promise<MemoInsight> {
+    const response = await fetchWithAuth(`/api/memos/${id}/analyze`, {
+      method: 'POST',
+    }, session);
+    if (!response.ok) throw new Error('Failed to analyze memo');
     return response.json();
   }
 };
