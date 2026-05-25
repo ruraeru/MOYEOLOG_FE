@@ -134,15 +134,23 @@ export const memoApi = {
   async getInsight(id: string, session: Session | null): Promise<MemoInsight | null> {
     const response = await fetchWithAuth(`/api/memos/${id}/insight`, {}, session);
     if (response.status === 404 || response.status === 204) return null;
+    
+    const text = await response.text();
+    if (!text || text.trim() === '') return null;
+    
     if (!response.ok) throw new Error('Failed to fetch memo insight');
-    return response.json();
+    return JSON.parse(text);
   },
 
   async analyze(id: string, session: Session | null): Promise<MemoInsight> {
     const response = await fetchWithAuth(`/api/memos/${id}/analyze`, {
       method: 'POST',
     }, session);
-    if (!response.ok) throw new Error('Failed to analyze memo');
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || 'AI 분석에 실패했습니다.');
+    }
     return response.json();
   }
 };
