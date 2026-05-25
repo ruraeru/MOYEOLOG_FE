@@ -12,8 +12,7 @@ import {
   Lightbulb,
   Loader2,
 } from 'lucide-react';
-import { analyzeMemo } from '@/lib/memo-analyzer';
-import { fileToDataUrl, saveInsight } from '@/lib/memo-storage';
+import { fileToDataUrl } from '@/lib/memo-storage';
 import { memoApi } from '@/lib/memo-api';
 import { useSession } from 'next-auth/react';
 
@@ -94,26 +93,13 @@ export default function MemoCreateModal({
 
     try {
       // 백엔드 API 호출 (FormData/파일 전송)
-      const memo = await memoApi.create({
+      await memoApi.create({
         title,
         content,
         imageFile: imageFile || undefined,
         groupId: groupId || undefined, // 주입받은 groupId 사용
         tags: tags, // 태그 추가
       }, session);
-
-      // AI 분석 (미리보기용 DataURL 활용)
-      try {
-        const insight = await analyzeMemo({
-          memoId: memo.id,
-          title: memo.title,
-          content: memo.content,
-          imageDataUrl: imagePreview ?? undefined,
-        });
-        saveInsight(userId, insight);
-      } catch (aiError) {
-        console.error('AI analysis failed:', aiError);
-      }
 
       resetForm();
       onSuccess?.();

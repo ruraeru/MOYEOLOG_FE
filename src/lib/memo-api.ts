@@ -130,6 +130,15 @@ export const memoApi = {
     return response.json();
   },
 
+  async updateTags(id: string, tags: string[], session: Session | null): Promise<MemoResponse> {
+    const response = await fetchWithAuth(`/api/memos/${id}/tags`, {
+      method: 'PUT',
+      body: JSON.stringify({ tags }),
+    }, session);
+    if (!response.ok) throw new Error('Failed to update tags');
+    return response.json();
+  },
+
   async getInsight(id: string, session: Session | null): Promise<MemoInsight | null> {
     const response = await fetchWithAuth(`/api/memos/${id}/insight`, {}, session);
     if (response.status === 404 || response.status === 204) return null;

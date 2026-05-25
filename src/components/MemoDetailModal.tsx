@@ -61,6 +61,8 @@ export default function MemoDetailModal({
   const { data: session } = useSession();
   const [memo, setMemo] = useState<MemoResponse | null>(null);
   const [insight, setInsight] = useState<MemoInsight | null>(null);
+  const [currentTags, setCurrentTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [loadingMemo, setLoadingMemo] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -70,6 +72,7 @@ export default function MemoDetailModal({
     if (!isOpen || !memoId || !session) {
       setMemo(null);
       setInsight(null);
+      setCurrentTags([]);
       return;
     }
 
@@ -81,6 +84,7 @@ export default function MemoDetailModal({
         const data = await memoApi.getById(memoId, session);
         if (cancelled) return;
         setMemo(data);
+        setCurrentTags(data.tags || []);
 
         // 이미 포함된 인사이트가 있으면 세팅, 없으면 별도 조회 시도
         if (data.insight) {
@@ -118,6 +122,30 @@ export default function MemoDetailModal({
     } finally {
       setLoadingInsight(false);
     }
+  };
+
+  const syncTags = async (newTags: string[]) => {
+    if (!memoId || !session) return;
+    try {
+      await memoApi.updateTags(memoId, newTags, session);
+      setCurrentTags(newTags);
+    } catch (error) {
+      console.error('Failed to sync tags:', error);
+      alert('태그 저장에 실패했습니다.');
+    }
+  };
+
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim().replace(/^#/, '');
+    if (!trimmed || currentTags.includes(trimmed)) return;
+    const newTags = [...currentTags, trimmed];
+    syncTags(newTags);
+    setTagInput('');
+  };
+
+  const removeTag = (tag: string) => {
+    const newTags = currentTags.filter(t => t !== tag);
+    syncTags(newTags);
   };
 
   if (!isOpen) return null;
@@ -236,16 +264,28 @@ export default function MemoDetailModal({
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase">주요 키워드</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">AI 추천 태그</span>
+                        <span className="text-[8px] text-gray-300 font-medium">클릭하여 추가</span>
+                      </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {insight.keywords.map((kw) => (
-                          <span
-                            key={kw}
-                            className="text-[10px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded"
-                          >
-                            {kw}
-                          </span>
-                        ))}
+                        {insight.keywords.map((kw) => {
+                          const isAdded = currentTags.includes(kw);
+                          return (
+                            <button
+                              key={kw}
+                              onClick={() => !isAdded && addTag(kw)}
+                              disabled={isAdded}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
+                                isAdded 
+                                  ? 'bg-gray-100 text-gray-300 cursor-default' 
+                                  : 'bg-blue-50 text-blue-500 hover:bg-blue-100'
+                              }`}
+                            >
+                              {kw}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   </>
@@ -268,19 +308,33 @@ export default function MemoDetailModal({
                 <TagIcon className="w-5 h-5 text-blue-500" />
                 <span>태그</span>
               </div>
+              
               <div className="flex flex-wrap gap-2">
-                {memo.tags && memo.tags.length > 0 ? (
-                  memo.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-xl shadow-sm"
+                {currentTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 group/tag"
+                  >
+                    #{tag}
+                    <button 
+                      onClick={() => removeTag(tag)}
+                      className="text-gray-300 hover:text-red-500 transition-colors"
                     >
-                      #{tag}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-400">태그 없음</span>
-                )}
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addTag(tagInput)}
+                    placeholder="태그 추가..."
+                    className="text-xs font-bold text-gray-400 bg-gray-50 border border-transparent px-3 py-1.5 rounded-xl w-24 focus:w-32 focus:bg-white focus:border-blue-200 transition-all outline-none"
+                  />
+                </div>
               </div>
             </div>
 
