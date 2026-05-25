@@ -15,6 +15,11 @@ import {
 import { fileToDataUrl } from '@/lib/memo-storage';
 import { memoApi } from '@/lib/memo-api';
 import { useSession } from 'next-auth/react';
+import dynamic from 'next/dynamic';
+import '@uiw/react-md-editor/markdown-editor.css';
+import '@uiw/react-markdown-preview/markdown.css';
+
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
 interface MemoCreateModalProps {
   isOpen: boolean;
@@ -193,12 +198,16 @@ export default function MemoCreateModal({
                 )}
               </div>
 
-              <div className="flex-1 min-h-[200px] border border-gray-100 rounded-2xl p-5 bg-white">
-                <textarea
+              <div className="flex-1 min-h-[350px] border border-gray-100 rounded-2xl overflow-hidden bg-white" data-color-mode="light">
+                <MDEditor
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="내용을 입력하세요..."
-                  className="w-full h-full min-h-[180px] resize-none border-none outline-none text-sm text-gray-600 placeholder:text-gray-300 leading-relaxed"
+                  onChange={(val) => setContent(val || '')}
+                  preview="live"
+                  height="100%"
+                  style={{ borderRadius: '1rem' }}
+                  textareaProps={{
+                    placeholder: '내용을 입력하세요 (마크다운 지원)...'
+                  }}
                 />
               </div>
             </div>

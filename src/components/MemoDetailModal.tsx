@@ -14,6 +14,14 @@ import {
 import { useSession } from 'next-auth/react';
 import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
 import MemoShareModal from './MemoShareModal';
+import dynamic from 'next/dynamic';
+import '@uiw/react-md-editor/markdown-editor.css';
+import '@uiw/react-markdown-preview/markdown.css';
+
+const EdMarkdown = dynamic(
+  () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
+  { ssr: false }
+);
 
 interface MemoDetailModalProps {
   isOpen: boolean;
@@ -227,9 +235,17 @@ export default function MemoDetailModal({
 
             {imageSrc && <MemoImage src={imageSrc} alt={memo.title} />}
 
-            <p className="text-lg text-gray-700 leading-relaxed font-medium whitespace-pre-wrap">
-              {memo.content}
-            </p>
+            <div className="text-gray-700 leading-relaxed" data-color-mode="light">
+              <EdMarkdown 
+                source={memo.content} 
+                style={{ 
+                  backgroundColor: 'transparent', 
+                  fontSize: '1.125rem', 
+                  fontWeight: 500,
+                  color: 'inherit'
+                }} 
+              />
+            </div>
           </div>
 
           <div className="w-[360px] bg-gray-50/50 p-8 overflow-y-auto no-scrollbar flex flex-col gap-8 shrink-0 relative">
