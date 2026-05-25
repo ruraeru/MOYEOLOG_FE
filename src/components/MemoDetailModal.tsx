@@ -36,12 +36,6 @@ function formatDateTime(iso: string) {
   });
 }
 
-function emotionBarClass(emotion: string) {
-  if (emotion === '긍정') return { bar: 'w-[85%] bg-emerald-400', text: 'text-emerald-500' };
-  if (emotion === '부정') return { bar: 'w-[35%] bg-red-400', text: 'text-red-500' };
-  return { bar: 'w-[55%] bg-amber-400', text: 'text-amber-500' };
-}
-
 function MemoImage({ src, alt }: { src: string; alt: string }) {
   if (src.startsWith('data:')) {
     return (
@@ -158,7 +152,6 @@ export default function MemoDetailModal({
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
-  const emotionStyle = insight ? emotionBarClass(insight.emotion) : null;
 
   return (
     <>
@@ -255,20 +248,6 @@ export default function MemoDetailModal({
                         ))}
                       </div>
                     </div>
-
-                    {emotionStyle && (
-                      <div className="space-y-2">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase">감정 분석</span>
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div className={`h-full ${emotionStyle.bar}`} />
-                          </div>
-                          <span className={`text-[10px] font-bold shrink-0 ${emotionStyle.text}`}>
-                            {insight.emotion}
-                          </span>
-                        </div>
-                      </div>
-                    )}
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-4 gap-3 text-center">

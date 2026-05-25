@@ -48,7 +48,6 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
 export interface MemoInsight {
   ocrText: string;
   summary: string;
-  emotion: string;
   keywords: string[];
   analyzedAt: string;
 }
