@@ -12,10 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { analyzeMemo } from '@/lib/memo-analyzer';
-import { getInsight, saveInsight } from '@/lib/memo-storage';
-import { memoApi, type MemoResponse } from '@/lib/memo-api';
-import type { MemoAiInsight } from '@/types/memo';
+import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
 import MemoShareModal from './MemoShareModal';
 
 interface MemoDetailModalProps {
@@ -69,7 +66,7 @@ export default function MemoDetailModal({
 }: MemoDetailModalProps) {
   const { data: session } = useSession();
   const [memo, setMemo] = useState<MemoResponse | null>(null);
-  const [insight, setInsight] = useState<MemoAiInsight | null>(null);
+  const [insight, setInsight] = useState<MemoInsight | null>(null);
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [loadingMemo, setLoadingMemo] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -91,30 +88,19 @@ export default function MemoDetailModal({
         if (cancelled) return;
         setMemo(data);
 
-        // 로컬 인사이트 조회
-        const existing = getInsight(userId, memoId);
-        if (existing) {
-          setInsight(existing);
-          return;
+        // 이미 포함된 인사이트가 있으면 세팅, 없으면 별도 조회 시도
+        if (data.insight) {
+          setInsight(data.insight);
+        } else {
+          const res = await memoApi.getInsight(memoId, session);
+          if (cancelled) return;
+          if (res) setInsight(res);
         }
-
-        // 인사이트 없으면 분석 시도 (AI 기능 서버 연동 전 임시)
-        setLoadingInsight(true);
-        const result = await analyzeMemo({
-          memoId: data.id,
-          title: data.title,
-          content: data.content,
-          imageDataUrl: data.imageUrl,
-        });
-        if (cancelled) return;
-        saveInsight(userId, result);
-        setInsight(result);
       } catch (error) {
         console.error('Failed to fetch memo detail:', error);
       } finally {
         if (!cancelled) {
           setLoadingMemo(false);
-          setLoadingInsight(false);
         }
       }
     };
@@ -124,7 +110,21 @@ export default function MemoDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, memoId, userId, session]);
+  }, [isOpen, memoId, session]);
+
+  const handleAnalyze = async () => {
+    if (!memoId || !session) return;
+    setLoadingInsight(true);
+    try {
+      const res = await memoApi.analyze(memoId, session);
+      setInsight(res);
+    } catch (error) {
+      console.error('Failed to analyze memo:', error);
+      alert('AI 분석에 실패했습니다.');
+    } finally {
+      setLoadingInsight(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -228,8 +228,11 @@ export default function MemoDetailModal({
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
-                {loadingInsight && !insight ? (
-                  <p className="text-xs text-gray-400 font-medium">AI 분석 중…</p>
+                {loadingInsight ? (
+                  <div className="flex flex-col items-center justify-center py-4 gap-2">
+                    <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                    <p className="text-[10px] text-gray-400 font-bold">AI가 분석 중입니다...</p>
+                  </div>
                 ) : insight ? (
                   <>
                     <div className="space-y-2">
@@ -268,7 +271,15 @@ export default function MemoDetailModal({
                     )}
                   </>
                 ) : (
-                  <p className="text-xs text-gray-400">분석 결과가 없습니다.</p>
+                  <div className="flex flex-col items-center justify-center py-4 gap-3 text-center">
+                    <p className="text-xs text-gray-400 font-medium">분석 결과가 아직 없습니다.</p>
+                    <button
+                      onClick={handleAnalyze}
+                      className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                    >
+                      AI 분석 시작하기
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -299,10 +310,8 @@ export default function MemoDetailModal({
                 <MessageSquare className="w-5 h-5 text-blue-500" />
                 <span className="text-sm">OCR 인식 텍스트</span>
               </div>
-              <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-xs text-gray-500 leading-relaxed font-medium whitespace-pre-wrap">
-                {loadingInsight && !insight
-                  ? '분석 중…'
-                  : insight?.ocrText ?? '—'}
+              <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-xs text-gray-500 leading-relaxed font-medium whitespace-pre-wrap min-h-[100px]">
+                {loadingInsight ? '분석 중…' : insight?.ocrText ?? '—'}
               </div>
             </div>
           </div>
