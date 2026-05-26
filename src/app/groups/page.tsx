@@ -163,12 +163,18 @@ function GroupCard({ group }: { group: GroupResponse }) {
         {/* Members List */}
         <div className="flex items-center gap-3 pt-2">
           <div className="flex -space-x-2">
-            {group.memberNicknames.slice(0, 3).map((nickname, i) => (
+            {group.members.slice(0, 3).map((member) => (
               <div 
-                key={i} 
-                className={`w-7 h-7 rounded-full ${theme.memberBg} ${theme.memberText} border-2 border-white flex items-center justify-center text-[10px] font-bold`}
+                key={member.id} 
+                className={`w-7 h-7 rounded-full ${theme.memberBg} ${theme.memberText} border-2 border-white flex items-center justify-center text-[10px] font-bold overflow-hidden shadow-sm`}
+                title={member.nickname}
               >
-                {nickname.substring(0, 1)}
+                {member.profileImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
+                ) : (
+                  member.nickname.substring(0, 1)
+                )}
               </div>
             ))}
           </div>

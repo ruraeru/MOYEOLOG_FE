@@ -189,12 +189,18 @@ export default function GroupDetailPage() {
 
               <div className="flex items-center gap-4 bg-black/10 backdrop-blur-lg p-4 rounded-2xl border border-white/10">
                 <div className="flex -space-x-3">
-                  {group.memberNicknames.slice(0, 5).map((nickname) => (
+                  {group.members.slice(0, 5).map((member) => (
                     <div 
-                      key={nickname}
-                      className="w-10 h-10 rounded-full bg-white border-2 border-indigo-400 flex items-center justify-center text-xs font-bold text-indigo-600 shadow-sm"
+                      key={member.id}
+                      className="w-10 h-10 rounded-full bg-white border-2 border-indigo-400 flex items-center justify-center text-xs font-bold text-indigo-600 shadow-sm overflow-hidden"
+                      title={member.nickname}
                     >
-                      {nickname.substring(0, 1)}
+                      {member.profileImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
+                      ) : (
+                        member.nickname.substring(0, 1)
+                      )}
                     </div>
                   ))}
                   <button 

@@ -402,27 +402,22 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     }
   };
 
-  const insertParticipantMention = (f: FriendResponse) => {
-    if (!participants.find((p) => p.id === f.userId)) {
-      setParticipants([...participants, { id: f.userId, nickname: f.nickname }]);
+  const insertParticipantMention = (m: { id: string, nickname: string }) => {
+    if (!participants.find((p) => p.id === m.id)) {
+      setParticipants([...participants, { id: m.id, nickname: m.nickname }]);
     }
     setParticipantInput(participantInput.split('@')[0]);
     setShowParticipantMentions(false);
   };
 
-  const filteredFriends = friends.filter((f) => {
-    // 그룹이 선택된 경우, 그룹 멤버만 필터링
-    if (selectedGroupId) {
-      const selectedGroup = userGroups.find(g => g.id === selectedGroupId);
-      if (selectedGroup) {
-        // 그룹 멤버 닉네임 목록에 포함되어 있는지 확인
-        return selectedGroup.memberNicknames.includes(f.nickname) && 
-               f.nickname.toLowerCase().includes(participantQuery.toLowerCase());
-      }
-    }
-    // 그룹이 선택되지 않은 경우, 전체 친구 검색
-    return f.nickname.toLowerCase().includes(participantQuery.toLowerCase());
-  });
+  // 멘션 추천 대상 통합 (그룹 선택 시 그룹원, 미선택 시 친구)
+  const mentionCandidates = selectedGroupId 
+    ? userGroups.find(g => g.id === selectedGroupId)?.members || []
+    : friends.map(f => ({ id: f.userId, nickname: f.nickname, profileImage: f.profileImage }));
+
+  const filteredMentionCandidates = mentionCandidates.filter(m => 
+    m.nickname.toLowerCase().includes(participantQuery.toLowerCase())
+  );
 
   // ─── 저장 ────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -605,29 +600,28 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
               
               {showParticipantMentions && (
                 <div className="absolute z-30 bottom-full mb-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-2 max-h-48 overflow-y-auto">
-                  {filteredFriends.map((f) => (
+                  {filteredMentionCandidates.map((m) => (
                     <button
-                      key={f.id}
-                      onClick={() => insertParticipantMention(f)}
+                      key={m.id}
+                      onClick={() => insertParticipantMention(m)}
                       className="w-full text-left px-5 py-3 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 font-bold text-sm text-gray-800"
                     >
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden">
-                          {f.profileImage ? (
+                          {m.profileImage ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={f.profileImage} alt={f.nickname} className="w-full h-full object-cover" />
+                            <img src={m.profileImage} alt={m.nickname} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-[10px] text-indigo-600 font-bold">
-                              {f.nickname[0]}
+                              {m.nickname[0]}
                             </div>
                           )}
                         </div>
-                        {f.nickname}
-                        <span className="text-[10px] text-gray-400 font-normal">({f.customId})</span>
+                        {m.nickname}
                       </div>
                     </button>
                   ))}
-                  {filteredFriends.length === 0 && (
+                  {filteredMentionCandidates.length === 0 && (
                     <div className="p-4 text-center text-xs text-gray-400">검색 결과가 없습니다.</div>
                   )}
                 </div>

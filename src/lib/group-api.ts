@@ -8,7 +8,11 @@ export interface GroupResponse {
   description: string;
   colorTheme: string;
   createdByNickname: string;
-  memberNicknames: string[];
+  members: Array<{
+    id: string;
+    nickname: string;
+    profileImage?: string;
+  }>;
   inviteCode: string;
   memberCount: number;
   createdAt: string;
