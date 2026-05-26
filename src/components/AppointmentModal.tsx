@@ -410,9 +410,19 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     setShowParticipantMentions(false);
   };
 
-  const filteredFriends = friends.filter((f) =>
-    f.nickname.toLowerCase().includes(participantQuery.toLowerCase())
-  );
+  const filteredFriends = friends.filter((f) => {
+    // 그룹이 선택된 경우, 그룹 멤버만 필터링
+    if (selectedGroupId) {
+      const selectedGroup = userGroups.find(g => g.id === selectedGroupId);
+      if (selectedGroup) {
+        // 그룹 멤버 닉네임 목록에 포함되어 있는지 확인
+        return selectedGroup.memberNicknames.includes(f.nickname) && 
+               f.nickname.toLowerCase().includes(participantQuery.toLowerCase());
+      }
+    }
+    // 그룹이 선택되지 않은 경우, 전체 친구 검색
+    return f.nickname.toLowerCase().includes(participantQuery.toLowerCase());
+  });
 
   // ─── 저장 ────────────────────────────────────────────────────────
   const handleSave = async () => {
