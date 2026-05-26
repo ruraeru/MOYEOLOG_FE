@@ -63,8 +63,19 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const [time, setTime] = useState('12:00');
   const [location, setLocation] = useState('');
   const [memo, setMemo] = useState(''); 
-  const [participants, setParticipants] = useState<Array<{ id?: string, nickname: string }>>([{ nickname: '나' }]);
+  const [participants, setParticipants] = useState<Array<{ id?: string, nickname: string, profileImage?: string }>>([]);
   const [participantInput, setParticipantInput] = useState('');
+
+  // 본인 정보 초기화
+  useEffect(() => {
+    if (session?.user && participants.length === 0) {
+      setParticipants([{ 
+        id: session.user.id, 
+        nickname: '나', 
+        profileImage: session.user.image || undefined 
+      }]);
+    }
+  }, [session, participants.length]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState('');
@@ -402,18 +413,20 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     }
   };
 
-  const insertParticipantMention = (m: { id: string, nickname: string }) => {
+  const insertParticipantMention = (m: { id: string, nickname: string, profileImage?: string }) => {
     if (!participants.find((p) => p.id === m.id)) {
-      setParticipants([...participants, { id: m.id, nickname: m.nickname }]);
+      setParticipants([...participants, { id: m.id, nickname: m.nickname, profileImage: m.profileImage }]);
     }
     setParticipantInput(participantInput.split('@')[0]);
     setShowParticipantMentions(false);
   };
 
   // 멘션 추천 대상 통합 (그룹 선택 시 그룹원, 미선택 시 친구)
-  const mentionCandidates = selectedGroupId 
+  // 본인(session.user.id)은 목록에서 제외하여 중복 태그 방지
+  const mentionCandidates = (selectedGroupId 
     ? userGroups.find(g => g.id === selectedGroupId)?.members || []
-    : friends.map(f => ({ id: f.userId, nickname: f.nickname, profileImage: f.profileImage }));
+    : friends.map(f => ({ id: f.userId, nickname: f.nickname, profileImage: f.profileImage })))
+    .filter(m => m.id !== session?.user?.id);
 
   const filteredMentionCandidates = mentionCandidates.filter(m => 
     m.nickname.toLowerCase().includes(participantQuery.toLowerCase())
@@ -444,7 +457,12 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       );
       // 폼 초기화
       setTitle(''); setMemo(''); setLocation('');
-      setSelectedGroupId(''); setTags([]); setParticipants([{ nickname: '나' }]);
+      setSelectedGroupId(''); setTags([]); 
+      setParticipants([{ 
+        id: session?.user?.id, 
+        nickname: '나', 
+        profileImage: session?.user?.image || undefined 
+      }]);
       setTaggedMemos([]); setMemoMentionInput('');
       onSuccess?.();
       onClose();
@@ -630,7 +648,15 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
             <div className="flex flex-wrap gap-2">
               {participants.map((p, idx) => (
-                <div key={`${p.id || 'manual'}-${idx}`} className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100">
+                <div key={`${p.id || 'manual'}-${idx}`} className="bg-indigo-50 text-indigo-700 text-[10px] font-black pl-1.5 pr-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100 shadow-sm">
+                  <div className="w-5 h-5 rounded-full bg-white overflow-hidden flex items-center justify-center border border-indigo-200">
+                    {p.profileImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.profileImage} alt={p.nickname} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[8px] font-black text-indigo-500">{p.nickname[0]}</span>
+                    )}
+                  </div>
                   {p.nickname}
                   {p.nickname !== '나' && (
                     <button onClick={() => setParticipants(participants.filter((item) => item !== p))}>
