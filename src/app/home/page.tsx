@@ -6,6 +6,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   Plus,
   Lock,
@@ -342,11 +343,17 @@ function GroupCard({ group, onClick }: GroupCardProps) {
 
   const theme = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
   const initial = group.name.substring(0, 1);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const profileSrc = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
 
   return (
     <div onClick={onClick} className={`bg-white rounded-2xl border ${theme.borderColor} p-5 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden flex items-center gap-4`}>
-      <div className={`w-12 h-12 ${theme.iconBg} rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-sm shrink-0 group-hover:scale-105 transition-transform`}>
-        {initial}
+      <div className={`w-12 h-12 ${theme.iconBg} rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-sm shrink-0 group-hover:scale-105 transition-transform overflow-hidden relative`}>
+        {profileSrc ? (
+          <Image src={profileSrc} alt={group.name} fill className="object-cover" />
+        ) : (
+          initial
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-black text-gray-800 truncate group-hover:text-indigo-600 transition-colors">{group.name}</h3>
@@ -361,7 +368,7 @@ function GroupCard({ group, onClick }: GroupCardProps) {
               >
                 {member.profileImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
+                  <img src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
                 ) : (
                   member.nickname.substring(0, 1)
                 )}

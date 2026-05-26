@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import GroupCreateModal from '@/components/GroupCreateModal';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -140,13 +141,19 @@ function GroupCard({ group }: { group: GroupResponse }) {
 
   const theme = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
   const initial = group.name.substring(0, 1);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const profileSrc = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
 
   return (
     <div className={`bg-white rounded-2xl border ${theme.borderColor} p-6 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden`}>
       <div className="flex flex-col gap-4">
-        {/* Group Icon/Initial */}
-        <div className={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center text-white text-xl font-black shadow-sm group-hover:scale-110 transition-transform`}>
-          {initial}
+        {/* Group Icon/Initial or Profile Image */}
+        <div className={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center text-white text-xl font-black shadow-sm group-hover:scale-110 transition-transform overflow-hidden relative shrink-0`}>
+          {profileSrc ? (
+            <Image src={profileSrc} alt={group.name} fill className="object-cover" />
+          ) : (
+            initial
+          )}
         </div>
 
         {/* Group Info */}
