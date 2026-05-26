@@ -9,6 +9,7 @@ export interface GroupResponse {
   colorTheme: string;
   createdByNickname: string;
   memberNicknames: string[];
+  inviteCode: string;
   memberCount: number;
   createdAt: string;
 }
@@ -83,5 +84,15 @@ export const groupApi = {
       method: 'POST',
     }, session);
     if (!response.ok) throw new Error('Failed to reject invitation');
+  },
+
+  async joinByCode(code: string, session: Session | null): Promise<void> {
+    const response = await fetchWithAuth(`/api/groups/join?code=${code}`, {
+      method: 'POST',
+    }, session);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || '가입에 실패했습니다. 코드를 확인해주세요.');
+    }
   }
 };

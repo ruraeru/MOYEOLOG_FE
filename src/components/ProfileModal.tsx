@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -10,7 +10,9 @@ import {
   LogOut,
   X,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  Copy,
+  Check
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -28,14 +30,25 @@ interface ProfileModalProps {
 }
 
 export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProps) {
+  const [copied, setCopied] = useState(false);
+
   if (!isOpen) return null;
+
+  const inviteLink = user?.customId ? `${window.location.origin}/invite/friend?code=${user.customId}` : '';
+
+  const handleCopyInviteLink = () => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="absolute top-16 right-4 z-[100] w-80 animate-in fade-in slide-in-from-top-4 duration-200">
       {/* Backdrop for closing */}
       <div className="fixed inset-0" onClick={onClose} />
 
-      <div className="relative bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+      <div className="relative bg-white rounded-[2rem] shadow-2xl border border-gray-100 overflow-hidden">
         {/* Header/User Profile */}
         <div className="p-6 pb-4 bg-gradient-to-br from-[#6366F1] to-[#818CF8]">
           <div className="flex items-center justify-between mb-4">
@@ -49,7 +62,7 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/20 shadow-lg relative bg-white/10">
+            <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white/20 shadow-lg relative bg-white/10 shrink-0">
               {user?.image ? (
                 <Image
                   src={user.image}
@@ -64,12 +77,35 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
                 </div>
               )}
             </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">{user?.name || '게스트'}</h3>
+            <div className="min-w-0">
+              <h3 className="text-lg font-bold text-white truncate">{user?.name || '게스트'}</h3>
               <div className="flex flex-col">
                 <p className="text-[10px] text-white/70 font-bold tracking-wider uppercase mb-0.5">ID: {user?.customId || '--------'}</p>
-                <p className="text-[10px] text-white/50 font-medium truncate w-40">{user?.email || '로그인이 필요합니다'}</p>
+                <p className="text-[10px] text-white/50 font-medium truncate w-full">{user?.email || '로그인이 필요합니다'}</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Invite Link Section */}
+        <div className="p-4 border-b border-gray-50 bg-indigo-50/30">
+          <div className="bg-white border border-indigo-100 rounded-2xl p-3 space-y-2 shadow-sm">
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest px-1">내 친구 초대 링크</p>
+            <div className="flex gap-2">
+              <div className="flex-1 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2 text-[10px] text-gray-400 font-medium truncate">
+                {inviteLink || '로그인 후 이용 가능'}
+              </div>
+              <button 
+                onClick={handleCopyInviteLink}
+                disabled={!inviteLink}
+                className={`p-2 rounded-xl transition-all shadow-sm border ${
+                  copied 
+                  ? 'bg-emerald-500 text-white border-emerald-500' 
+                  : 'bg-gray-900 text-white border-gray-900 hover:bg-gray-800'
+                } disabled:opacity-30`}
+              >
+                {copied ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
             </div>
           </div>
         </div>
