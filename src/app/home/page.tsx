@@ -5,11 +5,11 @@ import { useSession } from 'next-auth/react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
+import { useRouter } from 'next/navigation';
 import {
   Plus,
   Lock,
   Share2,
-  Users,
   ChevronRight,
   Loader2
 } from 'lucide-react';
@@ -25,6 +25,7 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 const emptySubscribe = () => () => { };
 
 export default function HomePage() {
+  const router = useRouter();
   const { data: session } = useSession();
   const userId = session?.user?.id;
 
@@ -197,25 +198,13 @@ export default function HomePage() {
             ) : userGroups.length === 0 ? (
               <p className="text-xs text-gray-400 font-medium py-4 text-center">참여 중인 모임이 없습니다.</p>
             ) : (
-              userGroups.map((group) => {
-                const colorMap = {
-                  indigo: 'bg-indigo-500',
-                  blue: 'bg-blue-500',
-                  emerald: 'bg-emerald-500',
-                  orange: 'bg-orange-500',
-                  rose: 'bg-rose-500',
-                  amber: 'bg-amber-500'
-                };
-                return (
-                  <GroupCard 
-                    key={group.id}
-                    icon={colorMap[group.colorTheme as keyof typeof colorMap] || 'bg-indigo-500'} 
-                    title={group.name} 
-                    desc={group.description || '모임 설명이 없습니다.'} 
-                    members={`${group.memberCount}명 참여 중`} 
-                  />
-                );
-              })
+              userGroups.map((group) => (
+                <GroupCard 
+                  key={group.id}
+                  group={group}
+                  onClick={() => router.push(`/groups/${group.id}`)}
+                />
+              ))
             )}
           </div>
         </section>
@@ -307,31 +296,83 @@ function EventBadge({ color, text }: { color: string, text: string }) {
 }
 
 interface GroupCardProps {
-  icon: string;
-  title: string;
-  desc: string;
-  members: string;
+  group: GroupResponse;
+  onClick: () => void;
 }
 
-function GroupCard({ icon, title, desc, members }: GroupCardProps) {
+function GroupCard({ group, onClick }: GroupCardProps) {
+  const themeClasses = {
+    indigo: {
+      iconBg: 'bg-indigo-500',
+      borderColor: 'border-indigo-100',
+      memberBg: 'bg-indigo-50',
+      memberText: 'text-indigo-500'
+    },
+    blue: {
+      iconBg: 'bg-blue-500',
+      borderColor: 'border-blue-100',
+      memberBg: 'bg-blue-50',
+      memberText: 'text-blue-500'
+    },
+    emerald: {
+      iconBg: 'bg-emerald-500',
+      borderColor: 'border-emerald-100',
+      memberBg: 'bg-emerald-50',
+      memberText: 'text-emerald-500'
+    },
+    orange: {
+      iconBg: 'bg-orange-500',
+      borderColor: 'border-orange-100',
+      memberBg: 'bg-orange-50',
+      memberText: 'text-orange-500'
+    },
+    rose: {
+      iconBg: 'bg-rose-500',
+      borderColor: 'border-rose-100',
+      memberBg: 'bg-rose-50',
+      memberText: 'text-rose-500'
+    },
+    amber: {
+      iconBg: 'bg-amber-500',
+      borderColor: 'border-amber-100',
+      memberBg: 'bg-amber-50',
+      memberText: 'text-amber-500'
+    }
+  };
+
+  const theme = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
+  const initial = group.name.substring(0, 1);
+
   return (
-    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:bg-gray-50 hover:border-indigo-100 transition-all cursor-pointer group">
-      <div className={`w-12 h-12 ${icon} rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100 shrink-0 group-hover:scale-105 transition-transform`}>
-        <Users className="w-6 h-6" />
+    <div onClick={onClick} className={`bg-white rounded-2xl border ${theme.borderColor} p-5 shadow-sm hover:shadow-md transition-all cursor-pointer group relative overflow-hidden flex items-center gap-4`}>
+      <div className={`w-12 h-12 ${theme.iconBg} rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-sm shrink-0 group-hover:scale-105 transition-transform`}>
+        {initial}
       </div>
       <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-black text-gray-800 truncate group-hover:text-indigo-600 transition-colors">{title}</h3>
-        <p className="text-[10px] text-gray-400 mt-1 truncate font-medium">{desc}</p>
+        <h3 className="text-sm font-black text-gray-800 truncate group-hover:text-indigo-600 transition-colors">{group.name}</h3>
+        <p className="text-[10px] text-gray-400 mt-1 truncate font-medium">{group.description || '설명이 없습니다.'}</p>
         <div className="flex items-center gap-1.5 mt-2">
           <div className="flex -space-x-1.5">
-            {[1, 2].map(i => (
-              <div key={i} className="w-4 h-4 rounded-full bg-gray-100 border border-white" />
+            {group.members.slice(0, 3).map((member) => (
+              <div 
+                key={member.id} 
+                className={`w-5 h-5 rounded-full ${theme.memberBg} ${theme.memberText} border border-white flex items-center justify-center text-[8px] font-bold overflow-hidden shadow-sm shrink-0`}
+                title={member.nickname}
+              >
+                {member.profileImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
+                ) : (
+                  member.nickname.substring(0, 1)
+                )}
+              </div>
             ))}
           </div>
-          <span className="text-[9px] text-indigo-500 font-black uppercase tracking-wider">{members}</span>
+          <span className="text-[9px] text-gray-400 font-bold ml-1">{group.memberCount}명 참여 중</span>
         </div>
       </div>
       <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+      <div className={`absolute -right-2 -bottom-2 w-16 h-16 ${theme.iconBg} opacity-[0.03] rounded-full pointer-events-none`} />
     </div>
   );
 }
