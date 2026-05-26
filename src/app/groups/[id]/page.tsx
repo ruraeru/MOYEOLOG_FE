@@ -13,7 +13,8 @@ import {
   Calendar as LucideCalendar,
   Copy,
   Check,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Settings
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -24,6 +25,7 @@ import GroupInviteModal from '@/components/GroupInviteModal';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
+import GroupEditModal from '@/components/GroupEditModal';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
@@ -46,12 +48,13 @@ export default function GroupDetailPage() {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'memos' | 'calendar'>('memos');
-  const [copied, setCopied] = useState(false);
 
   const fetchGroupData = useCallback(async () => {
     if (!session || !groupId) return;
@@ -137,6 +140,9 @@ export default function GroupDetailPage() {
     amber: 'from-amber-500 to-amber-600'
   };
   const bannerGradient = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const groupBg = group.backgroundImage ? (group.backgroundImage.startsWith('/uploads/') ? `${apiUrl}${group.backgroundImage}` : group.backgroundImage) : null;
+  const groupProfile = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
 
   return (
     <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
@@ -145,20 +151,48 @@ export default function GroupDetailPage() {
       <main className="flex-1 overflow-y-auto no-scrollbar">
         {/* Banner Section */}
         <div className={`w-full bg-gradient-to-br ${bannerGradient} pt-12 pb-20 px-8 lg:px-12 relative overflow-hidden`}>
+          {groupBg && (
+            <div className="absolute inset-0 z-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={groupBg} alt="Background" className="w-full h-full object-cover opacity-40 mix-blend-overlay" />
+              <div className="absolute inset-0 bg-black/10" />
+            </div>
+          )}
           <div className="max-w-7xl mx-auto relative z-10">
-            <button 
-              onClick={() => router.push('/groups')}
-              className="flex items-center gap-2 text-white/80 hover:text-white transition-colors mb-8 font-bold text-sm"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              목록으로 돌아가기
-            </button>
+            <div className="flex items-center justify-between mb-8">
+              <button 
+                onClick={() => router.push('/groups')}
+                className="flex items-center gap-2 text-white/80 hover:text-white transition-colors font-bold text-sm"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                목록으로 돌아가기
+              </button>
+              
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="p-2.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white hover:bg-white/20 transition-all shadow-lg"
+                title="모임 정보 수정"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
               <div className="space-y-4">
-                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-                  {group.name}
-                </h1>
+                <div className="flex items-center gap-4">
+                  {groupProfile ? (
+                    <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden border-2 border-white/30 shadow-xl relative shrink-0">
+                      <Image src={groupProfile} alt={group.name} fill className="object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-[1.5rem] bg-white/20 backdrop-blur-md border-2 border-white/30 flex items-center justify-center text-white text-2xl font-black shadow-xl shrink-0">
+                      {group.name.substring(0, 1)}
+                    </div>
+                  )}
+                  <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                    {group.name}
+                  </h1>
+                </div>
                 <p className="text-white/80 max-w-2xl font-medium leading-relaxed">
                   {group.description || '모임 설명이 없습니다. 팀원들과 함께 메모와 일정을 공유해보세요!'}
                 </p>
@@ -197,7 +231,7 @@ export default function GroupDetailPage() {
                     >
                       {member.profileImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
+                        <img src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
                       ) : (
                         member.nickname.substring(0, 1)
                       )}
@@ -365,6 +399,13 @@ export default function GroupDetailPage() {
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         schedule={selectedSchedule}
+        onSuccess={fetchGroupData}
+      />
+
+      <GroupEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        group={group}
         onSuccess={fetchGroupData}
       />
     </div>

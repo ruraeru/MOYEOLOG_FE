@@ -14,6 +14,8 @@ export interface GroupResponse {
     profileImage?: string;
   }>;
   inviteCode: string;
+  profileImage?: string;
+  backgroundImage?: string;
   memberCount: number;
   createdAt: string;
 }
@@ -59,6 +61,37 @@ export const groupApi = {
     }, session);
 
     if (!response.ok) throw new Error('Failed to create group');
+    return response.json();
+  },
+
+  async update(id: string, data: { 
+    name: string; 
+    description: string; 
+    colorTheme: string;
+    image?: File;
+    bgImage?: File;
+  }, session: Session | null): Promise<GroupResponse> {
+    const formData = new FormData();
+    formData.append('group', new Blob([JSON.stringify({
+      name: data.name,
+      description: data.description,
+      colorTheme: data.colorTheme
+    })], { type: 'application/json' }));
+
+    if (data.image) formData.append('image', data.image);
+    if (data.bgImage) formData.append('bgImage', data.bgImage);
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const response = await fetch(`${apiUrl}/api/groups/${id}`, {
+      method: 'PUT',
+      headers: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        'Authorization': `Bearer ${(session as any)?.user?.accessToken}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Failed to update group');
     return response.json();
   },
 
