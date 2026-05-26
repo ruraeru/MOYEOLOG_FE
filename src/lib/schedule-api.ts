@@ -11,7 +11,12 @@ export interface ScheduleResponse {
   authorId: string;
   authorNickname: string;
   groupId?: string;
-  taggedMemos?: MemoResponse[]; // 추가
+  taggedMemos?: MemoResponse[];
+  participants?: Array<{
+    id: string;
+    nickname: string;
+    profileImage?: string;
+  }>;
   createdAt: string;
 }
 
@@ -29,7 +34,8 @@ export const scheduleApi = {
     endTime: string; 
     location?: string; 
     groupId?: string;
-    taggedMemoIds?: string[]; // 추가
+    taggedMemoIds?: string[];
+    participantIds?: string[];
   }, session: Session | null): Promise<ScheduleResponse> {
     const response = await fetchWithAuth('/api/schedules', {
       method: 'POST',

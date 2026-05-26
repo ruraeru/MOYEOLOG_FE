@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { scheduleApi } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import {
   X,
   Calendar,
@@ -62,13 +63,18 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const [time, setTime] = useState('12:00');
   const [location, setLocation] = useState('');
   const [memo, setMemo] = useState(''); 
-  const [participants, setParticipants] = useState(['나']);
+  const [participants, setParticipants] = useState<Array<{ id?: string, nickname: string }>>([{ nickname: '나' }]);
   const [participantInput, setParticipantInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [selectedGroupId, setSelectedGroupId] = useState('');
   const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Participant Mentions states
+  const [friends, setFriends] = useState<FriendResponse[]>([]);
+  const [showParticipantMentions, setShowParticipantMentions] = useState(false);
+  const [participantQuery, setParticipantQuery] = useState('');
 
   // Memo Mentions states
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -90,11 +96,12 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const [isMapLoading, setIsMapLoading] = useState(false); // 지도 로딩 상태 추가
   const mapContainer = useRef<HTMLDivElement>(null);
 
-  // ─── 데이터 로드 (그룹 & 메모) ──────────────────────────────────
+  // ─── 데이터 로드 (그룹 & 메모 & 친구) ──────────────────────────────────
   useEffect(() => {
     if (isOpen && session) {
       groupApi.getAll(session).then(setUserGroups).catch(console.error);
       memoApi.getAll(session).then(setAllMemos).catch(console.error);
+      friendApi.getFriends(session).then(setFriends).catch(console.error);
     }
   }, [isOpen, session]);
 
@@ -380,6 +387,33 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     m.title.toLowerCase().includes(memoQuery.toLowerCase())
   );
 
+  // ─── 참여자 멘션 로직 ───────────────────────────────────────────
+  const handleParticipantInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setParticipantInput(value);
+
+    const lastChar = value.slice(-1);
+    if (lastChar === '@') {
+      setShowParticipantMentions(true);
+      setParticipantQuery('');
+    } else if (showParticipantMentions) {
+      const parts = value.split('@');
+      setParticipantQuery(parts[parts.length - 1]);
+    }
+  };
+
+  const insertParticipantMention = (f: FriendResponse) => {
+    if (!participants.find((p) => p.id === f.userId)) {
+      setParticipants([...participants, { id: f.userId, nickname: f.nickname }]);
+    }
+    setParticipantInput(participantInput.split('@')[0]);
+    setShowParticipantMentions(false);
+  };
+
+  const filteredFriends = friends.filter((f) =>
+    f.nickname.toLowerCase().includes(participantQuery.toLowerCase())
+  );
+
   // ─── 저장 ────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!title.trim()) {
@@ -399,12 +433,13 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           location,
           groupId: selectedGroupId || undefined,
           taggedMemoIds: taggedMemos.map((m) => m.id),
+          participantIds: participants.filter(p => p.id).map(p => p.id!),
         },
         session
       );
       // 폼 초기화
       setTitle(''); setMemo(''); setLocation('');
-      setSelectedGroupId(''); setTags([]); setParticipants(['나']);
+      setSelectedGroupId(''); setTags([]); setParticipants([{ nickname: '나' }]);
       setTaggedMemos([]); setMemoMentionInput('');
       onSuccess?.();
       onClose();
@@ -417,8 +452,8 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   };
 
   const handleAddParticipant = () => {
-    if (participantInput && !participants.includes(participantInput)) {
-      setParticipants([...participants, participantInput]);
+    if (participantInput && !participants.some(p => p.nickname === participantInput)) {
+      setParticipants([...participants, { nickname: participantInput }]);
       setParticipantInput('');
     }
   };
@@ -545,13 +580,60 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           {/* 참여자 */}
           <div className="space-y-3">
             <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1"><Users className="w-3.5 h-3.5 text-blue-500" /> 참여자</label>
-            <div className="flex gap-2">
-              <input type="text" value={participantInput} onChange={(e) => setParticipantInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleAddParticipant()} placeholder="참여자 이름 입력" className="flex-1 bg-gray-50 border-2 border-transparent rounded-2xl px-5 py-3 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none font-bold" />
-              <button onClick={handleAddParticipant} className="bg-indigo-600 text-white px-4 py-3 rounded-2xl text-sm font-black hover:bg-indigo-700"><Plus className="w-4 h-4" /></button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={participantInput} 
+                  onChange={handleParticipantInputChange} 
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddParticipant()} 
+                  placeholder="친구 이름을 입력하거나 @를 눌러보세요" 
+                  className="flex-1 bg-gray-50 border-2 border-transparent rounded-2xl px-5 py-3 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none font-bold" 
+                />
+                <button onClick={handleAddParticipant} className="bg-indigo-600 text-white px-4 py-3 rounded-2xl text-sm font-black hover:bg-indigo-700"><Plus className="w-4 h-4" /></button>
+              </div>
+              
+              {showParticipantMentions && (
+                <div className="absolute z-30 bottom-full mb-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-2 max-h-48 overflow-y-auto">
+                  {filteredFriends.map((f) => (
+                    <button
+                      key={f.id}
+                      onClick={() => insertParticipantMention(f)}
+                      className="w-full text-left px-5 py-3 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 font-bold text-sm text-gray-800"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden">
+                          {f.profileImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={f.profileImage} alt={f.nickname} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-[10px] text-indigo-600 font-bold">
+                              {f.nickname[0]}
+                            </div>
+                          )}
+                        </div>
+                        {f.nickname}
+                        <span className="text-[10px] text-gray-400 font-normal">({f.customId})</span>
+                      </div>
+                    </button>
+                  ))}
+                  {filteredFriends.length === 0 && (
+                    <div className="p-4 text-center text-xs text-gray-400">검색 결과가 없습니다.</div>
+                  )}
+                </div>
+              )}
             </div>
+
             <div className="flex flex-wrap gap-2">
-              {participants.map((p) => (
-                <div key={p} className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100">{p}{p !== '나' && <button onClick={() => setParticipants(participants.filter((item) => item !== p))}><X className="w-3 h-3" /></button>}</div>
+              {participants.map((p, idx) => (
+                <div key={`${p.id || 'manual'}-${idx}`} className="bg-indigo-50 text-indigo-700 text-[10px] font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100">
+                  {p.nickname}
+                  {p.nickname !== '나' && (
+                    <button onClick={() => setParticipants(participants.filter((item) => item !== p))}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           </div>
