@@ -10,7 +10,10 @@ import {
   MessageSquare, 
   LayoutGrid,
   List as ListIcon,
-  Calendar as LucideCalendar
+  Calendar as LucideCalendar,
+  Copy,
+  Check,
+  Link as LinkIcon
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -48,6 +51,7 @@ export default function GroupDetailPage() {
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'memos' | 'calendar'>('memos');
+  const [copied, setCopied] = useState(false);
 
   const fetchGroupData = useCallback(async () => {
     if (!session || !groupId) return;
@@ -115,6 +119,15 @@ export default function GroupDetailPage() {
 
   if (!group) return null;
 
+  const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/invite/group?code=${group.inviteCode}` : '';
+
+  const handleCopyInviteLink = () => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const themeClasses = {
     indigo: 'from-indigo-500 to-indigo-600',
     blue: 'from-blue-500 to-blue-600',
@@ -149,6 +162,29 @@ export default function GroupDetailPage() {
                 <p className="text-white/80 max-w-2xl font-medium leading-relaxed">
                   {group.description || '모임 설명이 없습니다. 팀원들과 함께 메모와 일정을 공유해보세요!'}
                 </p>
+
+                {/* Invite Info Card */}
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 pr-4 w-fit animate-in fade-in slide-in-from-left-4 duration-500">
+                  <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center text-white">
+                    <LinkIcon className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col min-w-[100px]">
+                    <p className="text-[9px] font-black text-white/60 uppercase tracking-widest leading-none mb-1">Invite Code</p>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-black text-white tracking-wider leading-none">{group.inviteCode}</span>
+                      <button 
+                        onClick={handleCopyInviteLink}
+                        className="p-1.5 hover:bg-white/20 rounded-lg transition-all text-white/70 hover:text-white"
+                        title="초대 링크 복사"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                  {copied && (
+                    <span className="ml-2 text-[10px] font-black text-emerald-300 animate-pulse">복사됨!</span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-4 bg-black/10 backdrop-blur-lg p-4 rounded-2xl border border-white/10">
