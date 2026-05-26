@@ -24,6 +24,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // 환경 변수 정제 (공백 및 비가시 문자 제거)
+  const kakaoKey = (process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY || '').trim().replace(/[^a-z0-9]/gi, '');
+  
   return (
     <html
       lang="en"
@@ -31,8 +34,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <Script
-          src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${process.env.NEXT_PUBLIC_KAKAO_MAP_API_KEY}&libraries=services&autoload=false`}
-          strategy="afterInteractive"
+          src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`}
+          strategy="beforeInteractive"
         />
         <Providers>{children}</Providers>
       </body>

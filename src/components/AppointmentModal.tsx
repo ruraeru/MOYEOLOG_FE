@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { scheduleApi } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -38,6 +37,8 @@ interface Recommendation {
   desc: string;
   image: string;
   tags: string[];
+  y: string;
+  x: string;
 }
 
 interface KakaoPlace {
@@ -77,13 +78,16 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const [memoQuery, setMemoQuery] = useState('');
 
   // Map & Search States
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [map, setMap] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [marker, setMarker] = useState<any>(null);
   const [searchResults, setSearchResults] = useState<KakaoPlace[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
+  const [isMapLoading, setIsMapLoading] = useState(false); // 지도 로딩 상태 추가
   const mapContainer = useRef<HTMLDivElement>(null);
 
   // ─── 데이터 로드 (그룹 & 메모) ──────────────────────────────────
@@ -103,48 +107,124 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   // ─── 지도 초기화 (현위치 기반) ──────────────────────────────────
   useEffect(() => {
-    if (!isOpen || !mapContainer.current) return;
+    if (!isOpen) return;
+    
+    console.log('[Map] Modal opened, starting initialization...');
+    
+    let retryCount = 0;
+    const maxRetries = 30; // 약 15초간 시도
 
-    const setupMap = (lat: number, lng: number) => {
+    const checkAndInit = () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const kakao = (window as any).kakao;
-      if (!kakao || !kakao.maps) return;
+      const hasContainer = !!mapContainer.current;
+      const hasKakao = !!(kakao && kakao.maps);
 
-      kakao.maps.load(() => {
-        const container = document.getElementById('modal-location-map');
-        if (!container) return;
-
-        const options = {
-          center: new kakao.maps.LatLng(lat, lng),
-          level: 3
-        };
-        const newMap = new kakao.maps.Map(container, options);
-        const newMarker = new kakao.maps.Marker({
-          position: newMap.getCenter()
-        });
-        newMarker.setMap(newMap);
-        setMap(newMap);
-        setMarker(newMarker);
-        fetchRecommendations(lat, lng);
-        setTimeout(() => newMap.relayout(), 300);
-      });
-    };
-
-    const initMap = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => setupMap(pos.coords.latitude, pos.coords.longitude),
-          () => setupMap(37.5665, 126.9780) // fallback: 서울시청
-        );
+      if (hasContainer && hasKakao) {
+        console.log('[Map] Container and SDK ready, initializing...');
+        initMap();
+      } else if (retryCount < maxRetries) {
+        retryCount++;
+        setTimeout(checkAndInit, 500);
       } else {
-        setupMap(37.5665, 126.9780);
+        console.error('[Map] Initialization failed: timeout', { hasContainer, hasKakao });
+        setIsMapLoading(false);
       }
     };
 
-    if (!(window as any).kakao || !(window as any).kakao.maps) {
-      setTimeout(initMap, 500);
-    } else {
-      initMap();
-    }
+    const setupMap = (lat: number, lng: number) => {
+      console.log('[Map] Setting up map at:', lat, lng);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const kakao = (window as any).kakao;
+      
+      if (!kakao || !kakao.maps || !kakao.maps.load) {
+        console.error('[Map] Kakao maps load function not found');
+        setIsMapLoading(false);
+        return;
+      }
+
+      // LatLng is not a constructor 에러 방지를 위해 반드시 load 콜백 안에서 실행
+      kakao.maps.load(() => {
+        console.log('[Map] Kakao SDK load complete, initializing components...');
+        if (!mapContainer.current) {
+          console.error('[Map] Container ref lost');
+          setIsMapLoading(false);
+          return;
+        }
+
+        try {
+          const coords = new kakao.maps.LatLng(lat, lng);
+          const options = {
+            center: coords,
+            level: 3
+          };
+          const newMap = new kakao.maps.Map(mapContainer.current, options);
+          const newMarker = new kakao.maps.Marker({
+            position: coords
+          });
+          newMarker.setMap(newMap);
+          setMap(newMap);
+          setMarker(newMarker);
+          
+          console.log('[Map] Map instance created successfully');
+          fetchRecommendations(lat, lng);
+          setTimeout(() => {
+            if (newMap) newMap.relayout();
+          }, 300);
+        } catch (err) {
+          console.error('[Map] Error during map creation:', err);
+        } finally {
+          setIsMapLoading(false);
+        }
+      });
+    };
+
+    const initMap = async () => {
+      console.log('[Map] Starting initMap...');
+      setIsMapLoading(true);
+
+      if (!navigator.geolocation) {
+        console.warn('[Map] Geolocation not supported');
+        setupMap(37.5665, 126.9780);
+        return;
+      }
+
+      // 권한 상태 확인 (지원되는 브라우저만)
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const result = await navigator.permissions.query({ name: 'geolocation' as any });
+          console.log('[Map] Geolocation permission state:', result.state);
+          if (result.state === 'denied') {
+            console.warn('[Map] Permission denied. Check browser settings.');
+            setupMap(37.5665, 126.9780);
+            return;
+          }
+        }
+      } catch {
+        console.log('[Map] Permissions API check skipped');
+      }
+
+      console.log('[Map] Requesting position (Standard Mode)...');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          console.log('[Map] Geolocation success');
+          setupMap(pos.coords.latitude, pos.coords.longitude);
+        },
+        (err) => {
+          console.error('[Map] Geolocation error:', err.code, err.message);
+          // 실패 시 즉시 서울시청으로 폴백
+          setupMap(37.5665, 126.9780); 
+        },
+        { 
+          enableHighAccuracy: true, // 정확도 우선 (대부분의 모바일/데스크탑에서 더 안정적)
+          timeout: 5000, // 5초 대기
+          maximumAge: 0 // 캐시된 위치 대신 실시간 요청
+        }
+      );
+    };
+
+    checkAndInit();
 
     return () => {
       setMap(null);
@@ -160,6 +240,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       return;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const kakao = (window as any).kakao;
     if (!kakao || !kakao.maps || !kakao.maps.services) return;
 
@@ -177,9 +258,11 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   };
 
   const handleLocationSelect = (place: KakaoPlace) => {
+    if (!place.y || !place.x) return;
     setLocation(place.place_name);
     setShowResults(false);
     if (map && marker) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const kakao = (window as any).kakao;
       const coords = new kakao.maps.LatLng(parseFloat(place.y), parseFloat(place.x));
       map.setCenter(coords);
@@ -190,15 +273,20 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   // ─── 주변 장소 추천 ──────────────────────────────────────────────
   const fetchRecommendations = (lat: number, lng: number) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const kakao = (window as any).kakao;
     if (!kakao || !kakao.maps || !kakao.maps.services) return;
 
     setIsRecommending(true);
     const ps = new kakao.maps.services.Places();
 
-    ps.categorySearch('CE7', async (data: any, status: any) => {
+    // 여러 카테고리 검색 (음식점, 카페, 관광명소)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ps.categorySearch('FD6', async (data: any, status: any) => {
       if (status === kakao.maps.services.Status.OK) {
+         
         const results = await Promise.all(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           data.slice(0, 5).map(async (place: any) => {
             let imageUrl = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop';
             try {
@@ -209,17 +297,54 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
             return {
               id: place.id,
               name: place.place_name,
-              category: place.category_group_name || '카페',
-              rating: (4.0 + Math.random() * 0.9).toFixed(1),
-              distance: `${place.distance}m`,
+              category: place.category_group_name?.split('>').pop()?.trim() || '음식점',
+              rating: (4.2 + Math.random() * 0.7).toFixed(1),
+              distance: place.distance ? `${place.distance}m` : '',
               desc: place.address_name,
               image: imageUrl,
+              y: place.y,
+              x: place.x,
+              tags: [place.category_group_name?.split('>')[0]?.trim() || '맛집']
             } as Recommendation;
           })
         );
         setRecommendations(results);
       } else {
-        setRecommendations([]);
+        // 음식점 없으면 카페 검색 시도
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ps.categorySearch('CE7', async (cafeData: any, cafeStatus: any) => {
+          if (cafeStatus === kakao.maps.services.Status.OK) {
+             
+            const cafeResults = await Promise.all(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              cafeData.slice(0, 5).map(async (place: any) => {
+                let imageUrl = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop';
+                try {
+                  const res = await fetch(`/api/search-image?query=${encodeURIComponent(place.place_name)}`);
+                  const json = await res.json();
+                  if (json.imageUrl) imageUrl = json.imageUrl;
+                } catch {}
+                return {
+                  id: place.id,
+                  name: place.place_name,
+                  category: '카페',
+                  rating: (4.0 + Math.random() * 0.9).toFixed(1),
+                  distance: place.distance ? `${place.distance}m` : '',
+                  desc: place.address_name,
+                  image: imageUrl,
+                  y: place.y,
+                  x: place.x,
+                  tags: ['카페', '커피']
+                } as Recommendation;
+              })
+            );
+            setRecommendations(cafeResults);
+          } else {
+            setRecommendations([]);
+          }
+          setIsRecommending(false);
+        }, { location: new kakao.maps.LatLng(lat, lng), radius: 1000 });
+        return;
       }
       setIsRecommending(false);
     }, {
@@ -363,16 +488,51 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
               </div>
             )}
 
-            <div className="rounded-3xl overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50"><div id="modal-location-map" className="h-[220px] w-full" /></div>
+            <div className="rounded-3xl overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50 relative">
+              <div ref={mapContainer} className="h-[220px] w-full" />
+              {isMapLoading && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
+                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">위치 정보 확인 중...</p>
+                </div>
+              )}
+            </div>
 
             {/* Recommendations */}
             <div className="space-y-4">
               <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-2"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /> 주변 핫플레이스 추천</h4>
               <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-2 px-2">
-                {isRecommending ? <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 w-full text-center"><Loader2 className="w-4 h-4 animate-spin text-indigo-500 mx-auto" /></div> : recommendations.map(rec => (
-                  <div key={rec.id} onClick={() => handleLocationSelect({ place_name: rec.name, y: (rec as any).y, x: (rec as any).x } as any)} className="flex-shrink-0 w-44 bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer group">
-                    <div className="relative h-24 w-full overflow-hidden">
-                      <Image src={rec.image} alt={rec.name} fill sizes="176px" className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                {isRecommending ? (
+                  <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 w-full text-center">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-500 mx-auto" />
+                  </div>
+                ) : recommendations.map((rec, idx) => (
+                  <div 
+                    key={`${rec.id}-${idx}`} 
+                    onClick={() => handleLocationSelect({ 
+                      place_name: rec.name, 
+                      y: rec.y, 
+                      x: rec.x,
+                      address_name: rec.desc,
+                      category_name: rec.category
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any)} 
+                    className="flex-shrink-0 w-44 bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer group"
+                  >
+                    <div className="relative h-24 w-full overflow-hidden bg-gray-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={rec.image} 
+                        alt={rec.name} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (!target.src.includes('unsplash')) {
+                            target.src = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop';
+                          }
+                        }}
+                      />
                       <div className="absolute top-1.5 right-1.5 bg-white/90 text-gray-800 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5"><Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" /> {rec.rating}</div>
                     </div>
                     <div className="p-2.5"><h4 className="font-black text-gray-800 text-xs truncate">{rec.name}</h4><p className="text-[10px] text-gray-400">{rec.category} · {rec.distance}</p></div>
