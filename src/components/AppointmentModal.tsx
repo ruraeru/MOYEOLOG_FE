@@ -488,8 +488,8 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
               </div>
             )}
 
-            <div className="rounded-3xl overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50 relative">
-              <div ref={mapContainer} className="h-[220px] w-full" />
+            <div className="rounded-3xl overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50 relative" style={{ minHeight: '220px' }}>
+              <div ref={mapContainer} className="w-full" style={{ height: '220px', minHeight: '220px' }} />
               {isMapLoading && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
                   <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
