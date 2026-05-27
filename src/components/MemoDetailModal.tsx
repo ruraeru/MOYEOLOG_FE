@@ -10,10 +10,12 @@ import {
   MessageSquare,
   Loader2,
   Trash2,
+  Pencil,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
 import MemoShareModal from './MemoShareModal';
+import MemoEditModal from './MemoEditModal';
 import dynamic from 'next/dynamic';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -74,7 +76,29 @@ export default function MemoDetailModal({
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [loadingMemo, setLoadingMemo] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchMemoDetail = async () => {
+    if (!memoId || !session) return;
+    setLoadingMemo(true);
+    try {
+      const data = await memoApi.getById(memoId, session);
+      setMemo(data);
+      setCurrentTags(data.tags || []);
+
+      if (data.insight) {
+        setInsight(data.insight);
+      } else {
+        const res = await memoApi.getInsight(memoId, session);
+        if (res) setInsight(res);
+      }
+    } catch (error) {
+      console.error('Failed to fetch memo detail:', error);
+    } finally {
+      setLoadingMemo(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen || !memoId || !session) {
@@ -84,38 +108,7 @@ export default function MemoDetailModal({
       return;
     }
 
-    let cancelled = false;
-
-    const fetchMemoDetail = async () => {
-      setLoadingMemo(true);
-      try {
-        const data = await memoApi.getById(memoId, session);
-        if (cancelled) return;
-        setMemo(data);
-        setCurrentTags(data.tags || []);
-
-        // 이미 포함된 인사이트가 있으면 세팅, 없으면 별도 조회 시도
-        if (data.insight) {
-          setInsight(data.insight);
-        } else {
-          const res = await memoApi.getInsight(memoId, session);
-          if (cancelled) return;
-          if (res) setInsight(res);
-        }
-      } catch (error) {
-        console.error('Failed to fetch memo detail:', error);
-      } finally {
-        if (!cancelled) {
-          setLoadingMemo(false);
-        }
-      }
-    };
-
     fetchMemoDetail();
-
-    return () => {
-      cancelled = true;
-    };
   }, [isOpen, memoId, session]);
 
   const handleAnalyze = async () => {
@@ -203,6 +196,14 @@ export default function MemoDetailModal({
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 <h2 className="text-3xl font-black text-gray-900">{memo.title}</h2>
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+                  title="메모 수정"
+                >
+                  <Pencil className="w-5 h-5" />
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsShareModalOpen(true)}
@@ -372,6 +373,13 @@ export default function MemoDetailModal({
         onClose={() => setIsShareModalOpen(false)}
         memoId={memo.id}
         memoTitle={memo.title}
+      />
+
+      <MemoEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        memo={memo}
+        onSuccess={fetchMemoDetail}
       />
     </>
   );

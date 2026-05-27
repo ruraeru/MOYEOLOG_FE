@@ -109,6 +109,36 @@ export const memoApi = {
     return response.json();
   },
 
+  async update(id: string, data: { title: string; content: string; imageFile?: File; tags?: string[] }, session: Session | null): Promise<MemoResponse> {
+    const formData = new FormData();
+    
+    const memoData = {
+      title: data.title,
+      content: data.content,
+      tags: data.tags
+    };
+    formData.append('memo', new Blob([JSON.stringify(memoData)], { type: 'application/json' }));
+
+    if (data.imageFile) {
+      formData.append('image', data.imageFile);
+    }
+
+    const headers: Record<string, string> = {};
+    if (session?.user?.accessToken) {
+      headers['Authorization'] = `Bearer ${session.user.accessToken}`;
+    }
+
+    const path = isBrowser ? `/api-proxy/memos/${id}` : `/api/memos/${id}`;
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'PUT',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error('Failed to update memo');
+    return response.json();
+  },
+
   async delete(id: string, session: Session | null): Promise<void> {
     const response = await fetchWithAuth(`/api/memos/${id}`, {
       method: 'DELETE',
