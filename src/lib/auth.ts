@@ -30,14 +30,22 @@ export const authOptions: NextAuthOptions = {
     signIn: '/',
   },
   callbacks: {
-    async jwt({ token, user, account, profile }) {
-      // 초기 로그인 시
+    async jwt({ token, user, account, profile, trigger, session }) {
+      const apiUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080';
+
+      // 1. 세션 업데이트 요청 시 (trigger === "update")
+      if (trigger === "update" && session) {
+        token.name = session.user.name;
+        token.picture = session.user.image;
+        return token;
+      }
+
+      // 2. 초기 로그인 시
       if (account && profile && user) {
         console.log('--- Auth Sync Start ---');
         
         const kakaoProfile = profile as unknown as KakaoProfile;
         
-        // 로그(Full Raw Profile)에서 확인된 경로: kakao_account.name 에 '황태우'가 들어있음
         const nickname = kakaoProfile.kakao_account?.name || 
                          user.name || 
                          kakaoProfile.properties?.nickname || 
@@ -45,18 +53,11 @@ export const authOptions: NextAuthOptions = {
                          '사용자';
 
         const email = kakaoProfile.kakao_account?.email || user.email || '';
-
-        // 이미지 추출
         const profileImage = user.image || 
                              kakaoProfile.properties?.profile_image || 
                              kakaoProfile.kakao_account?.profile?.profile_image_url || '';
 
-        console.log('Extracted Data:', { nickname, email, kakaoId: kakaoProfile.id });
-
         try {
-          // 서버 사이드에서 호출하므로 브라우저 Mixed Content와 무관하게 직접 호출 가능
-          const apiUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080';
-          
           const syncData = {
             kakaoId: kakaoProfile.id.toString(),
             email: email,
@@ -64,9 +65,6 @@ export const authOptions: NextAuthOptions = {
             profileImage: profileImage,
           };
 
-          console.log('Sending to Backend:', syncData);
-
-          // 5초 타임아웃 설정으로 무한 로딩 방지
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -81,20 +79,20 @@ export const authOptions: NextAuthOptions = {
           
           clearTimeout(timeoutId);
 
-          console.log('Backend Response Status:', response.status);
-
           if (response.ok) {
             const data = await response.json();
-            console.log('Backend Sync Success, User ID:', data.user.id);
             token.accessToken = data.accessToken;
             token.userId = data.user.id;
             token.kakaoId = data.user.kakaoId;
             token.customId = data.user.customId;
-          } else {
-            console.error('Backend Sync Failed');
+            
+            // 백엔드 DB의 정보를 최우선으로 토큰에 저장 (수동 수정된 정보 유지)
+            token.name = data.user.nickname;
+            const finalImage = data.user.profileImage;
+            token.picture = finalImage ? (finalImage.startsWith('/uploads/') ? `${apiUrl}${finalImage}` : finalImage) : null;
           }
         } catch (error) {
-          console.error('Backend sync error (could be timeout or unreachable):', error);
+          console.error('Backend sync error:', error);
         }
         console.log('--- Auth Sync End ---');
       }
@@ -106,6 +104,10 @@ export const authOptions: NextAuthOptions = {
         session.user.accessToken = token.accessToken;
         session.user.kakaoId = token.kakaoId;
         session.user.customId = token.customId as string;
+        
+        // 토큰의 최신 정보를 세션에 반영
+        session.user.name = token.name;
+        session.user.image = token.picture;
       }
       return session;
     },
