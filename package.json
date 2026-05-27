@@ -10,14 +10,21 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.4.0",
+    "@tanstack/react-query": "^5.100.14",
+    "@tanstack/react-query-devtools": "^5.100.14",
     "@uiw/react-md-editor": "^4.1.1",
+    "axios": "^1.16.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.8.0",
     "next": "16.2.2",
     "next-auth": "^4.24.13",
     "react": "19.2.4",
     "react-calendar": "^6.0.1",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.76.1",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

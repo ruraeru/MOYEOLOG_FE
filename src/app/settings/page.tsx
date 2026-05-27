@@ -2,23 +2,36 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Navbar from '@/components/Navbar';
-import {
-  User,
-   Bell,
-  Lock,
-  Eye,
-  Globe,
+import { 
+  User as UserIcon, 
+  Bell, 
+  Lock, 
+  Eye, 
+  Globe, 
   LogOut,
   ChevronRight,
   Camera,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
-import { userApi, type UserResponse } from '@/lib/user-api';
+import { userApi } from '@/lib/user-api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+// Form Validation Schema
+const profileSchema = z.object({
+  nickname: z.string().min(2, '닉네임은 최소 2자 이상이어야 합니다.').max(20, '닉네임은 최대 20자까지 가능합니다.'),
+  bio: z.string().max(200, '자기소개는 최대 200자까지 가능합니다.').optional().or(z.literal('')),
+});
+
+type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const menuItems = [
-  { id: 'profile', label: '프로필 설정', icon: User, color: 'text-blue-500', bg: 'bg-blue-50' },
+  { id: 'profile', label: '프로필 설정', icon: UserIcon, color: 'text-blue-500', bg: 'bg-blue-50' },
   { id: 'notif', label: '알림 설정', icon: Bell, color: 'text-indigo-500', bg: 'bg-indigo-50' },
   { id: 'security', label: '계정 및 보안', icon: Lock, color: 'text-emerald-500', bg: 'bg-emerald-50' },
   { id: 'display', label: '화면 및 디스플레이', icon: Eye, color: 'text-orange-500', bg: 'bg-orange-50' },
@@ -27,44 +40,84 @@ const menuItems = [
 
 export default function SettingsPage() {
   const { data: session, update: updateSession } = useSession();
+  const queryClient = useQueryClient();
   const [activeMenu, setActiveMenu] = useState('profile');
-  const [userData, setUserData] = useState<UserResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Form states
-  const [nickname, setNickname] = useState('');
-  const [bio, setBio] = useState('');
+  // Image states
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      if (!session) return;
-      try {
-        setLoading(true);
-        const data = await userApi.getMe(session);
-        setUserData(data);
-        setNickname(data.nickname);
-        setBio(data.bio || '');
-        if (data.profileImage) {
-          setImagePreview(data.profileImage.startsWith('/uploads/') ? `${apiUrl}${data.profileImage}` : data.profileImage);
-        }
-      } catch (err) {
-        console.error('Failed to fetch user:', err);
-        setError('사용자 정보를 불러오는 데 실패했습니다.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // React Query: Get User Data
+  const { data: userData, isLoading } = useQuery({
+    queryKey: ['user', 'me'],
+    queryFn: () => userApi.getMe(),
+    enabled: !!session,
+  });
 
-    fetchUser();
-  }, [session, apiUrl]);
+  // React Hook Form
+  const { 
+    register, 
+    handleSubmit, 
+    reset,
+    formState: { errors } 
+  } = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      nickname: '',
+      bio: '',
+    }
+  });
+
+  // Update form when data is loaded
+  useEffect(() => {
+    if (userData) {
+      reset({
+        nickname: userData.nickname,
+        bio: userData.bio || '',
+      });
+    }
+  }, [userData, reset]);
+
+  // Handle initial image preview
+  useEffect(() => {
+    if (userData?.profileImage && !imageFile) {
+      const fullImageUrl = userData.profileImage.startsWith('/uploads/') 
+        ? `${apiUrl}${userData.profileImage}` 
+        : userData.profileImage;
+      
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setImagePreview(fullImageUrl);
+    }
+  }, [userData?.profileImage, imageFile, apiUrl]);
+
+  // React Query: Update User Mutation
+  const mutation = useMutation({
+    mutationFn: (values: ProfileFormValues) => userApi.updateMe({
+      nickname: values.nickname,
+      bio: values.bio,
+      image: imageFile || undefined
+    }),
+    onSuccess: async (updatedUser) => {
+      setSuccess(true);
+      queryClient.setQueryData(['user', 'me'], updatedUser);
+      
+      // Update Next-Auth Session
+      await updateSession({
+        ...session,
+        user: {
+          ...session?.user,
+          name: updatedUser.nickname,
+          image: updatedUser.profileImage.startsWith('/uploads/') ? `${apiUrl}${updatedUser.profileImage}` : updatedUser.profileImage
+        }
+      });
+
+      setTimeout(() => setSuccess(false), 3000);
+    }
+  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,46 +129,11 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!nickname.trim()) {
-      setError('이름을 입력해주세요.');
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-    setSuccess(false);
-
-    try {
-      const updatedUser = await userApi.updateMe({
-        nickname,
-        bio,
-        image: imageFile || undefined
-      }, session);
-      
-      setUserData(updatedUser);
-      setSuccess(true);
-      
-      // Next-Auth 세션 업데이트 시도
-      await updateSession({
-        ...session,
-        user: {
-          ...session?.user,
-          name: updatedUser.nickname,
-          image: updatedUser.profileImage.startsWith('/uploads/') ? `${apiUrl}${updatedUser.profileImage}` : updatedUser.profileImage
-        }
-      });
-
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '저장에 실패했습니다.';
-      setError(message);
-    } finally {
-      setIsSaving(false);
-    }
+  const onFormSubmit = (values: ProfileFormValues) => {
+    mutation.mutate(values);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="h-screen flex flex-col bg-[#F8F9FB]">
         <Navbar />
@@ -183,7 +201,7 @@ export default function SettingsPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <User className="w-12 h-12 text-indigo-200" />
+                        <UserIcon className="w-12 h-12 text-indigo-200" />
                       )}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
                     </div>
@@ -208,30 +226,38 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-8 bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
+                <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8 bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">활동 이름</label>
                     <input 
+                      {...register('nickname')}
                       type="text" 
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
                       placeholder="이름을 입력하세요"
-                      className="w-full bg-gray-50 border-2 border-transparent rounded-2xl px-6 py-4 text-sm outline-none focus:border-indigo-500 focus:bg-white transition-all font-bold"
+                      className={`w-full bg-gray-50 border-2 rounded-2xl px-6 py-4 text-sm outline-none transition-all font-bold ${errors.nickname ? 'border-rose-300 focus:border-rose-500' : 'border-transparent focus:border-indigo-500 focus:bg-white'}`}
                     />
+                    {errors.nickname && (
+                      <p className="text-[10px] text-rose-500 font-bold px-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> {errors.nickname.message}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">자기소개</label>
                     <textarea 
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
+                      {...register('bio')}
                       placeholder="자기소개를 입력해보세요"
-                      className="w-full bg-gray-50 border-2 border-transparent rounded-2xl px-6 py-4 text-sm outline-none focus:border-indigo-500 focus:bg-white transition-all font-bold min-h-[140px] resize-none leading-relaxed"
+                      className={`w-full bg-gray-50 border-2 rounded-2xl px-6 py-4 text-sm outline-none transition-all font-bold min-h-[140px] resize-none leading-relaxed ${errors.bio ? 'border-rose-300 focus:border-rose-500' : 'border-transparent focus:border-indigo-500 focus:bg-white'}`}
                     />
+                    {errors.bio && (
+                      <p className="text-[10px] text-rose-500 font-bold px-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> {errors.bio.message}
+                      </p>
+                    )}
                   </div>
 
-                  {error && (
+                  {mutation.isError && (
                     <div className="p-4 bg-rose-50 text-rose-600 text-xs font-bold rounded-2xl border border-rose-100">
-                      {error}
+                      {(mutation.error as Error).message}
                     </div>
                   )}
 
@@ -244,11 +270,11 @@ export default function SettingsPage() {
 
                   <div className="flex gap-4 pt-4">
                     <button 
-                      onClick={handleSave}
-                      disabled={isSaving}
+                      type="submit"
+                      disabled={mutation.isPending}
                       className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {isSaving ? (
+                      {mutation.isPending ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
                           저장 중…
@@ -258,7 +284,7 @@ export default function SettingsPage() {
                       )}
                     </button>
                   </div>
-                </div>
+                </form>
               </div>
             )}
 

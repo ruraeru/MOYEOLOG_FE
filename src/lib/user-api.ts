@@ -1,5 +1,4 @@
-import { Session } from 'next-auth';
-import { fetchWithAuth } from './memo-api';
+import { axiosInstance } from './axios';
 
 export interface UserResponse {
   id: string;
@@ -11,13 +10,12 @@ export interface UserResponse {
 }
 
 export const userApi = {
-  async getMe(session: Session | null): Promise<UserResponse> {
-    const response = await fetchWithAuth('/api/users/me', {}, session);
-    if (!response.ok) throw new Error('Failed to fetch user info');
-    return response.json();
+  async getMe(): Promise<UserResponse> {
+    const response = await axiosInstance.get('/api/users/me');
+    return response.data;
   },
 
-  async updateMe(data: { nickname?: string; bio?: string; image?: File }, session: Session | null): Promise<UserResponse> {
+  async updateMe(data: { nickname?: string; bio?: string; image?: File }): Promise<UserResponse> {
     const formData = new FormData();
     
     const userUpdate = {
@@ -31,20 +29,12 @@ export const userApi = {
       formData.append('image', data.image);
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const response = await fetch(`${apiUrl}/api/users/me`, {
-      method: 'PUT',
+    const response = await axiosInstance.put('/api/users/me', formData, {
       headers: {
-        'Authorization': `Bearer ${session?.user?.accessToken}`,
+        'Content-Type': 'multipart/form-data',
       },
-      body: formData,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || '프로필 수정에 실패했습니다.');
-    }
-    
-    return response.json();
+    return response.data;
   }
 };
