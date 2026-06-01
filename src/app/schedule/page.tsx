@@ -70,6 +70,13 @@ export default function SchedulePage() {
 
   const handleOpenModal = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'));
+    setSelectedSchedule(null); // 작성 모드임을 명시
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (schedule: ScheduleResponse) => {
+    setIsDetailOpen(false);
+    setSelectedSchedule(schedule);
     setIsModalOpen(true);
   };
 
@@ -334,6 +341,7 @@ export default function SchedulePage() {
         onClose={() => setIsModalOpen(false)} 
         initialDate={selectedDate}
         onSuccess={fetchSchedules}
+        initialSchedule={selectedSchedule}
       />
 
       <AppointmentDetailModal 
@@ -344,6 +352,7 @@ export default function SchedulePage() {
         }}
         schedule={selectedSchedule}
         onSuccess={fetchSchedules}
+        onEdit={handleEdit}
       />
     </div>
   );

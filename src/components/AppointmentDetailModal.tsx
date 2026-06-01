@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Calendar, Clock, MapPin, Trash2, Loader2, FileText, MessageSquare, ChevronRight, Map as MapIcon, ExternalLink } from 'lucide-react';
+import { X, Calendar, Clock, MapPin, Trash2, Loader2, FileText, MessageSquare, ChevronRight, Map as MapIcon, ExternalLink, Edit2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
@@ -12,6 +12,7 @@ interface AppointmentDetailModalProps {
   onClose: () => void;
   schedule: ScheduleResponse | null;
   onSuccess?: () => void;
+  onEdit?: (schedule: ScheduleResponse) => void;
 }
 
 interface LocationDetail {
@@ -25,7 +26,8 @@ export default function AppointmentDetailModal({
   isOpen,
   onClose,
   schedule,
-  onSuccess
+  onSuccess,
+  onEdit
 }: AppointmentDetailModalProps) {
   const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -121,13 +123,23 @@ export default function AppointmentDetailModal({
             <h2 className="text-xl font-black text-gray-900 tracking-tight">일정 상세 정보</h2>
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="p-2 hover:bg-red-50 rounded-full transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
-            >
-              {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-            </button>
+            {session?.user?.id === schedule.authorId && (
+              <>
+                <button 
+                  onClick={() => onEdit?.(schedule)}
+                  className="p-2 hover:bg-indigo-50 rounded-full transition-colors text-gray-400 hover:text-indigo-500"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="p-2 hover:bg-red-50 rounded-full transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
+                >
+                  {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                </button>
+              </>
+            )}
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
               <X className="w-6 h-6" />
             </button>

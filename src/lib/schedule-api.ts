@@ -46,6 +46,25 @@ export const scheduleApi = {
     return response.json();
   },
 
+  async update(id: string, data: { 
+    title: string; 
+    description?: string; 
+    startTime: string; 
+    endTime: string; 
+    location?: string; 
+    groupId?: string;
+    taggedMemoIds?: string[];
+    participantIds?: string[];
+  }, session: Session | null): Promise<ScheduleResponse> {
+    const response = await fetchWithAuth(`/api/schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }, session);
+
+    if (!response.ok) throw new Error('Failed to update schedule');
+    return response.json();
+  },
+
   async delete(id: string, session: Session | null): Promise<void> {
     const response = await fetchWithAuth(`/api/schedules/${id}`, {
       method: 'DELETE',

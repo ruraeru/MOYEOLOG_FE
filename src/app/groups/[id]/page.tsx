@@ -89,6 +89,12 @@ export default function GroupDetailPage() {
     setIsDetailOpen(true);
   };
 
+  const handleEdit = (schedule: ScheduleResponse) => {
+    setIsDetailOpen(false);
+    setSelectedSchedule(schedule);
+    setIsScheduleModalOpen(true);
+  };
+
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
     const daySchedules = schedules.filter(s => isSameDay(parseISO(s.startTime), date));
@@ -384,6 +390,7 @@ export default function GroupDetailPage() {
         onClose={() => setIsScheduleModalOpen(false)}
         initialDate={selectedDate}
         onSuccess={fetchGroupData}
+        initialSchedule={selectedSchedule}
       />
 
       <AppointmentListModal 
@@ -391,7 +398,10 @@ export default function GroupDetailPage() {
         onClose={() => setIsListModalOpen(false)}
         date={selectedDate}
         appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))}
-        onCreateNew={() => setIsScheduleModalOpen(true)}
+        onCreateNew={() => {
+          setSelectedSchedule(null);
+          setIsScheduleModalOpen(true);
+        }}
         onAppointmentClick={handleScheduleClick}
       />
 
@@ -400,6 +410,7 @@ export default function GroupDetailPage() {
         onClose={() => setIsDetailOpen(false)}
         schedule={selectedSchedule}
         onSuccess={fetchGroupData}
+        onEdit={handleEdit}
       />
 
       <GroupEditModal

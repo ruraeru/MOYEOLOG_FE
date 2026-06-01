@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { scheduleApi } from '@/lib/schedule-api';
+import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
+import { format, parseISO } from 'date-fns';
 import {
   X,
   Calendar,
@@ -27,6 +28,7 @@ interface AppointmentModalProps {
   onClose: () => void;
   initialDate?: string;
   onSuccess?: () => void;
+  initialSchedule?: ScheduleResponse | null;
 }
 
 interface Recommendation {
@@ -54,7 +56,7 @@ interface KakaoPlace {
   x: string;
 }
 
-export default function AppointmentModal({ isOpen, onClose, initialDate, onSuccess }: AppointmentModalProps) {
+export default function AppointmentModal({ isOpen, onClose, initialDate, onSuccess, initialSchedule }: AppointmentModalProps) {
   const { data: session } = useSession();
 
   // Form states
@@ -123,6 +125,45 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     }
   }, [isOpen, initialDate]);
 
+  // ─── 초기 데이터 동기화 (수정 모드) ───────────────────────────
+  useEffect(() => {
+    if (isOpen && initialSchedule) {
+      setTitle(initialSchedule.title);
+      const start = parseISO(initialSchedule.startTime);
+      setDate(format(start, 'yyyy-MM-dd'));
+      setTime(format(start, 'HH:mm'));
+      setLocation(initialSchedule.location || '');
+      setMemo(initialSchedule.description || '');
+      setSelectedGroupId(initialSchedule.groupId || '');
+      
+      if (initialSchedule.participants) {
+        setParticipants(initialSchedule.participants.map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          profileImage: p.profileImage
+        })));
+      }
+      
+      if (initialSchedule.taggedMemos) {
+        setTaggedMemos(initialSchedule.taggedMemos);
+      }
+    } else if (isOpen && !initialSchedule) {
+      // 초기화 (작성 모드)
+      setTitle('');
+      setMemo('');
+      setLocation('');
+      setSelectedGroupId('');
+      setTaggedMemos([]);
+      if (session?.user) {
+        setParticipants([{ 
+          id: session.user.id, 
+          nickname: '나', 
+          profileImage: session.user.image || undefined 
+        }]);
+      }
+    }
+  }, [isOpen, initialSchedule, session]);
+
   // ─── 지도 초기화 (현위치 기반) ──────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
@@ -171,6 +212,28 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
         }
 
         try {
+          // 수정 모드이고 장소가 있다면 해당 장소로 지도 이동
+          if (initialSchedule?.location) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const kakao = (window as any).kakao;
+            const ps = new kakao.maps.services.Places();
+            ps.keywordSearch(initialSchedule.location, (data: KakaoPlace[], status: string) => {
+              if (status === kakao.maps.services.Status.OK && data[0]) {
+                const place = data[0];
+                const coords = new kakao.maps.LatLng(place.y, place.x);
+                const options = { center: coords, level: 3 };
+                const newMap = new kakao.maps.Map(mapContainer.current, options);
+                const newMarker = new kakao.maps.Marker({ position: coords });
+                newMarker.setMap(newMap);
+                setMap(newMap);
+                setMarker(newMarker);
+                fetchRecommendations(parseFloat(place.y), parseFloat(place.x));
+                setIsMapLoading(false);
+                return;
+              }
+            });
+          }
+
           const coords = new kakao.maps.LatLng(lat, lng);
           const options = {
             center: coords,
@@ -442,19 +505,24 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     try {
       const start = new Date(`${date}T${time || '00:00'}`);
       const end = new Date(start.getTime() + 60 * 60 * 1000);
-      await scheduleApi.create(
-        {
-          title,
-          description: memo,
-          startTime: start.toISOString(),
-          endTime: end.toISOString(),
-          location,
-          groupId: selectedGroupId || undefined,
-          taggedMemoIds: taggedMemos.map((m) => m.id),
-          participantIds: participants.filter(p => p.id).map(p => p.id!),
-        },
-        session
-      );
+      
+      const payload = {
+        title,
+        description: memo,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        location,
+        groupId: selectedGroupId || undefined,
+        taggedMemoIds: taggedMemos.map((m) => m.id),
+        participantIds: participants.filter(p => p.id).map(p => p.id!),
+      };
+
+      if (initialSchedule) {
+        await scheduleApi.update(initialSchedule.id, payload, session);
+      } else {
+        await scheduleApi.create(payload, session);
+      }
+      
       // 폼 초기화
       setTitle(''); setMemo(''); setLocation('');
       setSelectedGroupId(''); setTags([]); 
