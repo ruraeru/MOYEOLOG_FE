@@ -109,8 +109,9 @@ Gemini CLI must automatically verify the following before ANY commit or code gen
 
 - **2026-06-01 (Part 2):**
   - **Group Topics:** Implemented full-stack support for topics within groups.
-  - **Backend:** Created `GroupTopic`, `GroupTopicComment`, and `GroupTopicInsight` entities/APIs. Integrated Gemini for topic analysis.
-  - **Frontend:** Added "토픽" tab to group detail page, built `GroupTopicCreateModal` (markdown editor) and `GroupTopicDetailModal` (comments/AI section).
+  - **@Mentions:** Added ability to mention group members and memos in topic content and comments.
+  - **Backend:** Created `GroupTopic`, `GroupTopicComment`, and `GroupTopicInsight` entities/APIs. Integrated Gemini for topic analysis. Updated `GroupTopicResponse` to include `groupId`.
+  - **Frontend:** Added "토픽" tab to group detail page, built `GroupTopicCreateModal` (markdown editor) and `GroupTopicDetailModal` (comments/AI section). Extracted `Mentions` components for reuse.
   - **Refactoring:** Completed major frontend refactor by decomposing `AppointmentModal` into custom hooks (`useKakaoMap`, `usePlaceSearch`, `useMentions`) and smaller components.
 - **2026-06-01 (Part 1):**
   - Implemented `PUT /api/schedules/{id}` endpoint with backend creator authorization.
