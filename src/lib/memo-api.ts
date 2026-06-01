@@ -60,6 +60,7 @@ export interface MemoResponse {
   groupId?: string;
   tags: string[];
   insight?: MemoInsight;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -144,6 +145,14 @@ export const memoApi = {
       method: 'DELETE',
     }, session);
     if (!response.ok) throw new Error('Failed to delete memo');
+  },
+
+  async toggleFavorite(id: string, session: Session | null): Promise<MemoResponse> {
+    const response = await fetchWithAuth(`/api/memos/${id}/favorite`, {
+      method: 'PUT',
+    }, session);
+    if (!response.ok) throw new Error('Failed to toggle favorite');
+    return response.json();
   },
 
   async share(id: string, friendIds: string[], session: Session | null): Promise<void> {

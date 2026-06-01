@@ -9,6 +9,7 @@ export type Memo = {
   category?: string;
   categoryColor?: string;
   locked?: boolean;
+  isFavorite?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -32,4 +33,5 @@ export type MemoCardView = {
   categoryColor?: string;
   date: string;
   locked?: boolean;
+  isFavorite?: boolean;
 };

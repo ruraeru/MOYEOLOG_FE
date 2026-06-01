@@ -11,6 +11,7 @@ import {
   Loader2,
   Trash2,
   Pencil,
+  Star,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
@@ -179,6 +180,16 @@ export default function MemoDetailModal({
     }
   };
 
+  const handleToggleFavorite = async () => {
+    if (!memo || !session) return;
+    try {
+      const updated = await memoApi.toggleFavorite(memo.id, session);
+      setMemo(updated);
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    }
+  };
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
 
@@ -196,6 +207,14 @@ export default function MemoDetailModal({
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-3">
                 <h2 className="text-3xl font-black text-gray-900">{memo.title}</h2>
+                <button
+                  type="button"
+                  onClick={handleToggleFavorite}
+                  className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${memo.isFavorite ? 'text-amber-400' : 'text-gray-300'}`}
+                  title="즐겨찾기"
+                >
+                  <Star className={`w-5 h-5 ${memo.isFavorite ? 'fill-amber-400' : ''}`} />
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(true)}

@@ -97,6 +97,7 @@ export default function MemoPage() {
         ) : (isShared ? 'bg-purple-500' : 'bg-indigo-500'),
         date: new Date(m.createdAt).toLocaleDateString(),
         locked: false,
+        isFavorite: m.isFavorite,
         groupId: m.groupId
       };
     });
@@ -115,6 +116,17 @@ export default function MemoPage() {
   const handleMemoClick = (memo: MemoCardView) => {
     setSelectedMemoId(memo.id);
     setIsDetailOpen(true);
+  };
+
+  const handleToggleFavorite = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!session) return;
+    try {
+      await memoApi.toggleFavorite(id, session);
+      loadData(); // 단순하게 전체 리로드. 필요시 최적화 가능
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    }
   };
 
   if (status === 'loading') {
@@ -274,7 +286,11 @@ export default function MemoPage() {
                     onClick={() => handleMemoClick(memo)}
                     className="contents"
                   >
-                    <MemoCard {...memo} viewMode={viewMode} />
+                    <MemoCard 
+                      {...memo} 
+                      viewMode={viewMode} 
+                      onToggleFavorite={(e) => handleToggleFavorite(e, memo.id)} 
+                    />
                   </div>
                 ))}
               </div>
@@ -340,6 +356,7 @@ function SidebarItem({ icon: Icon, label, count, active, color, onClick }: Sideb
 
 interface MemoCardProps extends MemoCardView {
   viewMode: 'grid' | 'list';
+  onToggleFavorite?: (e: React.MouseEvent) => void;
 }
 
 function MemoCard({
@@ -351,7 +368,9 @@ function MemoCard({
   categoryColor,
   date,
   locked,
+  isFavorite,
   viewMode,
+  onToggleFavorite,
 }: MemoCardProps) {
   const thumb = image ? <MemoThumbnail src={image} alt={title} viewMode={viewMode} /> : null;
 
@@ -360,7 +379,18 @@ function MemoCard({
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-100 hover:shadow-md transition-all group flex overflow-hidden p-6 gap-6 relative cursor-pointer">
         {thumb}
         <div className="flex flex-col flex-1 min-w-0 py-1">
-          <h4 className="font-black text-gray-800 text-lg truncate mb-2 group-hover:text-indigo-600 transition-colors">{title}</h4>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors">{title}</h4>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={onToggleFavorite}
+                className={`p-1.5 rounded-full hover:bg-gray-100 transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-300'}`}
+              >
+                <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-400' : ''}`} />
+              </button>
+              {locked && <Lock className="w-4 h-4 text-gray-300" />}
+            </div>
+          </div>
           <p className="text-sm text-gray-500 leading-relaxed line-clamp-2 mb-5 font-medium">{description}</p>
           <div className="flex flex-wrap gap-2 mb-5">
             {tags.map((tag) => (
@@ -382,7 +412,6 @@ function MemoCard({
               )}
               <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{date}</span>
             </div>
-            {locked && <Lock className="w-4 h-4 text-gray-300" />}
           </div>
         </div>
       </div>
@@ -395,12 +424,26 @@ function MemoCard({
         <div className="h-48 w-full relative bg-gray-50 overflow-hidden">
           <MemoThumbnail src={image} alt={title} viewMode="grid" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+          <button 
+            onClick={onToggleFavorite}
+            className={`absolute top-4 right-4 z-10 p-2 rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg hover:scale-110 active:scale-95 transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-400'}`}
+          >
+            <Star className={`w-5 h-5 ${isFavorite ? 'fill-amber-400' : ''}`} />
+          </button>
         </div>
       )}
       <div className="p-6 flex flex-col gap-4 flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors">{title}</h4>
-          {locked && <Lock className="w-3.5 h-3.5 text-gray-300 shrink-0" />}
+          <div className="flex items-center gap-2 shrink-0">
+            <button 
+              onClick={onToggleFavorite}
+              className={`p-1.5 rounded-full hover:bg-gray-50 transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-300'}`}
+            >
+              <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-400' : ''}`} />
+            </button>
+            {locked && <Lock className="w-3.5 h-3.5 text-gray-300" />}
+          </div>
         </div>
         <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 flex-1 font-medium">{description}</p>
         <div className="space-y-4 mt-2">
@@ -408,7 +451,7 @@ function MemoCard({
             {tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2 py-0.5 rounded-md"
+                className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2.5 py-1 rounded-md"
               >
                 #{tag}
               </span>
