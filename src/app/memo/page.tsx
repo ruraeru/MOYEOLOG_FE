@@ -24,7 +24,7 @@ import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import type { MemoCardView } from '@/types/memo';
 
-type FilterType = 'all' | 'my' | 'shared' | 'group';
+type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites';
 
 export default function MemoPage() {
   const { data: session, status } = useSession();
@@ -68,13 +68,21 @@ export default function MemoPage() {
 
   // 필터링 및 데이터 변환 로직
   useEffect(() => {
-    const source = filter.type === 'shared' ? sharedMemos : allMemos;
-    let filtered = source;
+    let filtered: MemoResponse[] = [];
     
-    if (filter.type === 'group' && filter.id) {
-      filtered = source.filter(m => m.groupId === filter.id);
-    } else if (filter.type === 'my') {
-      filtered = source.filter(m => !m.groupId);
+    if (filter.type === 'favorites') {
+      const combined = [...allMemos, ...sharedMemos];
+      const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
+      filtered = unique.filter(m => m.isFavorite);
+    } else {
+      const source = filter.type === 'shared' ? sharedMemos : allMemos;
+      filtered = source;
+      
+      if (filter.type === 'group' && filter.id) {
+        filtered = source.filter(m => m.groupId === filter.id);
+      } else if (filter.type === 'my') {
+        filtered = source.filter(m => !m.groupId);
+      }
     }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -141,6 +149,7 @@ export default function MemoPage() {
     if (filter.type === 'group') return userGroups.find(g => g.id === filter.id)?.name || '모임 메모';
     if (filter.type === 'shared') return '공유받은 메모';
     if (filter.type === 'my') return '내 메모';
+    if (filter.type === 'favorites') return '즐겨찾기';
     return '전체 메모';
   };
 
@@ -172,7 +181,12 @@ export default function MemoPage() {
                 active={filter.type === 'shared'}
                 onClick={() => setFilter({ type: 'shared' })}
               />
-              <SidebarItem icon={Star} label="즐겨찾기" />
+              <SidebarItem 
+                icon={Star} 
+                label="즐겨찾기" 
+                active={filter.type === 'favorites'}
+                onClick={() => setFilter({ type: 'favorites' })}
+              />
             </div>
           </div>
 
@@ -272,7 +286,8 @@ export default function MemoPage() {
                  <Archive className="w-16 h-16 text-gray-200 mb-4" />
                  <p className="text-gray-500 font-bold">
                   {filter.type === 'group' ? '이 모임에 작성된 메모가 없습니다.' : 
-                   filter.type === 'shared' ? '공유받은 메모가 없습니다.' : '메모가 없습니다.'}
+                   filter.type === 'shared' ? '공유받은 메모가 없습니다.' : 
+                   filter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' : '메모가 없습니다.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1 font-medium">새로운 메모를 작성해보세요!</p>
               </div>
