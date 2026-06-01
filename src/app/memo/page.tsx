@@ -26,6 +26,23 @@ import type { MemoCardView } from '@/types/memo';
 
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
+// ─── 유틸리티 및 상수 ─────────────────────────────────────────────
+
+const THEME_COLORS = {
+  indigo: { bg: 'bg-indigo-500', text: 'text-indigo-500' },
+  blue: { bg: 'bg-blue-500', text: 'text-blue-500' },
+  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-500' },
+  orange: { bg: 'bg-orange-500', text: 'text-orange-500' },
+  rose: { bg: 'bg-rose-500', text: 'text-rose-500' },
+  amber: { bg: 'bg-amber-500', text: 'text-amber-500' },
+};
+
+const getThemeColors = (theme?: string) => {
+  return THEME_COLORS[theme as keyof typeof THEME_COLORS] || THEME_COLORS.indigo;
+};
+
+// ─── 메인 컴포넌트 ───────────────────────────────────────────────
+
 export default function MemoPage() {
   const { data: session, status } = useSession();
   const userId = session?.user?.id;
@@ -33,14 +50,13 @@ export default function MemoPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]); // 내 메모 + 그룹 메모 원본
   const [sharedMemos, setSharedMemos] = useState<MemoResponse[]>([]); // 공유받은 메모 원본
-  const [memos, setMemos] = useState<MemoCardView[]>([]); // 필터링된 뷰 데이터
   const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  
+
   const [filter, setFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
 
   const loadData = useCallback(async () => {
@@ -66,22 +82,24 @@ export default function MemoPage() {
     loadData();
   }, [loadData]);
 
-  // 필터링 및 데이터 변환 로직
-  useEffect(() => {
+  // 1. 중복 제거된 전체 메모 리스트 (useMemo 최적화)
+  const combinedUniqueMemos = useMemo(() => {
+    const combined = [...allMemos, ...sharedMemos];
+    return Array.from(new Map(combined.map(m => [m.id, m])).values());
+  }, [allMemos, sharedMemos]);
+
+  // 2. 파생 상태 최적화: 필터링 및 데이터 변환 (memos를 useMemo로 관리)
+  const memos = useMemo((): MemoCardView[] => {
     let filtered: MemoResponse[] = [];
-    
+
     if (filter.type === 'favorites') {
-      const combined = [...allMemos, ...sharedMemos];
-      const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
-      filtered = unique.filter(m => m.isFavorite);
+      filtered = combinedUniqueMemos.filter(m => m.isFavorite);
     } else if (filter.type === 'tag' && filter.id) {
-      const combined = [...allMemos, ...sharedMemos];
-      const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
-      filtered = unique.filter(m => m.tags?.includes(filter.id!));
+      filtered = combinedUniqueMemos.filter(m => m.tags?.includes(filter.id!));
     } else {
       const source = filter.type === 'shared' ? sharedMemos : allMemos;
       filtered = source;
-      
+
       if (filter.type === 'group' && filter.id) {
         filtered = source.filter(m => m.groupId === filter.id);
       } else if (filter.type === 'my') {
@@ -90,9 +108,11 @@ export default function MemoPage() {
     }
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const items: MemoCardView[] = filtered.map(m => {
+    return filtered.map(m => {
       const group = userGroups.find(g => g.id === m.groupId);
       const isShared = sharedMemos.some(sm => sm.id === m.id);
+      const theme = getThemeColors(group?.colorTheme);
+
       return {
         id: m.id,
         title: m.title,
@@ -100,44 +120,47 @@ export default function MemoPage() {
         image: m.imageUrl ? (m.imageUrl.startsWith('/uploads/') ? `${apiUrl}${m.imageUrl}` : m.imageUrl) : undefined,
         tags: m.tags || [],
         category: isShared ? '공유받음' : (group ? group.name : '내 메모'),
-        categoryColor: group ? (
-          group.colorTheme === 'indigo' ? 'bg-indigo-500' :
-          group.colorTheme === 'blue' ? 'bg-blue-500' :
-          group.colorTheme === 'emerald' ? 'bg-emerald-500' :
-          group.colorTheme === 'orange' ? 'bg-orange-500' :
-          group.colorTheme === 'rose' ? 'bg-rose-500' : 'bg-amber-500'
-        ) : (isShared ? 'bg-purple-500' : 'bg-indigo-500'),
+        categoryColor: isShared ? 'bg-purple-500' : theme.bg,
         date: new Date(m.createdAt).toLocaleDateString(),
         locked: false,
         isFavorite: m.isFavorite,
         groupId: m.groupId
       };
     });
-    setMemos(items);
-  }, [filter, allMemos, sharedMemos, userGroups]);
+  }, [filter, allMemos, sharedMemos, userGroups, combinedUniqueMemos]);
 
   // 동적 태그 추출
   const dynamicTags = useMemo(() => {
     const tagSet = new Set<string>();
-    [...allMemos, ...sharedMemos].forEach(m => {
+    combinedUniqueMemos.forEach(m => {
       if (m.tags) m.tags.forEach((t: string) => tagSet.add(t));
     });
     return Array.from(tagSet).slice(0, 15);
-  }, [allMemos, sharedMemos]);
+  }, [combinedUniqueMemos]);
 
-  const handleMemoClick = (memo: MemoCardView) => {
-    setSelectedMemoId(memo.id);
+  const handleMemoClick = (id: string) => {
+    setSelectedMemoId(id);
     setIsDetailOpen(true);
   };
 
+  // 낙관적 업데이트 적용
   const handleToggleFavorite = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!session) return;
+
+    // 로컬 상태 즉시 업데이트 (Optimistic UI)
+    const updateFn = (prev: MemoResponse[]) =>
+      prev.map(m => m.id === id ? { ...m, isFavorite: !m.isFavorite } : m);
+
+    setAllMemos(updateFn);
+    setSharedMemos(updateFn);
+
     try {
       await memoApi.toggleFavorite(id, session);
-      loadData(); // 단순하게 전체 리로드. 필요시 최적화 가능
     } catch (error) {
       console.error('Failed to toggle favorite:', error);
+      // 에러 시 원복 (전체 리로드)
+      loadData();
     }
   };
 
@@ -173,27 +196,27 @@ export default function MemoPage() {
               <ChevronDown className="w-3 h-3" /> 카테고리
             </h3>
             <div className="space-y-1">
-              <SidebarItem 
-                icon={Archive} 
-                label="전체 메모" 
-                active={filter.type === 'all'} 
-                onClick={() => setFilter({ type: 'all' })} 
+              <SidebarItem
+                icon={Archive}
+                label="전체 메모"
+                active={filter.type === 'all'}
+                onClick={() => setFilter({ type: 'all' })}
               />
-              <SidebarItem 
-                icon={User} 
-                label="내 메모" 
+              <SidebarItem
+                icon={User}
+                label="내 메모"
                 active={filter.type === 'my'}
                 onClick={() => setFilter({ type: 'my' })}
               />
-              <SidebarItem 
-                icon={Share2} 
-                label="공유받은 메모" 
+              <SidebarItem
+                icon={Share2}
+                label="공유받은 메모"
                 active={filter.type === 'shared'}
                 onClick={() => setFilter({ type: 'shared' })}
               />
-              <SidebarItem 
-                icon={Star} 
-                label="즐겨찾기" 
+              <SidebarItem
+                icon={Star}
+                label="즐겨찾기"
                 active={filter.type === 'favorites'}
                 onClick={() => setFilter({ type: 'favorites' })}
               />
@@ -206,20 +229,13 @@ export default function MemoPage() {
             </h3>
             <div className="space-y-1">
               {userGroups.map(group => {
-                const colorMap = {
-                  indigo: 'text-indigo-500',
-                  blue: 'text-blue-500',
-                  emerald: 'text-emerald-500',
-                  orange: 'text-orange-500',
-                  rose: 'text-rose-500',
-                  amber: 'text-amber-500'
-                };
+                const theme = getThemeColors(group.colorTheme);
                 return (
-                  <SidebarItem 
+                  <SidebarItem
                     key={group.id}
-                    label={group.name} 
+                    label={group.name}
                     active={filter.type === 'group' && filter.id === group.id}
-                    color={colorMap[group.colorTheme as keyof typeof colorMap] || 'text-indigo-500'} 
+                    color={theme.text}
                     onClick={() => setFilter({ type: 'group', id: group.id })}
                   />
                 );
@@ -236,11 +252,10 @@ export default function MemoPage() {
                 <span
                   key={tag}
                   onClick={() => setFilter({ type: 'tag', id: tag })}
-                  className={`text-xs font-bold px-2 py-1 rounded-md cursor-pointer transition-colors ${
-                    filter.type === 'tag' && filter.id === tag
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  className={`text-xs font-bold px-2 py-1 rounded-md cursor-pointer transition-colors ${filter.type === 'tag' && filter.id === tag
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                 >
                   #{tag}
                 </span>
@@ -298,12 +313,12 @@ export default function MemoPage() {
               </div>
             ) : memos.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-center">
-                 <Archive className="w-16 h-16 text-gray-200 mb-4" />
-                 <p className="text-gray-500 font-bold">
-                  {filter.type === 'group' ? '이 모임에 작성된 메모가 없습니다.' : 
-                   filter.type === 'shared' ? '공유받은 메모가 없습니다.' : 
-                   filter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' : 
-                   filter.type === 'tag' ? '해당 태그가 포함된 메모가 없습니다.' : '메모가 없습니다.'}
+                <Archive className="w-16 h-16 text-gray-200 mb-4" />
+                <p className="text-gray-500 font-bold">
+                  {filter.type === 'group' ? '이 모임에 작성된 메모가 없습니다.' :
+                    filter.type === 'shared' ? '공유받은 메모가 없습니다.' :
+                      filter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' :
+                        filter.type === 'tag' ? '해당 태그가 포함된 메모가 없습니다.' : '메모가 없습니다.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1 font-medium">새로운 메모를 작성해보세요!</p>
               </div>
@@ -312,18 +327,14 @@ export default function MemoPage() {
                 className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}
               >
                 {memos.map((memo) => (
-                  <div
+                  <MemoCard
                     key={memo.id}
-                    onClick={() => handleMemoClick(memo)}
-                    className="contents"
-                  >
-                    <MemoCard 
-                      {...memo} 
-                      viewMode={viewMode} 
-                      onToggleFavorite={(e) => handleToggleFavorite(e, memo.id)} 
-                      onTagClick={handleTagClick}
-                    />
-                  </div>
+                    {...memo}
+                    viewMode={viewMode}
+                    onClick={() => handleMemoClick(memo.id)}
+                    onToggleFavorite={(e) => handleToggleFavorite(e, memo.id)}
+                    onTagClick={handleTagClick}
+                  />
                 ))}
               </div>
             )}
@@ -331,7 +342,7 @@ export default function MemoPage() {
 
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="fixed bottom-10 right-10 w-16 h-16 bg-[#6366F1] text-white rounded-[2rem] flex items-center justify-center shadow-2xl hover:bg-[#5558E6] transition-all transform hover:scale-110 active:scale-95 group z-30"
+            className="fixed bottom-10 right-10 w-16 h-16 bg-[#6366F1] text-white rounded-4xl flex items-center justify-center shadow-2xl hover:bg-[#5558E6] transition-all transform hover:scale-110 active:scale-95 group z-30"
           >
             <Plus className="w-8 h-8 group-hover:rotate-90 transition-transform duration-300" />
           </button>
@@ -388,6 +399,7 @@ function SidebarItem({ icon: Icon, label, count, active, color, onClick }: Sideb
 
 interface MemoCardProps extends MemoCardView {
   viewMode: 'grid' | 'list';
+  onClick?: () => void;
   onToggleFavorite?: (e: React.MouseEvent) => void;
   onTagClick?: (e: React.MouseEvent, tag: string) => void;
 }
@@ -403,6 +415,7 @@ function MemoCard({
   locked,
   isFavorite,
   viewMode,
+  onClick,
   onToggleFavorite,
   onTagClick,
 }: MemoCardProps) {
@@ -410,13 +423,16 @@ function MemoCard({
 
   if (viewMode === 'list') {
     return (
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-100 hover:shadow-md transition-all group flex overflow-hidden p-6 gap-6 relative cursor-pointer">
+      <div
+        onClick={onClick}
+        className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-indigo-100 hover:shadow-md transition-all group flex overflow-hidden p-6 gap-6 relative cursor-pointer"
+      >
         {thumb}
         <div className="flex flex-col flex-1 min-w-0 py-1">
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors">{title}</h4>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={onToggleFavorite}
                 className={`p-1.5 rounded-full hover:bg-gray-100 transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-300'}`}
               >
@@ -454,12 +470,15 @@ function MemoCard({
   }
 
   return (
-    <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all group flex flex-col overflow-hidden relative cursor-pointer">
+    <div
+      onClick={onClick}
+      className="bg-white rounded-4xl border border-gray-100 shadow-sm hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1 transition-all group flex flex-col overflow-hidden relative cursor-pointer"
+    >
       {image && (
         <div className="h-48 w-full relative bg-gray-50 overflow-hidden">
           <MemoThumbnail src={image} alt={title} viewMode="grid" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-          <button 
+          <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent" />
+          <button
             onClick={onToggleFavorite}
             className={`absolute top-4 right-4 z-10 p-2 rounded-2xl bg-white/90 backdrop-blur-sm shadow-lg hover:scale-110 active:scale-95 transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-400'}`}
           >
@@ -471,13 +490,13 @@ function MemoCard({
         <div className="flex items-center justify-between gap-2">
           <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors">{title}</h4>
           <div className="flex items-center gap-2 shrink-0">
-            <button 
+            <button
               onClick={onToggleFavorite}
               className={`p-1.5 rounded-full hover:bg-gray-50 transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-300'}`}
             >
               <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-400' : ''}`} />
             </button>
-            {locked && <Lock className="w-3.5 h-3.5 text-gray-300" />}
+            {locked && <Lock className="w-3.5 h-3.5 text-gray-300 shrink-0" />}
           </div>
         </div>
         <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 flex-1 font-medium">{description}</p>
@@ -487,7 +506,7 @@ function MemoCard({
               <span
                 key={tag}
                 onClick={(e) => onTagClick?.(e, tag)}
-                className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition-colors cursor-pointer"
+                className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2.5 py-1 rounded-md hover:bg-indigo-100 transition-colors cursor-pointer"
               >
                 #{tag}
               </span>
