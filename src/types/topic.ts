@@ -6,6 +6,7 @@ export interface TopicResponse {
   authorId: string;
   authorNickname: string;
   authorProfileImage?: string;
+  groupId: string;
   commentCount: number;
   createdAt: string;
   updatedAt: string;

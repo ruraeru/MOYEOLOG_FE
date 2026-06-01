@@ -7,10 +7,17 @@ import {
   Sparkles,
   Lightbulb,
   Loader2,
-  Check
+  Check,
+  Users,
+  FileText
 } from 'lucide-react';
 import { fileToDataUrl } from '@/lib/memo-storage';
 import { groupTopicApi } from '@/lib/group-topic-api';
+import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { friendApi, type FriendResponse } from '@/lib/friend-api';
+import { useMentions } from '@/hooks/useMentions';
+import { MentionList, type MentionItem } from './Mentions';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import '@uiw/react-md-editor/markdown-editor.css';
@@ -41,6 +48,40 @@ export default function GroupTopicCreateModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Mention states
+  const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
+  const [friends, setFriends] = useState<FriendResponse[]>([]);
+  const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
+  const [participantInput, setParticipantInput] = useState('');
+  const [memoMentionInput, setMemoMentionInput] = useState('');
+
+  const { 
+    showMemoMentions, setShowMemoMentions, filteredMemos,
+    showParticipantMentions, setShowParticipantMentions, filteredParticipants,
+    handleInputChange
+  } = useMentions({ 
+    allMemos, 
+    friends, 
+    userGroups, 
+    selectedGroupId: groupId, 
+    currentUserId: session?.user?.id 
+  });
+
+  useEffect(() => {
+    if (isOpen && session) {
+      // 그룹 정보와 메모 목록 가져오기
+      Promise.all([
+        groupApi.getById(groupId, session),
+        groupApi.getGroupMemos(groupId, session),
+        friendApi.getFriends(session)
+      ]).then(([groupData, memoData, friendData]) => {
+        setUserGroups([groupData]);
+        setAllMemos(memoData);
+        setFriends(friendData);
+      }).catch(console.error);
+    }
+  }, [isOpen, groupId, session]);
 
   useEffect(() => {
     if (isOpen) {
@@ -213,6 +254,62 @@ export default function GroupTopicCreateModal({
                   placeholder: '이 토픽에 대해 자유롭게 의견을 나누어보세요 (마크다운 지원)...'
                 }}
               />
+            </div>
+
+            {/* Mentions Section */}
+            <div className="mt-8 pt-8 border-t border-gray-50 grid grid-cols-2 gap-6">
+              <div className="space-y-2 relative">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1"><Users className="w-3 h-3" /> 친구 언급 (@)</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={participantInput}
+                    onChange={(e) => {
+                      setParticipantInput(e.target.value);
+                      handleInputChange(e.target.value, 'participant');
+                    }}
+                    placeholder="@이름으로 친구 찾기"
+                    className="w-full bg-gray-50 border-2 border-transparent rounded-2xl px-4 py-3 text-xs focus:bg-white focus:border-indigo-500 transition-all outline-none font-bold shadow-sm"
+                  />
+                  {showParticipantMentions && (
+                    <MentionList 
+                      items={filteredParticipants as MentionItem[]} 
+                      onSelect={(m) => {
+                        setContent(prev => `${prev}\n[@${m.nickname}](/profile/${m.id}) `);
+                        setShowParticipantMentions(false);
+                        setParticipantInput('');
+                      }} 
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2 relative">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1"><FileText className="w-3 h-3" /> 메모 언급 (@)</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={memoMentionInput}
+                    onChange={(e) => {
+                      setMemoMentionInput(e.target.value);
+                      handleInputChange(e.target.value, 'memo');
+                    }}
+                    placeholder="@제목으로 메모 찾기"
+                    className="w-full bg-gray-50 border-2 border-transparent rounded-2xl px-4 py-3 text-xs focus:bg-white focus:border-indigo-500 transition-all outline-none font-bold shadow-sm"
+                  />
+                  {showMemoMentions && (
+                    <MentionList 
+                      items={filteredMemos as MentionItem[]} 
+                      onSelect={(m) => {
+                        setContent(prev => `${prev}\n[📝 ${m.title}](/memo/${m.id}) `);
+                        setShowMemoMentions(false);
+                        setMemoMentionInput('');
+                      }} 
+                      isMemo
+                    />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

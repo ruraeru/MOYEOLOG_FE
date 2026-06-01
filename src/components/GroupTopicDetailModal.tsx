@@ -10,10 +10,17 @@ import {
   Trash2,
   Pencil,
   Send,
+  User,
+  FileText,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupTopicApi } from '@/lib/group-topic-api';
-import type { TopicDetailResponse, TopicResponse } from '@/types/topic';
+import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { friendApi, type FriendResponse } from '@/lib/friend-api';
+import { useMentions } from '@/hooks/useMentions';
+import { MentionList, type MentionItem } from './Mentions';
+import type { TopicDetailResponse, TopicResponse, TopicInsightResponse } from '@/types/topic';
 import dynamic from 'next/dynamic';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -57,6 +64,23 @@ export default function GroupTopicDetailModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCommenting, setIsCommenting] = useState(false);
 
+  // Mention states
+  const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
+  const [friends, setFriends] = useState<FriendResponse[]>([]);
+  const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
+
+  const { 
+    showMemoMentions, setShowMemoMentions, filteredMemos,
+    showParticipantMentions, setShowParticipantMentions, filteredParticipants,
+    handleInputChange
+  } = useMentions({ 
+    allMemos, 
+    friends, 
+    userGroups, 
+    selectedGroupId: data?.topic.groupId || undefined, 
+    currentUserId: session?.user?.id 
+  });
+
   const fetchDetail = useCallback(async () => {
     if (!topicId || !session) return;
     setLoading(true);
@@ -73,10 +97,15 @@ export default function GroupTopicDetailModal({
   useEffect(() => {
     if (isOpen && topicId) {
       fetchDetail();
+      if (session) {
+        memoApi.getAll(session).then(setAllMemos).catch(console.error);
+        friendApi.getFriends(session).then(setFriends).catch(console.error);
+        groupApi.getAll(session).then(setUserGroups).catch(console.error);
+      }
     } else {
       setData(null);
     }
-  }, [isOpen, topicId, fetchDetail]);
+  }, [isOpen, topicId, fetchDetail, session]);
 
   const handleAnalyze = async () => {
     if (!topicId || !session) return;
@@ -305,9 +334,12 @@ export default function GroupTopicDetailModal({
                         )}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed font-medium bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-50">
-                      {comment.content}
-                    </p>
+                    <div className="text-sm text-gray-600 leading-relaxed font-medium bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-50" data-color-mode="light">
+                      <EdMarkdown 
+                        source={comment.content} 
+                        style={{ backgroundColor: 'transparent', fontSize: '0.875rem', color: 'inherit' }} 
+                      />
+                    </div>
                   </div>
                 </div>
               )) : (
@@ -324,10 +356,35 @@ export default function GroupTopicDetailModal({
                 <input
                   type="text"
                   value={commentInput}
-                  onChange={(e) => setCommentInput(e.target.value)}
-                  placeholder="댓글을 입력하세요..."
+                  onChange={(e) => {
+                    setCommentInput(e.target.value);
+                    handleInputChange(e.target.value, 'participant');
+                    // Note: In comments we'll stick to participant mentions first for simplicity, 
+                    // or we can detect both. Let's do both by checking last char manually if needed.
+                  }}
+                  onKeyDown={(e) => {
+                    // Detect @ for memo mentions too
+                    if (e.key === '@') {
+                      // handleInputChange already handles @
+                    }
+                  }}
+                  placeholder="댓글을 입력하세요... (@로 친구 언급)"
                   className="w-full bg-white border border-gray-200 rounded-2xl pl-6 pr-14 py-4 text-sm font-bold focus:border-indigo-500 outline-none shadow-sm transition-all"
                 />
+                
+                {showParticipantMentions && (
+                  <MentionList 
+                    items={filteredParticipants as MentionItem[]} 
+                    onSelect={(m) => {
+                      const parts = commentInput.split('@');
+                      parts.pop();
+                      const newVal = parts.join('@') + `[@${m.nickname}](/profile/${m.id}) `;
+                      setCommentInput(newVal);
+                      setShowParticipantMentions(false);
+                    }} 
+                  />
+                )}
+
                 <button
                   type="submit"
                   disabled={isCommenting || !commentInput.trim()}
