@@ -13,7 +13,7 @@
 - **Styling:** Tailwind CSS
 - **Auth:** Next-Auth & JWT Token (Kakao OAuth 연동)
 - **Image Storage:** Local File System (`/uploads/`)
-- **AI:** Google Gemini API (gemini-3.5-flash)
+- **AI:** Google Gemini API (gemini-3.1-flash-lite)
 - **Markdown:** @uiw/react-md-editor
 
 ## ✨ 구현된 주요 기능
@@ -24,7 +24,7 @@
 
 ### 2. 메모 보관함 (`/memo`)
 - **멀티 뷰 및 마크다운:** 그리드/리스트 뷰 전환 및 **마크다운 에디터** 지원. 실시간 프리뷰를 통해 스타일 확인 가능.
-- **AI 인사이트:** Gemini 3.5 Flash 기반의 OCR(이미지 텍스트 추출), 3줄 요약, 핵심 키워드 추출.
+- **AI 인사이트:** Gemini 3.1 Flash-Lite 기반의 OCR(이미지 텍스트 추출), 3줄 요약, 핵심 키워드 추출.
 - **AI 추천 태그:** 분석된 키워드를 클릭 한 번으로 메모 태그에 추가 및 실시간 태그 관리.
 - **즐겨찾기:** 중요 메모에 별표(Star) 표시를 하여 별도로 관리 가능.
 - **새 메모 작성:** 제목, 마크다운 본문, 이미지 업로드(최대 50MB), 태그 설정 기능.
