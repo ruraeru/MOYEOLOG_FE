@@ -24,6 +24,7 @@ import { type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import MemoCreateModal from '@/components/MemoCreateModal';
+import MemoDetailModal from '@/components/MemoDetailModal';
 import GroupInviteModal from '@/components/GroupInviteModal';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
@@ -57,11 +58,13 @@ export default function GroupDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [isTopicDetailOpen, setIsTopicDetailOpen] = useState(false);
+  const [isMemoDetailOpen, setIsMemoDetailOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<TopicResponse | null>(null);
+  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'memos' | 'calendar' | 'topics'>('memos');
 
@@ -98,6 +101,11 @@ export default function GroupDetailPage() {
   const handleScheduleClick = (schedule: ScheduleResponse) => {
     setSelectedSchedule(schedule);
     setIsDetailOpen(true);
+  };
+
+  const handleMemoClick = (id: string) => {
+    setSelectedMemoId(id);
+    setIsMemoDetailOpen(true);
   };
 
   const handleTopicClick = (topic: TopicResponse) => {
@@ -365,7 +373,12 @@ export default function GroupDetailPage() {
                 {memos.length > 0 ? (
                   <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
                     {memos.map((memo) => (
-                      <MemoCard key={memo.id} memo={memo} viewMode={viewMode} />
+                      <MemoCard 
+                        key={memo.id} 
+                        memo={memo} 
+                        viewMode={viewMode} 
+                        onClick={() => handleMemoClick(memo.id)}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -515,6 +528,16 @@ export default function GroupDetailPage() {
         topicId={selectedTopic?.id || null}
         onDelete={fetchGroupData}
         onEdit={handleTopicEdit}
+        onMemoClick={handleMemoClick}
+      />
+
+      <MemoDetailModal
+        isOpen={isMemoDetailOpen}
+        onClose={() => setIsMemoDetailOpen(false)}
+        memoId={selectedMemoId}
+        userId={session?.user?.id || ''}
+        authorName={session?.user?.name}
+        onDelete={fetchGroupData}
       />
     </div>
   );
@@ -558,13 +581,13 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
   );
 }
 
-function MemoCard({ memo, viewMode }: { memo: MemoResponse, viewMode: 'grid' | 'list' }) {
+function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
 
   if (viewMode === 'list') {
     return (
-      <div className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group">
+      <div onClick={onClick} className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group">
         {imageSrc ? (
           <div className="w-16 h-16 relative shrink-0">
             <Image src={imageSrc} alt="" fill className="rounded-xl object-cover" />
@@ -585,7 +608,7 @@ function MemoCard({ memo, viewMode }: { memo: MemoResponse, viewMode: 'grid' | '
   }
 
   return (
-    <div className="flex flex-col bg-white border border-gray-100 rounded-3xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
+    <div onClick={onClick} className="flex flex-col bg-white border border-gray-100 rounded-3xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
       {imageSrc && (
         <div className="h-40 overflow-hidden relative">
           <Image 

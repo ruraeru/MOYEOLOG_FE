@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import {
   Search,
@@ -28,7 +29,17 @@ import { getThemeColors, getFileUrl } from '@/lib/utils';
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
 export default function MemoPage() {
+  return (
+    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-[#F8F9FB]"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>}>
+      <MemoContent />
+    </Suspense>
+  );
+}
+
+function MemoContent() {
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const initialMemoId = searchParams.get('id');
   const userId = session?.user?.id;
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -65,6 +76,14 @@ export default function MemoPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // URL 파라미터로 전달된 메모 ID가 있으면 상세 모달 열기
+  useEffect(() => {
+    if (initialMemoId) {
+      setSelectedMemoId(initialMemoId);
+      setIsDetailOpen(true);
+    }
+  }, [initialMemoId]);
 
   const combinedUniqueMemos = useMemo(() => {
     const combined = [...allMemos, ...sharedMemos];

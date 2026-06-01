@@ -10,8 +10,6 @@ import {
   Trash2,
   Pencil,
   Send,
-  User,
-  FileText,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupTopicApi } from '@/lib/group-topic-api';
@@ -20,7 +18,7 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { useMentions } from '@/hooks/useMentions';
 import { MentionList, type MentionItem } from './Mentions';
-import type { TopicDetailResponse, TopicResponse, TopicInsightResponse } from '@/types/topic';
+import type { TopicDetailResponse, TopicResponse } from '@/types/topic';
 import dynamic from 'next/dynamic';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -36,6 +34,7 @@ interface GroupTopicDetailModalProps {
   topicId: string | null;
   onDelete?: () => void;
   onEdit?: (topic: TopicResponse) => void;
+  onMemoClick?: (memoId: string) => void;
 }
 
 function formatDateTime(iso: string) {
@@ -55,6 +54,7 @@ export default function GroupTopicDetailModal({
   topicId,
   onDelete,
   onEdit,
+  onMemoClick,
 }: GroupTopicDetailModalProps) {
   const { data: session } = useSession();
   const [data, setData] = useState<TopicDetailResponse | null>(null);
@@ -70,7 +70,6 @@ export default function GroupTopicDetailModal({
   const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
 
   const { 
-    showMemoMentions, setShowMemoMentions, filteredMemos,
     showParticipantMentions, setShowParticipantMentions, filteredParticipants,
     handleInputChange
   } = useMentions({ 
@@ -80,6 +79,32 @@ export default function GroupTopicDetailModal({
     selectedGroupId: data?.topic.groupId || undefined, 
     currentUserId: session?.user?.id 
   });
+
+  const markdownComponents = {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    a: ({ node, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) => {
+      const isMemo = props.href?.startsWith('/memo/');
+      const isProfile = props.href?.startsWith('/profile/');
+      
+      if (isMemo || isProfile) {
+        return (
+          <a 
+            {...props} 
+            onClick={(e) => {
+              e.preventDefault();
+              const id = props.href?.split('/').pop();
+              if (isMemo && id) onMemoClick?.(id);
+              if (isProfile) alert('프로필 기능 준비 중입니다.');
+            }}
+            className="text-indigo-600 font-black hover:underline cursor-pointer"
+          >
+            {props.children}
+          </a>
+        );
+      }
+      return <a {...props} className="text-indigo-600 hover:underline" target="_blank" rel="noopener noreferrer" />;
+    }
+  };
 
   const fetchDetail = useCallback(async () => {
     if (!topicId || !session) return;
@@ -251,6 +276,7 @@ export default function GroupTopicDetailModal({
             <div className="text-gray-700 leading-relaxed" data-color-mode="light">
               <EdMarkdown 
                 source={topic.content} 
+                components={markdownComponents}
                 style={{ 
                   backgroundColor: 'transparent', 
                   fontSize: '1.25rem', 
@@ -337,6 +363,7 @@ export default function GroupTopicDetailModal({
                     <div className="text-sm text-gray-600 leading-relaxed font-medium bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-50" data-color-mode="light">
                       <EdMarkdown 
                         source={comment.content} 
+                        components={markdownComponents}
                         style={{ backgroundColor: 'transparent', fontSize: '0.875rem', color: 'inherit' }} 
                       />
                     </div>
