@@ -14,18 +14,23 @@ import {
   Copy,
   Check,
   Link as LinkIcon,
-  Settings
+  Settings,
+  Sparkles
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { groupTopicApi } from '@/lib/group-topic-api';
 import { type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
+import { type TopicResponse } from '@/types/topic';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import GroupInviteModal from '@/components/GroupInviteModal';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
 import GroupEditModal from '@/components/GroupEditModal';
+import GroupTopicCreateModal from '@/components/GroupTopicCreateModal';
+import GroupTopicDetailModal from '@/components/GroupTopicDetailModal';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
@@ -40,6 +45,7 @@ export default function GroupDetailPage() {
   const [group, setGroup] = useState<GroupResponse | null>(null);
   const [memos, setMemos] = useState<MemoResponse[]>([]);
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
+  const [topics, setTopics] = useState<TopicResponse[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modals state
@@ -49,25 +55,30 @@ export default function GroupDetailPage() {
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
+  const [isTopicDetailOpen, setIsTopicDetailOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
+  const [selectedTopic, setSelectedTopic] = useState<TopicResponse | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeTab, setActiveTab] = useState<'memos' | 'calendar'>('memos');
+  const [activeTab, setActiveTab] = useState<'memos' | 'calendar' | 'topics'>('memos');
 
   const fetchGroupData = useCallback(async () => {
     if (!session || !groupId) return;
     try {
       setLoading(true);
-      const [groupData, memoData, scheduleData] = await Promise.all([
+      const [groupData, memoData, scheduleData, topicData] = await Promise.all([
         groupApi.getById(groupId, session),
         groupApi.getGroupMemos(groupId, session),
-        groupApi.getGroupSchedules(groupId, session)
+        groupApi.getGroupSchedules(groupId, session),
+        groupTopicApi.getByGroup(groupId, session)
       ]);
       setGroup(groupData);
       setMemos(memoData);
       setSchedules(scheduleData);
+      setTopics(topicData);
     } catch (error) {
       console.error('Failed to fetch group data:', error);
     } finally {
@@ -87,6 +98,17 @@ export default function GroupDetailPage() {
   const handleScheduleClick = (schedule: ScheduleResponse) => {
     setSelectedSchedule(schedule);
     setIsDetailOpen(true);
+  };
+
+  const handleTopicClick = (topic: TopicResponse) => {
+    setSelectedTopic(topic);
+    setIsTopicDetailOpen(true);
+  };
+
+  const handleTopicEdit = (topic: TopicResponse) => {
+    setIsTopicDetailOpen(false);
+    setSelectedTopic(topic);
+    setIsTopicModalOpen(true);
   };
 
   const handleEdit = (schedule: ScheduleResponse) => {
@@ -292,6 +314,19 @@ export default function GroupDetailPage() {
                 </div>
                 {activeTab === 'calendar' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
               </button>
+              <button 
+                onClick={() => setActiveTab('topics')}
+                className={`px-4 py-3 text-sm font-black transition-all relative ${activeTab === 'topics' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  모임 토픽
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'topics' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-50 text-gray-400'}`}>
+                    {topics.length}
+                  </span>
+                </div>
+                {activeTab === 'topics' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
+              </button>
             </div>
 
             {activeTab === 'memos' ? (
@@ -337,6 +372,52 @@ export default function GroupDetailPage() {
                   <div className="flex flex-col items-center justify-center py-24 text-center">
                     <MessageSquare className="w-12 h-12 text-gray-200 mb-4" />
                     <p className="text-gray-400 font-medium">아직 작성된 메모가 없습니다.</p>
+                  </div>
+                )}
+              </>
+            ) : activeTab === 'topics' ? (
+              <>
+                {/* Topic Toolbar */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className="hidden sm:flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
+                      <button 
+                        onClick={() => setViewMode('grid')}
+                        className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setViewMode('list')}
+                        className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                      >
+                        <ListIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }}
+                      className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      새 토픽 게시
+                    </button>
+                  </div>
+                </div>
+
+                {/* Topics List/Grid */}
+                {topics.length > 0 ? (
+                  <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+                    {topics.map((topic) => (
+                      <TopicCard key={topic.id} topic={topic} viewMode={viewMode} onClick={() => handleTopicClick(topic)} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <Sparkles className="w-12 h-12 text-gray-200 mb-4" />
+                    <p className="text-gray-400 font-medium">아직 게시된 토픽이 없습니다. 첫 번째 토픽을 게시해보세요!</p>
                   </div>
                 )}
               </>
@@ -419,6 +500,60 @@ export default function GroupDetailPage() {
         group={group}
         onSuccess={fetchGroupData}
       />
+
+      <GroupTopicCreateModal
+        isOpen={isTopicModalOpen}
+        onClose={() => setIsTopicModalOpen(false)}
+        groupId={groupId}
+        onSuccess={fetchGroupData}
+        initialTopic={selectedTopic}
+      />
+
+      <GroupTopicDetailModal
+        isOpen={isTopicDetailOpen}
+        onClose={() => setIsTopicDetailOpen(false)}
+        topicId={selectedTopic?.id || null}
+        onDelete={fetchGroupData}
+        onEdit={handleTopicEdit}
+      />
+    </div>
+  );
+}
+
+function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
+  const isList = viewMode === 'list';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+  return (
+    <div onClick={onClick} className={`bg-white border border-gray-100 shadow-sm transition-all group flex overflow-hidden cursor-pointer ${isList ? 'rounded-2xl p-6 gap-6 hover:border-indigo-100 hover:shadow-md' : 'rounded-[2rem] flex-col hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1'}`}>
+      {topic.imageUrl && (
+        <div className={isList ? "w-32 h-32 relative rounded-2xl overflow-hidden shrink-0 shadow-md border border-gray-50" : "h-48 w-full relative bg-gray-50 overflow-hidden"}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} alt={topic.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />}
+        </div>
+      )}
+      <div className={isList ? "flex flex-col flex-1 min-w-0 py-1" : "p-6 flex flex-col gap-4 flex-1 min-w-0"}>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors">{topic.title}</h4>
+          <div className="flex items-center gap-2 text-gray-400 font-bold text-[10px]">
+            <MessageSquare className="w-3.5 h-3.5" />
+            {topic.commentCount}
+          </div>
+        </div>
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-medium mb-4 flex-1">
+          {topic.content.replace(/[#*`]/g, '')}
+        </p>
+        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full overflow-hidden relative bg-gray-100">
+              {topic.authorProfileImage ? <Image src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} alt="" fill className="object-cover" /> : <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-[8px] text-indigo-500 font-bold">{topic.authorNickname[0]}</div>}
+            </div>
+            <span className="text-[10px] text-gray-400 font-black">{topic.authorNickname}</span>
+          </div>
+          <span className="text-[10px] text-gray-300 font-bold">{format(new Date(topic.createdAt), 'yyyy.MM.dd')}</span>
+        </div>
+      </div>
     </div>
   );
 }

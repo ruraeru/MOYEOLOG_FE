@@ -66,7 +66,9 @@ Gemini CLI must strictly follow these processes and standards for all tasks.
 - **Schedule Management (`/schedule`):** \* Unified calendar for personal and group schedules.
   - **Authorization:** UI gating and backend validation ensuring only the schedule creator can edit/delete their events.
   - **Place Recommendations:** Nearby restaurant/cafe suggestions and Kakao Map integration when searching for meeting locations.
-- **Group Management (`/groups`):** Friend-list based invitation system (`GroupInvitation`). Users must accept the invite via notifications to join. Includes group-specific memos and calendars.
+- **Group Management (`/groups`):** Friend-list based invitation system (`GroupInvitation`). Users must accept the invite via notifications to join. 
+  - **Spaces:** Includes group-specific memos, calendars, and **Topics**.
+  - **Topics:** Markdown-based discussion threads with single image support, commenting system, and AI insights (OCR & Summary).
 
 ### 3.2 Architecture & System Rules
 
@@ -105,7 +107,12 @@ Gemini CLI must automatically verify the following before ANY commit or code gen
 
 ### 📊 Completed Work History
 
-- **2026-06-01:**
+- **2026-06-01 (Part 2):**
+  - **Group Topics:** Implemented full-stack support for topics within groups.
+  - **Backend:** Created `GroupTopic`, `GroupTopicComment`, and `GroupTopicInsight` entities/APIs. Integrated Gemini for topic analysis.
+  - **Frontend:** Added "토픽" tab to group detail page, built `GroupTopicCreateModal` (markdown editor) and `GroupTopicDetailModal` (comments/AI section).
+  - **Refactoring:** Completed major frontend refactor by decomposing `AppointmentModal` into custom hooks (`useKakaoMap`, `usePlaceSearch`, `useMentions`) and smaller components.
+- **2026-06-01 (Part 1):**
   - Implemented `PUT /api/schedules/{id}` endpoint with backend creator authorization.
   - Added edit mode to `AppointmentModal` and an edit button to `AppointmentDetailModal` (visible only to creators).
   - Added `isFavorite` field to the `Memo` entity, built the toggle API, and linked the Star icon in the frontend.
