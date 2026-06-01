@@ -1,102 +1,128 @@
-# 🚀 MOYEOLOG (모여로그) Project Documentation
+# 🚀 MOYEOLOG x ECC Project Documentation
 
-이 파일은 **Gemini CLI** 에이전트가 프로젝트의 현재 상태, 구현된 기능, 아키텍처 결정을 기록하여 다른 에이전트나 개발자가 프로젝트 흐름을 쉽게 파악할 수 있도록 돕기 위해 작성되었습니다.
+This file serves as the master top-level document for the **Gemini CLI** agent. It defines the project's current state, core development workflows (based on ECC - Everything Claude Code), review standards, security checklists, and architectural guidelines.
 
-## 📌 프로젝트 개요
-**모여로그**는 일정 관리, 메모 공유, 그룹 모임을 지원하는 협업 및 개인 관리 플랫폼입니다. 사용자 친화적인 UI와 AI 기반의 스마트 기능을 특징으로 합니다.
-
-## 🛠 기술 스택
-- **Frontend Framework:** Next.js 15 (App Router)
-- **Backend Framework:** Spring Boot 4.x, Spring Data JPA, Spring Security
-- **Database:** MySQL 8.x
-- **Language:** TypeScript, Java 25
-- **Styling:** Tailwind CSS
-- **Auth:** Next-Auth & JWT Token (Kakao OAuth 연동)
-- **Image Storage:** Local File System (`/uploads/`)
-- **AI:** Google Gemini API (gemini-3.1-flash-lite)
-- **Markdown:** @uiw/react-md-editor
-
-## ✨ 구현된 주요 기능
-
-### 1. 네비게이션 및 공통 UI
-- **GNB (Navbar):** 홈, 일정, 메모, 모임, 친구, 알림, 설정 탭 연동. 현재 활성 탭 하이라이트 및 알림 배지(3개) 표시.
-- **프로필 모달:** GNB 우측 프로필 클릭 시 나타나는 드롭다운 모달. 8자리 커스텀 유저 ID 확인, 프로필 관리, 로그아웃 기능 포함.
-
-### 2. 메모 보관함 (`/memo`)
-- **멀티 뷰 및 마크다운:** 그리드/리스트 뷰 전환 및 **마크다운 에디터** 지원. 실시간 프리뷰를 통해 스타일 확인 가능.
-- **AI 인사이트:** Gemini 3.1 Flash-Lite 기반의 OCR(이미지 텍스트 추출), 3줄 요약, 핵심 키워드 추출.
-- **AI 추천 태그:** 분석된 키워드를 클릭 한 번으로 메모 태그에 추가 및 실시간 태그 관리.
-- **즐겨찾기:** 중요 메모에 별표(Star) 표시를 하여 별도로 관리 가능.
-- **새 메모 작성:** 제목, 마크다운 본문, 이미지 업로드(최대 50MB), 태그 설정 기능.
-
-### 3. 일정 관리 (`/schedule`)
-- **캘린더 연동:** 전체 일정 및 모임별 일정 통합 관리.
-- **일정 수정/삭제 권한:** 작성자 본인만 일정을 수정하거나 삭제할 수 있도록 UI 권한 제한 및 백엔드 검증 로집 도입.
-- **장소 추천 및 지도:** 약속 장소 검색 시 주변 맛집/카페 추천 및 카카오 지도를 통한 위치 확인.
-
-### 4. 모임 관리 (`/groups`)
-- **초대/수락 시스템:** 친구 목록을 기반으로 모임에 초대하고, 받은 사용자가 알림에서 수락해야 최종 멤버로 등록됨.
-- **모임 전용 공간:** 그룹별 메모 목록 및 전용 캘린더 연동.
-
-### 4. 홈 화면 (`/home`)
-- **통합 대시보드:** 최근 메모, 전체 일정(캘린더), 참여 중인 모임 리스트를 실제 API와 실시간 연동.
-
-### 5. 백엔드 API 및 보안
-- **커스텀 ID 시스템:** 회원가입 시 영문/숫자 혼합 8자리 고유 ID 자동 부여 및 이를 통한 친구 검색 지원.
-- **보안 강화:** Spring Security 기반 JWT 인증, API 경로별 권한 설정, Global Exception Handler를 통한 상세 에러 로깅.
-- **설정 보안:** `application.yml`을 Git 추적에서 제외하고 `application.yml.example` 템플릿 제공.
-
-## 📐 주요 구현 가이드라인
-
-### 커밋 메시지 규칙 (Commit Message Convention)
-- 모든 커밋 메시지는 **한글**로 작성합니다.
-- `feat:`, `fix:`, `chore:`, `refactor:` 등의 접두어(Prefix)는 영문으로 유지하되, 이후 설명은 한글을 사용합니다.
-  - 예: `feat: AI 인사이트 기능 연동 완료`, `fix: 로그아웃 시 세션 초기화 버그 수정`
-
-### 모달 시스템 (Modal System)
-- 모든 모달은 `isOpen`, `onClose` props를 기본으로 가집니다.
-- **닫기 기능:** 우측 상단 X 버튼, 하단 취소 버튼, 그리고 **배경(Backdrop) 클릭 시 닫기** 기능 전역 적용.
-
-### 이미지 및 타임아웃
-- **용량 상향:** 이미지 업로드 제한을 50MB로 상향 (Nginx, Spring, Tomcat 설정 완료).
-- **타임아웃 연장:** AI 분석 시간 확보를 위해 모든 레이어의 타임아웃을 60초로 연장.
-
-## 🚀 향후 작업 예정 (Next Steps)
-- [ ] **실시간 알림(SSE/WebSocket)**: 초대나 친구 요청 발생 시 즉각적인 알림 팝업 전송.
-- [ ] **AI 기반 장소 추천**: 모임 성격에 맞는 최적의 약속 장소 추천 로직 구현.
+**Last Updated:** 2026-06-01 (by Gemini CLI)
 
 ---
-*Last Updated: 2026-06-01 by Gemini CLI*
 
-## 📝 Session Handover (인수인계 노트)
+## 🛑 0. Agent Core Rules (Language Policy)
 
-### ✅ 완료된 작업 (2026-06-01)
-1.  **일정 수정 기능 구현**: 
-    *   **백엔드**: `PUT /api/schedules/{id}` 엔드포인트 구현 및 작성자 권한 검증 추가.
-    *   **프론트엔드**: `AppointmentModal`에 수정 모드 지원(기존 데이터 자동 채우기) 및 `AppointmentDetailModal`에 수정 버튼 추가.
-    *   **권한 제한**: 일정 작성자에게만 수정/삭제 버튼이 보이도록 UI 개선.
-2.  **메모 즐겨찾기 기능 구현**:
-    *   **백엔드**: `Memo` 엔티티에 `isFavorite` 필드 추가 및 `PUT /api/memos/{id}/favorite` 토글 엔드포인트 구현.
-    *   **프론트엔드**: 메모 카드(리스트/그리드 뷰) 및 상세 모달에서 별표(Star) 아이콘을 통한 즐겨찾기 토글 기능 추가.
-3.  **프로젝트 빌드 검증**: 프론트엔드(Next.js build) 및 백엔드(Gradle classes) 빌드 성공 확인.
+When operating within this project, the Gemini CLI MUST strictly adhere to the following language policies:
 
-### ✅ 완료된 작업 (2026-05-25)
-1.  **모임 초대 시스템 구축**: `GroupInvitation` 엔티티 도입 및 초대/수락/거절 전체 프로세스(백/프론트) 구현 완료.
-2.  **커스텀 유저 ID 도입**: 이메일 대신 8자리 랜덤 ID(`customId`)로 유저를 식별하고 친구를 추가하는 시스템으로 전환.
-3.  **AI 인사이트 고도화**:
-    *   Gemini 3.5 Flash 모델 연동 (OCR, 3줄 요약, 키워드 추출).
-    *   **AI 추천 태그**: 분석된 키워드를 클릭하여 메모 태그로 즉시 등록하는 기능.
-    *   실시간 태그 수정/삭제 API 및 UI 구현.
-4.  **마크다운 에디터 통합**: `@uiw/react-md-editor`를 사용하여 실시간 프리뷰가 가능한 메모 작성 환경 구축.
-5.  **인프라 및 보안 최적화**:
-    *   업로드 용량 제한 50MB 상향 및 타임아웃 60초 연장 (Nginx 포함).
-    *   `application.yml` 보안 처리 및 전역 예외 처리기 강화.
-    *   403, 404(모델 미정의), 500(파싱) 에러 디버깅 및 해결 완료.
+1. **Korean Only for Responses:** All outputs, explanations, code review feedback, planning, and communication with the user **MUST be written in Korean**.
+2. **Korean Commit Messages:** When generating Git commit messages, the description and body **MUST be written in Korean** (See section 4.2 for formatting details).
 
-### 🏃 다음 세션 작업
-- [ ] **실시간 알림 시스템**: SSE를 활용한 실시간 푸시 알림.
-- [ ] **AI 장소 추천**: 메모 데이터를 활용한 스마트 장소 제안.
+---
 
-### ⚠️ 주의 사항
-*   **Gemini API Key**: 서버의 `application.yml`에 최신 키가 설정되어 있어야 합니다.
-*   **Nginx 재시작**: `client_max_body_size` 변경 반영을 위해 `docker compose up --build -d`가 필요합니다.
+## 📌 1. Project Overview & Tech Stack
+
+### 1.1 Overview
+
+**MOYEOLOG** is a collaborative and personal management platform that supports schedule management, memo sharing, and group meetings. It features a user-friendly UI integrated with AI-driven smart functionalities.
+
+### 1.2 Tech Stack
+
+- **Frontend Framework:** Next.js 15 (App Router), TypeScript, Tailwind CSS
+- **Backend Framework:** Spring Boot 4.x, Java 25, Spring Data JPA, Spring Security
+- **Database & Storage:** MySQL 8.x, Local File System (`/uploads/`)
+- **Authentication:** Next-Auth & JWT Token (Kakao OAuth & 8-character Custom User ID system)
+- **AI Engine:** Google Gemini API (gemini-3.1-flash-lite / advanced models for insights)
+- **Markdown Editor:** `@uiw/react-md-editor`
+
+---
+
+## 🛠 2. Core Workflow & Coding Standards (ECC Baseline)
+
+Gemini CLI must strictly follow these processes and standards for all tasks.
+
+### 2.1 Core Workflow
+
+1. **Plan Before Execute:** For large features or refactoring, plan the structure and dependencies before writing code (utilize the `planner` agent).
+2. **Test-Driven Development (TDD):** Write tests first before implementing bug fixes or new features. Target a **minimum 80% coverage**.
+3. **Self Code Review:** Review your own code for quality, readability, and maintainability before committing.
+4. **Self Security Review:** Validate sensitive code against the security checklist before deployment.
+5. **Self-Contained Changes:** Keep code modular, readable, and easy to revert in case of issues.
+
+### 2.2 Coding Standards
+
+- **Immutability:** Always create new objects/states rather than mutating existing ones.
+- **Single Responsibility:** Keep functions small (<50 lines) and files focused (200-400 lines, max 800 lines).
+- **Fail Loudly:** Do not silently swallow errors. Fail fast with clear, contextual error messages (user-friendly on the frontend, detailed context logging on the backend).
+- **Input Validation:** Validate all external data and user inputs at system boundaries using schema-based validation.
+
+---
+
+## ✨ 3. Implemented Features & Architecture
+
+### 3.1 Core Features
+
+- **Home (`/home`):** An integrated dashboard fetching recent memos, calendar schedules, and active group lists in real-time.
+- **Memo Storage (`/memo`):** \* Grid/List view toggling and Markdown editor support with real-time preview.
+  - **AI Insights:** Gemini-powered OCR (text extraction from images), 3-line summaries, and key keyword extraction.
+  - **AI Tag Recommendation:** 1-click addition of extracted keywords to memo tags and real-time tag management UI/API.
+  - **Favorites:** Star functionality to mark and filter important memos.
+  - **Drafting:** Supports up to 50MB image uploads and tag configurations.
+- **Schedule Management (`/schedule`):** \* Unified calendar for personal and group schedules.
+  - **Authorization:** UI gating and backend validation ensuring only the schedule creator can edit/delete their events.
+  - **Place Recommendations:** Nearby restaurant/cafe suggestions and Kakao Map integration when searching for meeting locations.
+- **Group Management (`/groups`):** Friend-list based invitation system (`GroupInvitation`). Users must accept the invite via notifications to join. Includes group-specific memos and calendars.
+
+### 3.2 Architecture & System Rules
+
+- **Custom ID System:** Automatically assigns an 8-character alphanumeric ID (`customId`) upon registration to allow friend searches without exposing emails.
+- **Repository Pattern:** Encapsulates database access behind standard interfaces to decouple business logic from storage mechanisms.
+- **Standard API Envelope:** Consistent API response format containing Success indicator, Data payload, Error message, and Pagination metadata.
+- **Infrastructure & Timeouts:** \* Timeouts extended to **60 seconds** across all layers (Spring, Next.js) to ensure sufficient time for AI analysis.
+  - Image upload limit increased to **50MB** (configured across Nginx, Spring, and Tomcat).
+
+---
+
+## 🔒 4. Security & Delivery Standards
+
+### 4.1 Security Checklist
+
+Gemini CLI must automatically verify the following before ANY commit or code generation:
+
+- [ ] **Secret Management:** NEVER hardcode API keys (e.g., Gemini), passwords, or tokens. Use environment variables or `application.yml` (only share `application.yml.example`).
+- [ ] **Data Validation:** All external inputs and request parameters are validated.
+- [ ] **Injection Prevention:** Parameterized queries (or JPA Repositories) are used for all database interactions.
+- [ ] **XSS & CSRF Prevention:** Markdown/HTML outputs (e.g., `@uiw/react-md-editor`) are sanitized, and CSRF protection is enabled.
+- [ ] **Authn/Authz Checks:** Sensitive API routes (e.g., `PUT /api/schedules/{id}`) verify that the logged-in session user is the authorized creator.
+- [ ] **No Information Leakage:** Global Exception Handlers scrub internal error stacks from being exposed to the client.
+
+### 4.2 Delivery & Commit Rules
+
+- **Conventional Commits (Korean Enforced):** Use standard English prefixes (`feat:`, `fix:`, `refactor:`, etc.), but **the description and body MUST be written in Korean.**
+  - ❌ Bad: `feat: add ai insight feature`
+  - ✅ Good: `feat: AI 인사이트 기능 연동 완료`
+  - ✅ Good: `fix: 로그아웃 시 세션 초기화 버그 수정`
+- **Minimize Dependencies:** Before adding new third-party runtime libraries, evaluate if a local implementation is feasible to keep the bundle lightweight.
+
+---
+
+## 📅 5. Session Handover & Next Steps
+
+### 📊 Completed Work History
+
+- **2026-06-01:**
+  - Implemented `PUT /api/schedules/{id}` endpoint with backend creator authorization.
+  - Added edit mode to `AppointmentModal` and an edit button to `AppointmentDetailModal` (visible only to creators).
+  - Added `isFavorite` field to the `Memo` entity, built the toggle API, and linked the Star icon in the frontend.
+  - Verified successful full builds for both Frontend (Next.js) and Backend (Gradle).
+- **2026-05-25:**
+  - Completed `GroupInvitation` system (invite/accept/reject flows).
+  - Transitioned to the 8-character Custom ID system for friend searches.
+  - Advanced Gemini API integration (OCR, 3-line summaries, keyword extraction, and clickable recommended tags).
+  - Integrated `@uiw/react-md-editor` with live preview.
+  - Upgraded infrastructure settings (50MB upload limit, 60s timeouts including Nginx).
+
+### 🏃 Next Steps
+
+- [ ] **Real-time Notifications (SSE/WebSocket):** Build a global notification hub to send instant push popups for group invites and friend requests.
+- [ ] **AI Smart Place Recommendations:** Implement an algorithm that analyzes accumulated memos and group characteristics to suggest optimal meeting locations via Kakao Map.
+
+### ⚠️ Infrastructure Warnings
+
+- **Nginx Configuration:** To apply changes to `client_max_body_size`, you must run `docker compose up --build -d` in local/production environments.
+- **Environment Variables:** Upon starting a new session, ensure the latest Gemini API Key is properly bound in the local `application.yml`.
