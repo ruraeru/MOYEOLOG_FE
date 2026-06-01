@@ -24,7 +24,7 @@ import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import type { MemoCardView } from '@/types/memo';
 
-type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites';
+type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
 export default function MemoPage() {
   const { data: session, status } = useSession();
@@ -74,6 +74,10 @@ export default function MemoPage() {
       const combined = [...allMemos, ...sharedMemos];
       const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
       filtered = unique.filter(m => m.isFavorite);
+    } else if (filter.type === 'tag' && filter.id) {
+      const combined = [...allMemos, ...sharedMemos];
+      const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
+      filtered = unique.filter(m => m.tags?.includes(filter.id!));
     } else {
       const source = filter.type === 'shared' ? sharedMemos : allMemos;
       filtered = source;
@@ -137,6 +141,11 @@ export default function MemoPage() {
     }
   };
 
+  const handleTagClick = (e: React.MouseEvent, tag: string) => {
+    e.stopPropagation();
+    setFilter({ type: 'tag', id: tag });
+  };
+
   if (status === 'loading') {
     return (
       <div className="h-screen flex items-center justify-center bg-[#F8F9FB]">
@@ -150,6 +159,7 @@ export default function MemoPage() {
     if (filter.type === 'shared') return '공유받은 메모';
     if (filter.type === 'my') return '내 메모';
     if (filter.type === 'favorites') return '즐겨찾기';
+    if (filter.type === 'tag') return `#${filter.id}`;
     return '전체 메모';
   };
 
@@ -225,7 +235,12 @@ export default function MemoPage() {
               {dynamicTags.length > 0 ? dynamicTags.map((tag) => (
                 <span
                   key={tag}
-                  className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md cursor-pointer hover:bg-gray-200 transition-colors"
+                  onClick={() => setFilter({ type: 'tag', id: tag })}
+                  className={`text-xs font-bold px-2 py-1 rounded-md cursor-pointer transition-colors ${
+                    filter.type === 'tag' && filter.id === tag
+                      ? 'bg-indigo-500 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
                   #{tag}
                 </span>
@@ -287,7 +302,8 @@ export default function MemoPage() {
                  <p className="text-gray-500 font-bold">
                   {filter.type === 'group' ? '이 모임에 작성된 메모가 없습니다.' : 
                    filter.type === 'shared' ? '공유받은 메모가 없습니다.' : 
-                   filter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' : '메모가 없습니다.'}
+                   filter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' : 
+                   filter.type === 'tag' ? '해당 태그가 포함된 메모가 없습니다.' : '메모가 없습니다.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1 font-medium">새로운 메모를 작성해보세요!</p>
               </div>
@@ -305,6 +321,7 @@ export default function MemoPage() {
                       {...memo} 
                       viewMode={viewMode} 
                       onToggleFavorite={(e) => handleToggleFavorite(e, memo.id)} 
+                      onTagClick={handleTagClick}
                     />
                   </div>
                 ))}
@@ -372,6 +389,7 @@ function SidebarItem({ icon: Icon, label, count, active, color, onClick }: Sideb
 interface MemoCardProps extends MemoCardView {
   viewMode: 'grid' | 'list';
   onToggleFavorite?: (e: React.MouseEvent) => void;
+  onTagClick?: (e: React.MouseEvent, tag: string) => void;
 }
 
 function MemoCard({
@@ -386,6 +404,7 @@ function MemoCard({
   isFavorite,
   viewMode,
   onToggleFavorite,
+  onTagClick,
 }: MemoCardProps) {
   const thumb = image ? <MemoThumbnail src={image} alt={title} viewMode={viewMode} /> : null;
 
@@ -411,7 +430,8 @@ function MemoCard({
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="text-[10px] text-indigo-500 font-black bg-indigo-50 px-2.5 py-1 rounded-lg"
+                onClick={(e) => onTagClick?.(e, tag)}
+                className="text-[10px] text-indigo-500 font-black bg-indigo-50 px-2.5 py-1 rounded-lg hover:bg-indigo-100 transition-colors cursor-pointer"
               >
                 #{tag}
               </span>
@@ -466,7 +486,8 @@ function MemoCard({
             {tags.slice(0, 3).map((tag) => (
               <span
                 key={tag}
-                className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2.5 py-1 rounded-md"
+                onClick={(e) => onTagClick?.(e, tag)}
+                className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2 py-0.5 rounded-md hover:bg-indigo-100 transition-colors cursor-pointer"
               >
                 #{tag}
               </span>

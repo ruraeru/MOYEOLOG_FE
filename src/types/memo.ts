@@ -18,7 +18,6 @@ export type MemoAiInsight = {
   memoId: string;
   ocrText: string;
   summary: string;
-  emotion: string;
   keywords: string[];
   analyzedAt: string;
 };
