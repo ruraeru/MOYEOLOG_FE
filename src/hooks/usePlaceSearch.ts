@@ -61,12 +61,17 @@ export function usePlaceSearch() {
     const ps = new kakao.maps.services.Places();
 
     const fetchImage = async (name: string) => {
+      const defaultImage = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop';
       try {
         const res = await fetch(`/api/search-image?query=${encodeURIComponent(name)}`);
         const json = await res.json();
-        return json.imageUrl || 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop';
+        if (json.imageUrl) {
+          // 프록시 서버를 경유하여 403 에러 우회 (Referer 문제 해결)
+          return `/api/proxy-image?url=${encodeURIComponent(json.imageUrl)}`;
+        }
+        return defaultImage;
       } catch {
-        return 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop';
+        return defaultImage;
       }
     };
 
