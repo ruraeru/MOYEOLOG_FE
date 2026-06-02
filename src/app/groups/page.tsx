@@ -145,22 +145,35 @@ function LandingCard({ icon, label, description, onClick }: { icon: React.ReactN
 
 function ActivityCard({ activity, onClick }: { activity: GroupActivityResponse, onClick: () => void }) {
   const isMemo = activity.type === 'MEMO';
+  const isTopic = activity.type === 'TOPIC';
+  const isSchedule = activity.type === 'SCHEDULE';
+  const isComment = activity.type === 'COMMENT';
+  
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   
+  const typeConfig = {
+    MEMO: { label: 'Memo', icon: <FileText className="w-7 h-7" />, color: 'bg-indigo-50 text-indigo-500', badge: 'bg-indigo-100 text-indigo-600' },
+    TOPIC: { label: 'Topic', icon: <Sparkles className="w-7 h-7" />, color: 'bg-emerald-50 text-emerald-500', badge: 'bg-emerald-100 text-emerald-600' },
+    SCHEDULE: { label: 'Schedule', icon: <LayoutGrid className="w-7 h-7" />, color: 'bg-rose-50 text-rose-500', badge: 'bg-rose-100 text-rose-600' },
+    COMMENT: { label: 'Comment', icon: <MessageSquare className="w-7 h-7" />, color: 'bg-amber-50 text-amber-500', badge: 'bg-amber-100 text-amber-600' },
+  };
+
+  const config = typeConfig[activity.type] || typeConfig.MEMO;
+
   return (
     <div 
       onClick={onClick}
       className="bg-white p-6 rounded-[2rem] shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group flex gap-5 border border-gray-50/50"
     >
-      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${isMemo ? 'bg-indigo-50 text-indigo-500' : 'bg-emerald-50 text-emerald-500'}`}>
-        {isMemo ? <FileText className="w-7 h-7" /> : <MessageSquare className="w-7 h-7" />}
+      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${config.color}`}>
+        {config.icon}
       </div>
 
       <div className="flex-1 min-w-0 flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${isMemo ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
-              {isMemo ? 'Memo' : 'Topic'}
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${config.badge}`}>
+              {config.label}
             </span>
             <span className="text-[10px] font-black text-gray-400 flex items-center gap-1">
               <Users className="w-2.5 h-2.5" />

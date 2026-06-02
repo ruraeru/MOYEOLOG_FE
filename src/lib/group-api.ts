@@ -31,7 +31,7 @@ export interface GroupInvitationResponse {
 }
 
 export interface GroupActivityResponse {
-  type: 'MEMO' | 'TOPIC';
+  type: 'MEMO' | 'TOPIC' | 'SCHEDULE' | 'COMMENT';
   groupId: string;
   groupName: string;
   id: string;
