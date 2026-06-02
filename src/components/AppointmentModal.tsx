@@ -60,7 +60,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   // ─── Custom Hooks ────────────────────────────────────────────────
   const { isMapLoading, updatePosition } = useKakaoMap(mapContainer, isOpen);
-  const { searchResults, isSearching, recommendations, isRecommending, searchPlaces, fetchRecommendations } = usePlaceSearch();
+  const { searchResults, isSearching, recommendations, isRecommending, searchPlaces, fetchRecommendations, clearSearchResults } = usePlaceSearch();
   const { 
     showMemoMentions, setShowMemoMentions, filteredMemos,
     showParticipantMentions, setShowParticipantMentions, filteredParticipants,
@@ -116,7 +116,8 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     setLocation(place.place_name || place.name || '');
     updatePosition(parseFloat(place.y), parseFloat(place.x));
     fetchRecommendations(parseFloat(place.y), parseFloat(place.x));
-  }, [updatePosition, fetchRecommendations]);
+    clearSearchResults();
+  }, [updatePosition, fetchRecommendations, clearSearchResults]);
 
   const handleSave = async () => {
     if (!title.trim()) return alert('제목을 입력해주세요.');

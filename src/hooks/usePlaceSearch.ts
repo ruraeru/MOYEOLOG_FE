@@ -104,5 +104,9 @@ export function usePlaceSearch() {
     }, { location: new kakao.maps.LatLng(lat, lng), radius: 1000 });
   }, []);
 
-  return { searchResults, isSearching, recommendations, isRecommending, searchPlaces, fetchRecommendations };
+  const clearSearchResults = useCallback(() => {
+    setSearchResults([]);
+  }, []);
+
+  return { searchResults, isSearching, recommendations, isRecommending, searchPlaces, fetchRecommendations, clearSearchResults };
 }
