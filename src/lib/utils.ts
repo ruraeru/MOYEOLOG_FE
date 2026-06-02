@@ -23,3 +23,20 @@ export const truncateText = (text: string, length: number) => {
   if (text.length <= length) return text;
   return text.slice(0, length) + '...';
 };
+
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * 파일을 Data URL(Base64) 스트링으로 변환합니다.
+ */
+export async function fileToDataUrl(file: File): Promise<string> {
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error('이미지는 10MB 이하여야 합니다.');
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('이미지를 읽을 수 없습니다.'));
+    reader.readAsDataURL(file);
+  });
+}

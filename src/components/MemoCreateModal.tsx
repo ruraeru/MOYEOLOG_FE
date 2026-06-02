@@ -12,7 +12,7 @@ import {
   Lightbulb,
   Loader2,
 } from 'lucide-react';
-import { fileToDataUrl } from '@/lib/memo-storage';
+import { fileToDataUrl } from '@/lib/utils';
 import { memoApi } from '@/lib/memo-api';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';

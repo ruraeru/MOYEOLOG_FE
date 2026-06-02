@@ -11,7 +11,7 @@ import {
   Users,
   FileText
 } from 'lucide-react';
-import { fileToDataUrl } from '@/lib/memo-storage';
+import { getFileUrl, fileToDataUrl } from '@/lib/utils';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
