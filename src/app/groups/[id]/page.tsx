@@ -366,6 +366,7 @@ export default function GroupDetailPage() {
         onSuccess={fetchGroupData} handleTopicEdit={handleTopicEdit}
         handleMemoClick={handleMemoClick} handleEdit={handleEdit}
         handleScheduleClick={handleScheduleClick}
+        schedules={schedules}
       />
     </div>
   );
@@ -542,14 +543,22 @@ interface ModalsProps {
   onSuccess: () => void; handleTopicEdit: (t: TopicResponse) => void;
   handleMemoClick: (id: string) => void; handleEdit: (s: ScheduleResponse) => void;
   handleScheduleClick: (s: ScheduleResponse) => void;
+  schedules: ScheduleResponse[];
 }
 
-function Modals({ isMemoModalOpen, setIsMemoModalOpen, isScheduleModalOpen, setIsScheduleModalOpen, isListModalOpen, setIsListModalOpen, isDetailOpen, setIsDetailOpen, isEditModalOpen, setIsEditModalOpen, isTopicModalOpen, setIsTopicModalOpen, isTopicDetailOpen, setIsTopicDetailOpen, isMemoDetailOpen, setIsMemoDetailOpen, groupId, group, session, selectedDate, selectedSchedule, selectedTopic, selectedMemoId, onSuccess, handleTopicEdit, handleMemoClick, handleEdit, handleScheduleClick }: ModalsProps) {
+function Modals({ isMemoModalOpen, setIsMemoModalOpen, isScheduleModalOpen, setIsScheduleModalOpen, isListModalOpen, setIsListModalOpen, isDetailOpen, setIsDetailOpen, isEditModalOpen, setIsEditModalOpen, isTopicModalOpen, setIsTopicModalOpen, isTopicDetailOpen, setIsTopicDetailOpen, isMemoDetailOpen, setIsMemoDetailOpen, groupId, group, session, selectedDate, selectedSchedule, selectedTopic, selectedMemoId, onSuccess, handleTopicEdit, handleMemoClick, handleEdit, handleScheduleClick, schedules }: ModalsProps) {
   return (
     <>
       <MemoCreateModal isOpen={isMemoModalOpen} onClose={() => setIsMemoModalOpen(false)} userId={session?.user?.id || ''} groupId={groupId} onSuccess={onSuccess} />
       <AppointmentModal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} initialDate={selectedDate} onSuccess={onSuccess} initialSchedule={null} />
-      <AppointmentListModal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} date={selectedDate} appointments={[]} onCreateNew={() => setIsScheduleModalOpen(true)} onAppointmentClick={handleScheduleClick} />
+      <AppointmentListModal 
+        isOpen={isListModalOpen} 
+        onClose={() => setIsListModalOpen(false)} 
+        date={selectedDate} 
+        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))} 
+        onCreateNew={() => setIsScheduleModalOpen(true)} 
+        onAppointmentClick={handleScheduleClick} 
+      />
       <AppointmentDetailModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} schedule={selectedSchedule} onSuccess={onSuccess} onEdit={handleEdit} />
       <GroupEditModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} group={group} onSuccess={onSuccess} />
       <GroupTopicCreateModal isOpen={isTopicModalOpen} onClose={() => setIsTopicModalOpen(false)} groupId={groupId} onSuccess={onSuccess} initialTopic={selectedTopic} />
