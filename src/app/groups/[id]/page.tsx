@@ -1,18 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+import { useParams } from 'next/navigation';
 import { 
   Plus, 
-  ChevronLeft, 
   Loader2, 
   MessageSquare, 
   LayoutGrid,
   List as ListIcon,
   Calendar as LucideCalendar,
-  Copy,
-  Check,
   Link as LinkIcon,
   Settings,
   Sparkles,
@@ -25,6 +21,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { type Session } from 'next-auth';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { type ScheduleResponse } from '@/lib/schedule-api';
@@ -32,7 +29,6 @@ import { type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import MemoDetailModal from '@/components/MemoDetailModal';
-import GroupInviteModal from '@/components/GroupInviteModal';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
@@ -48,9 +44,8 @@ type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 
 export default function GroupDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const { data: session } = useSession();
-  const groupId = params.id as string;
+  const groupId = params?.id as string;
 
   const [group, setGroup] = useState<GroupResponse | null>(null);
   const [memos, setMemos] = useState<MemoResponse[]>([]);
@@ -58,9 +53,7 @@ export default function GroupDetailPage() {
   const [topics, setTopics] = useState<TopicResponse[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Modals state
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -156,7 +149,6 @@ export default function GroupDetailPage() {
   const handleKickMember = async (memberId: string) => {
     if (!session || !group) return;
     if (!confirm('정말로 이 멤버를 내보내시겠습니까?')) return;
-    
     try {
       await groupApi.kickMember(group.id, memberId, session);
       fetchGroupData();
@@ -170,7 +162,6 @@ export default function GroupDetailPage() {
     if (view !== 'month') return null;
     const daySchedules = schedules.filter(s => isSameDay(parseISO(s.startTime), date));
     if (daySchedules.length === 0) return null;
-
     return (
       <div className="mt-1 flex flex-col gap-0.5 w-full overflow-hidden px-0.5">
         {daySchedules.slice(0, 2).map(s => (
@@ -185,14 +176,11 @@ export default function GroupDetailPage() {
     );
   };
 
-  if (loading) {
+  if (loading && !group) {
     return (
-      <div className="h-screen flex flex-col bg-[#F8F9FB]">
-        <Navbar />
-        <div className="flex-1 flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-          <p className="font-bold text-gray-500">모임 정보를 불러오는 중...</p>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+        <p className="font-bold text-gray-500">모임 정보를 불러오는 중...</p>
       </div>
     );
   }
@@ -200,7 +188,6 @@ export default function GroupDetailPage() {
   if (!group) return null;
 
   const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/invite/group?code=${group.inviteCode}` : '';
-
   const handleCopyInviteLink = () => {
     if (!inviteLink) return;
     navigator.clipboard.writeText(inviteLink);
@@ -222,479 +209,289 @@ export default function GroupDetailPage() {
   const groupProfile = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
 
   return (
-    <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
-      <Navbar />
-
-      <main className="flex-1 overflow-y-auto no-scrollbar">
-        {/* Banner Section */}
-        <div className={`w-full bg-gradient-to-br ${bannerGradient} pt-12 pb-20 px-8 lg:px-12 relative overflow-hidden`}>
-          {groupBg && (
-            <div className="absolute inset-0 z-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={groupBg} alt="Background" className="w-full h-full object-cover opacity-40 mix-blend-overlay" />
-              <div className="absolute inset-0 bg-black/10" />
-            </div>
-          )}
-          <div className="max-w-7xl mx-auto relative z-10">
-            <div className="flex items-center justify-between mb-8">
-              <button 
-                onClick={() => router.push('/groups')}
-                className="flex items-center gap-2 text-white/80 hover:text-white transition-colors font-bold text-sm"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                목록으로 돌아가기
-              </button>
-              
-              <button 
-                onClick={() => setIsEditModalOpen(true)}
-                className="p-2.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl text-white hover:bg-white/20 transition-all shadow-lg"
-                title="모임 정보 수정"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  {groupProfile ? (
-                    <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden border-2 border-white/30 shadow-xl relative shrink-0">
-                      <Image src={groupProfile} alt={group.name} fill className="object-cover" />
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 rounded-[1.5rem] bg-white/20 backdrop-blur-md border-2 border-white/30 flex items-center justify-center text-white text-2xl font-black shadow-xl shrink-0">
-                      {group.name.substring(0, 1)}
-                    </div>
-                  )}
-                  <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight">
-                    {group.name}
-                  </h1>
-                </div>
-                <p className="text-white/80 max-w-2xl font-medium leading-relaxed">
-                  {group.description || '모임 설명이 없습니다. 팀원들과 함께 메모와 일정을 공유해보세요!'}
-                </p>
-
-                {/* Invite Info Card */}
-                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 pr-4 w-fit animate-in fade-in slide-in-from-left-4 duration-500">
-                  <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center text-white">
-                    <LinkIcon className="w-4 h-4" />
+    <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-500">
+      <main className="flex-1 overflow-y-auto no-scrollbar pb-20">
+        {/* Glassmorphism Banner Section */}
+        <div className="px-8 pt-8 relative">
+          <div className={`w-full rounded-[2.5rem] bg-gradient-to-br ${bannerGradient} p-10 lg:p-12 relative overflow-hidden shadow-2xl`}>
+            {groupBg && (
+              <div className="absolute inset-0 z-0">
+                <Image src={groupBg} alt="Background" fill className="object-cover opacity-40 mix-blend-overlay scale-105" unoptimized />
+                <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
+              </div>
+            )}
+            
+            <div className="relative z-10 max-w-7xl mx-auto flex flex-col gap-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-white/20 blur-xl rounded-full scale-150" />
+                    {groupProfile ? (
+                      <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-2xl relative shrink-0">
+                        <Image src={groupProfile} alt={group.name} fill className="object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-white text-3xl font-black shadow-2xl shrink-0">
+                        {group.name.substring(0, 1)}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col min-w-[100px]">
-                    <p className="text-[9px] font-black text-white/60 uppercase tracking-widest leading-none mb-1">Invite Code</p>
+                  <div className="space-y-1">
+                    <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-sm">
+                      {group.name}
+                    </h1>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-black text-white tracking-wider leading-none">{group.inviteCode}</span>
+                      <div className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full flex items-center gap-1.5">
+                        <Users className="w-3 h-3 text-white/80" />
+                        <span className="text-[10px] font-black text-white uppercase tracking-wider">{group.memberCount} members</span>
+                      </div>
                       <button 
                         onClick={handleCopyInviteLink}
-                        className="p-1.5 hover:bg-white/20 rounded-lg transition-all text-white/70 hover:text-white"
-                        title="초대 링크 복사"
+                        className={`px-3 py-1 bg-white/10 backdrop-blur-md rounded-full flex items-center gap-1.5 hover:bg-white/20 transition-all ${copied ? 'text-emerald-300' : 'text-white/80'}`}
                       >
-                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <LinkIcon className="w-3 h-3" />
+                        <span className="text-[10px] font-black uppercase tracking-wider">{copied ? 'Copied!' : 'Invite Link'}</span>
                       </button>
                     </div>
                   </div>
-                  {copied && (
-                    <span className="ml-2 text-[10px] font-black text-emerald-300 animate-pulse">복사됨!</span>
-                  )}
                 </div>
-              </div>
 
-              <div className="flex items-center gap-4 bg-black/10 backdrop-blur-lg p-4 rounded-2xl border border-white/10">
-                <div className="flex -space-x-3">
-                  {group.members.slice(0, 5).map((member) => (
-                    <div 
-                      key={member.id}
-                      className="w-10 h-10 rounded-full bg-white border-2 border-indigo-400 flex items-center justify-center text-xs font-bold text-indigo-600 shadow-sm overflow-hidden"
-                      title={member.nickname}
-                    >
-                      {member.profileImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
-                      ) : (
-                        member.nickname.substring(0, 1)
-                      )}
-                    </div>
-                  ))}
-                  <button 
-                    onClick={() => setIsInviteModalOpen(true)}
-                    className="w-10 h-10 rounded-full bg-indigo-600 border-2 border-white flex items-center justify-center text-white hover:bg-indigo-700 transition-colors shadow-sm z-10"
-                    title="멤버 초대"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="text-white pr-2">
-                  <p className="text-[10px] font-bold opacity-60">Members</p>
-                  <p className="text-lg font-black">{group.memberCount}명</p>
-                </div>
+                <button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl text-white hover:bg-white/20 hover:scale-105 transition-all shadow-xl active:scale-95 border-0"
+                >
+                  <Settings className="w-6 h-6" />
+                </button>
               </div>
+              
+              <p className="text-white/90 max-w-3xl font-bold text-lg leading-relaxed drop-shadow-sm">
+                {group.description || '모임 설명이 없습니다. 팀원들과 함께 메모와 일정을 공유해보세요!'}
+              </p>
+            </div>
+            
+            {/* Background pattern */}
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <Sparkles className="w-64 h-64 text-white rotate-12" />
             </div>
           </div>
         </div>
 
         {/* Content Section */}
-        <div className="max-w-7xl mx-auto px-8 lg:px-12 -mt-10 pb-20 relative z-20">
-          <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8 border border-gray-100 flex flex-col gap-8">
-            
-            {/* Tabs */}
-            <div className="flex items-center gap-4 border-b border-gray-100 pb-1">
-              <button 
-                onClick={() => setActiveTab('memos')}
-                className={`px-4 py-3 text-sm font-black transition-all relative ${activeTab === 'memos' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  모임 메모
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'memos' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-50 text-gray-400'}`}>
-                    {memos.length}
-                  </span>
-                </div>
-                {activeTab === 'memos' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
-              </button>
-              <button 
-                onClick={() => setActiveTab('calendar')}
-                className={`px-4 py-3 text-sm font-black transition-all relative ${activeTab === 'calendar' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <LucideCalendar className="w-4 h-4" />
-                  모임 일정
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'calendar' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-50 text-gray-400'}`}>
-                    {schedules.length}
-                  </span>
-                </div>
-                {activeTab === 'calendar' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
-              </button>
-              <button 
-                onClick={() => setActiveTab('topics')}
-                className={`px-4 py-3 text-sm font-black transition-all relative ${activeTab === 'topics' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  모임 토픽
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'topics' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-50 text-gray-400'}`}>
-                    {topics.length}
-                  </span>
-                </div>
-                {activeTab === 'topics' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
-              </button>
-              <button 
-                onClick={() => setActiveTab('members')}
-                className={`px-4 py-3 text-sm font-black transition-all relative ${activeTab === 'members' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  모임 멤버
-                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'members' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-50 text-gray-400'}`}>
-                    {group.memberCount}
-                  </span>
-                </div>
-                {activeTab === 'members' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
-              </button>
-            </div>
+        <div className="max-w-7xl mx-auto px-8 mt-12 space-y-10">
+          {/* Navigation Tabs (Modern Glass Style) */}
+          <div className="flex items-center gap-2 p-1.5 bg-gray-100/50 backdrop-blur-sm rounded-[1.5rem] w-fit">
+            <TabButton active={activeTab === 'memos'} icon={<Archive />} label="모임 메모" onClick={() => setActiveTab('memos')} />
+            <TabButton active={activeTab === 'calendar'} icon={<LucideCalendar />} label="모임 일정" onClick={() => setActiveTab('calendar')} />
+            <TabButton active={activeTab === 'topics'} icon={<Sparkles />} label="모임 토픽" onClick={() => setActiveTab('topics')} />
+            <TabButton active={activeTab === 'members'} icon={<Users />} label="모임 멤버" onClick={() => setActiveTab('members')} />
+          </div>
 
+          <div className="min-h-[500px] outline-none">
             {activeTab === 'memos' ? (
-              <div className="flex gap-8">
-                {/* Memo Filter Sidebar */}
-                <aside className="w-48 shrink-0 flex flex-col gap-8 py-2">
-                  <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1">
-                      <ChevronDown className="w-3 h-3" /> 카테고리
-                    </h3>
-                    <div className="space-y-1">
-                      <button 
-                        onClick={() => setMemoFilter({ type: 'all' })}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${memoFilter.type === 'all' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
-                      >
-                        <Archive className="w-3.5 h-3.5" />
-                        전체 메모
-                      </button>
-                      <button 
-                        onClick={() => setMemoFilter({ type: 'my' })}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${memoFilter.type === 'my' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
-                      >
-                        <UserIcon className="w-3.5 h-3.5" />
-                        내가 쓴 메모
-                      </button>
-                      <button 
-                        onClick={() => setMemoFilter({ type: 'favorites' })}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${memoFilter.type === 'favorites' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
-                      >
-                        <Star className={`w-3.5 h-3.5 ${memoFilter.type === 'favorites' ? 'fill-indigo-600' : ''}`} />
-                        즐겨찾기
-                      </button>
-                    </div>
+              <div className="flex gap-10 items-start outline-none">
+                {/* Sidebar Filter */}
+                <aside className="w-56 shrink-0 space-y-8 animate-in slide-in-from-left-4 duration-500">
+                  <SectionTitle label="카테고리" />
+                  <div className="space-y-1.5">
+                    <FilterButton active={memoFilter.type === 'all'} icon={<Archive />} label="전체 메모" onClick={() => setMemoFilter({ type: 'all' })} />
+                    <FilterButton active={memoFilter.type === 'my'} icon={<UserIcon />} label="내가 쓴 메모" onClick={() => setMemoFilter({ type: 'my' })} />
+                    <FilterButton active={memoFilter.type === 'favorites'} icon={<Star />} label="즐겨찾기" onClick={() => setMemoFilter({ type: 'favorites' })} isFavorite />
                   </div>
-
-                  <div className="space-y-4">
-                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1">
-                      <ChevronDown className="w-3 h-3" /> 태그
-                    </h3>
-                    <div className="flex flex-wrap gap-2 px-1">
-                      {dynamicTags.length > 0 ? dynamicTags.map((tag) => (
-                        <button
-                          key={tag}
-                          onClick={() => setMemoFilter({ type: 'tag', id: tag })}
-                          className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all ${
-                            memoFilter.type === 'tag' && memoFilter.id === tag
-                              ? 'bg-indigo-500 text-white shadow-md shadow-indigo-100'
-                              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-                          }`}
-                        >
-                          #{tag}
-                        </button>
-                      )) : (
-                        <p className="text-[10px] text-gray-400">사용된 태그 없음</p>
-                      )}
-                    </div>
+                  <SectionTitle label="태그" />
+                  <div className="flex flex-wrap gap-2 px-1">
+                    {dynamicTags.length > 0 ? dynamicTags.map(tag => (
+                      <TagBadge key={tag} label={tag} active={memoFilter.type === 'tag' && memoFilter.id === tag} onClick={() => setMemoFilter({ type: 'tag', id: tag })} />
+                    )) : <p className="text-[10px] text-gray-400 font-bold">사용된 태그 없음</p>}
                   </div>
                 </aside>
 
-                <div className="flex-1 flex flex-col gap-6">
-                  {/* Memo Toolbar */}
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-center gap-3">
-                      <div className="hidden sm:flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
-                        <button 
-                          onClick={() => setViewMode('grid')}
-                          className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
-                        >
-                          <LayoutGrid className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => setViewMode('list')}
-                          className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
-                        >
-                          <ListIcon className="w-4 h-4" />
-                        </button>
-                      </div>
+                <div className="flex-1 space-y-8 animate-in fade-in duration-700">
+                  <div className="flex justify-between items-center">
+                    <div className="relative flex-1 max-w-lg group">
+                      <input type="text" placeholder="메모 검색..." className="w-full bg-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-50 transition-all outline-none shadow-sm group-hover:shadow-md" />
+                      <Search className="w-5 h-5 absolute left-4 top-4 text-gray-300 group-hover:text-indigo-400 transition-colors" />
                     </div>
-
                     <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => setIsMemoModalOpen(true)}
-                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
-                      >
-                        <Plus className="w-4 h-4" />
-                        새 메모 작성
-                      </button>
+                      <ViewSelector current={viewMode} onChange={setViewMode} />
+                      <button onClick={() => setIsMemoModalOpen(true)} className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95"><Plus className="w-4 h-4" /> 메모 작성</button>
                     </div>
                   </div>
 
-                  {/* Memos List/Grid */}
                   {filteredMemos.length > 0 ? (
-                    <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" : "space-y-4"}>
-                      {filteredMemos.map((memo) => (
-                        <MemoCard 
-                          key={memo.id} 
-                          memo={memo} 
-                          viewMode={viewMode} 
-                          onClick={() => handleMemoClick(memo.id)}
-                        />
-                      ))}
+                    <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8" : "space-y-4"}>
+                      {filteredMemos.map(memo => <MemoCard key={memo.id} memo={memo} viewMode={viewMode} onClick={() => handleMemoClick(memo.id)} />)}
                     </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-24 text-center">
-                      <MessageSquare className="w-12 h-12 text-gray-200 mb-4" />
-                      <p className="text-gray-400 font-bold">
-                        {memoFilter.type === 'my' ? '내가 작성한 메모가 없습니다.' : 
-                         memoFilter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' : 
-                         memoFilter.type === 'tag' ? '해당 태그가 포함된 메모가 없습니다.' : '아직 작성된 메모가 없습니다.'}
-                      </p>
-                      <p className="text-[11px] text-gray-300 mt-1 font-medium">새로운 메모를 작성해보세요!</p>
-                    </div>
-                  )}
+                  ) : <EmptyState icon={<Archive />} text={memoFilter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' : '메모가 없습니다.'} />}
                 </div>
+              </div>
+            ) : activeTab === 'calendar' ? (
+              <div className="bg-white p-10 rounded-[2.5rem] shadow-xl animate-in zoom-in-95 duration-500 border-0 no-outline">
+                <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
               </div>
             ) : activeTab === 'topics' ? (
-              <>
-                {/* Topic Toolbar */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-center gap-3">
-                    <div className="hidden sm:flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
-                      <button 
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
-                      >
-                        <LayoutGrid className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
-                      >
-                        <ListIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }}
-                      className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                      새 토픽 게시
-                    </button>
-                  </div>
+              <div className="space-y-8 animate-in fade-in duration-500 outline-none">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-black text-gray-800 tracking-tight">공유 토픽</h3>
+                  <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center gap-2"><Plus className="w-4 h-4" /> 새 토픽 게시</button>
                 </div>
-
-                {/* Topics List/Grid */}
                 {topics.length > 0 ? (
-                  <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-                    {topics.map((topic) => (
-                      <TopicCard key={topic.id} topic={topic} viewMode={viewMode} onClick={() => handleTopicClick(topic)} />
-                    ))}
+                  <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8" : "space-y-4"}>
+                    {topics.map(topic => <TopicCard key={topic.id} topic={topic} viewMode={viewMode} onClick={() => handleTopicClick(topic)} />)}
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <Sparkles className="w-12 h-12 text-gray-200 mb-4" />
-                    <p className="text-gray-400 font-medium">아직 게시된 토픽이 없습니다. 첫 번째 토픽을 게시해보세요!</p>
-                  </div>
-                )}
-              </>
-            ) : activeTab === 'members' ? (
-              <div className="flex flex-col gap-6">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="text-lg font-black text-gray-800">참여 중인 멤버</h3>
-                  <span className="text-sm font-bold text-gray-400">총 {group.memberCount}명</span>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {group.members.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 transition-all hover:shadow-md">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full overflow-hidden relative border border-gray-100 shrink-0">
-                          {member.profileImage ? (
-                            <Image src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} fill className="object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-bold">
-                              {member.nickname[0]}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-black text-gray-800 flex items-center gap-2">
-                            {member.nickname}
-                            {member.id === group.createdById && (
-                              <span className="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full font-bold">그룹장</span>
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      {session?.user?.id === group.createdById && member.id !== group.createdById && (
-                        <button
-                          onClick={() => handleKickMember(member.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                          title="멤버 내보내기"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                ) : <EmptyState icon={<Sparkles />} text="아직 게시된 토픽이 없습니다." />}
               </div>
             ) : (
-              <div className="flex flex-col gap-6">
-                <div className="flex justify-end">
-                  <button 
-                    onClick={() => setIsScheduleModalOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
-                  >
-                    <Plus className="w-4 h-4" />
-                    새 일정 등록
-                  </button>
-                </div>
-                <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-8 group">
-                  <Calendar
-                    className="w-full h-full border-none font-sans"
-                    tileContent={getTileContent}
-                    formatDay={(locale, date) => format(date, 'd')}
-                    calendarType="gregory"
-                    onClickDay={handleOpenListModal}
-                  />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-4 duration-500">
+                {group.members.map(member => (
+                  <MemberCard key={member.id} member={member} isOwner={member.id === group.createdById} currentUserIsOwner={session?.user?.id === group.createdById} onKick={() => handleKickMember(member.id)} apiUrl={apiUrl} />
+                ))}
               </div>
             )}
           </div>
         </div>
       </main>
 
-      {/* Modals */}
-      <MemoCreateModal 
-        isOpen={isMemoModalOpen}
-        onClose={() => setIsMemoModalOpen(false)}
-        userId={session?.user?.id || ''}
-        groupId={groupId}
-        onSuccess={fetchGroupData}
+      <Modals 
+        isMemoModalOpen={isMemoModalOpen} setIsMemoModalOpen={setIsMemoModalOpen}
+        isScheduleModalOpen={isScheduleModalOpen} setIsScheduleModalOpen={setIsScheduleModalOpen}
+        isListModalOpen={isListModalOpen} setIsListModalOpen={setIsListModalOpen}
+        isDetailOpen={isDetailOpen} setIsDetailOpen={setIsDetailOpen}
+        isEditModalOpen={isEditModalOpen} setIsEditModalOpen={setIsEditModalOpen}
+        isTopicModalOpen={isTopicModalOpen} setIsTopicModalOpen={setIsTopicModalOpen}
+        isTopicDetailOpen={isTopicDetailOpen} setIsTopicDetailOpen={setIsTopicDetailOpen}
+        isMemoDetailOpen={isMemoDetailOpen} setIsMemoDetailOpen={setIsMemoDetailOpen}
+        groupId={groupId} group={group} session={session}
+        selectedDate={selectedDate} selectedSchedule={selectedSchedule}
+        selectedTopic={selectedTopic} selectedMemoId={selectedMemoId}
+        onSuccess={fetchGroupData} handleTopicEdit={handleTopicEdit}
+        handleMemoClick={handleMemoClick} handleEdit={handleEdit}
+        handleScheduleClick={handleScheduleClick}
       />
+    </div>
+  );
+}
 
-      <GroupInviteModal
-        isOpen={isInviteModalOpen}
-        onClose={() => setIsInviteModalOpen(false)}
-        groupId={groupId}
-        groupName={group.name}
-        onSuccess={() => {
-          // 초대가 성공적으로 보내졌을 때의 처리 (알림 등으로 표시될 예정)
-        }}
-      />
+// ─── Sub Components ─────────────────────────────────────────────
 
-      <AppointmentModal 
-        isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
-        initialDate={selectedDate}
-        onSuccess={fetchGroupData}
-        initialSchedule={selectedSchedule}
-      />
+function TabButton({ active, icon: IconComponent, label, onClick }: { active: boolean, icon: React.ReactElement, label: string, onClick: () => void }) {
+  return (
+    <button 
+      onClick={onClick} 
+      className={`flex items-center gap-2 px-6 py-3 text-sm font-black rounded-2xl select-none border-0 no-outline transition-all duration-200 ${active ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/30'}`}
+    >
+      {React.cloneElement(IconComponent, { size: 16 } as React.SVGAttributes<SVGElement>)}
+      {label}
+    </button>
+  );
+}
 
-      <AppointmentListModal 
-        isOpen={isListModalOpen}
-        onClose={() => setIsListModalOpen(false)}
-        date={selectedDate}
-        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))}
-        onCreateNew={() => {
-          setSelectedSchedule(null);
-          setIsScheduleModalOpen(true);
-        }}
-        onAppointmentClick={handleScheduleClick}
-      />
+function FilterButton({ active, icon: IconComponent, label, onClick, isFavorite }: { active: boolean, icon: React.ReactElement, label: string, onClick: () => void, isFavorite?: boolean }) {
+  return (
+    <button 
+      onClick={onClick} 
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black border-0 transition-all no-outline ${active ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:bg-white/50 hover:text-gray-600'}`}
+    >
+      {React.cloneElement(IconComponent, { size: 16, className: active && isFavorite ? 'fill-indigo-600' : '' } as React.SVGAttributes<SVGElement>)}
+      {label}
+    </button>
+  );
+}
 
-      <AppointmentDetailModal 
-        isOpen={isDetailOpen}
-        onClose={() => setIsDetailOpen(false)}
-        schedule={selectedSchedule}
-        onSuccess={fetchGroupData}
-        onEdit={handleEdit}
-      />
+function SectionTitle({ label }: { label: string }) {
+  return <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2 mb-4 flex items-center gap-2"><ChevronDown className="w-3 h-3" /> {label}</h3>;
+}
 
-      <GroupEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        group={group}
-        onSuccess={fetchGroupData}
-      />
+function TagBadge({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
+  return (
+    <button 
+      onClick={onClick} 
+      className={`text-[10px] font-black px-3 py-1.5 rounded-xl transition-all no-outline border-0 ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-gray-400 hover:text-indigo-500'}`}
+    >
+      #{label}
+    </button>
+  );
+}
 
-      <GroupTopicCreateModal
-        isOpen={isTopicModalOpen}
-        onClose={() => setIsTopicModalOpen(false)}
-        groupId={groupId}
-        onSuccess={fetchGroupData}
-        initialTopic={selectedTopic}
-      />
+function ViewSelector({ current, onChange }: { current: 'grid' | 'list', onChange: (mode: 'grid' | 'list') => void }) {
+  return (
+    <div className="flex p-1.5 bg-gray-100/50 rounded-2xl no-outline border-0">
+      <button 
+        onClick={() => onChange('grid')} 
+        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'grid' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400'}`}
+      >
+        <LayoutGrid className="w-4 h-4" />
+      </button>
+      <button 
+        onClick={() => onChange('list')} 
+        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'list' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400'}`}
+      >
+        <ListIcon className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
 
-      <GroupTopicDetailModal
-        isOpen={isTopicDetailOpen}
-        onClose={() => setIsTopicDetailOpen(false)}
-        topicId={selectedTopic?.id || null}
-        onDelete={fetchGroupData}
-        onEdit={handleTopicEdit}
-        onMemoClick={handleMemoClick}
-      />
+function EmptyState({ icon: Icon, text }: { icon: React.ReactElement, text: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-32 text-center bg-white/50 border-2 border-dashed border-gray-200 rounded-[3rem]">
+      {React.cloneElement(Icon, { size: 64, className: 'text-gray-200 mb-4 stroke-[1.5]' } as React.SVGAttributes<SVGElement>)}
+      <p className="text-gray-500 font-bold">{text}</p>
+      <p className="text-xs text-gray-400 mt-1 font-medium">새로운 활동을 시작해보세요!</p>
+    </div>
+  );
+}
 
-      <MemoDetailModal
-        isOpen={isMemoDetailOpen}
-        onClose={() => setIsMemoDetailOpen(false)}
-        memoId={selectedMemoId}
-        userId={session?.user?.id || ''}
-        onDelete={fetchGroupData}
-      />
+function MemberCard({ member, isOwner, currentUserIsOwner, onKick, apiUrl }: { member: GroupResponse['members'][0], isOwner: boolean, currentUserIsOwner: boolean, onKick: () => void, apiUrl: string }) {
+  return (
+    <div className="flex items-center justify-between p-6 bg-white rounded-[2rem] transition-all hover:shadow-xl group/member border-0">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 rounded-[1.25rem] overflow-hidden relative shadow-md shrink-0">
+          {member.profileImage ? <Image src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} fill className="object-cover" /> : <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-black text-lg">{member.nickname[0]}</div>}
+        </div>
+        <div className="flex flex-col">
+          <span className="font-black text-gray-800 flex items-center gap-2">
+            {member.nickname}
+            {isOwner && <span className="bg-indigo-600 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-md shadow-indigo-100">Leader</span>}
+          </span>
+          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Community Member</p>
+        </div>
+      </div>
+      {currentUserIsOwner && !isOwner && (
+        <button onClick={onKick} className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all opacity-0 group-hover/member:opacity-100"><Trash2 className="w-5 h-5" /></button>
+      )}
+    </div>
+  );
+}
+
+function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
+  const isList = viewMode === 'list';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
+  return (
+    <div onClick={onClick} className={`bg-white shadow-sm transition-all group flex overflow-hidden cursor-pointer border-0 ${isList ? 'rounded-2xl p-6 gap-6 hover:shadow-md' : 'rounded-[2.5rem] flex-col hover:shadow-2xl hover:-translate-y-2'}`}>
+      {imageSrc && (
+        <div className={isList ? "w-32 h-32 relative rounded-2xl overflow-hidden shrink-0 shadow-md border border-gray-50" : "h-48 w-full relative bg-gray-50 overflow-hidden"}>
+          <Image src={imageSrc} alt={memo.title} fill className="object-cover group-hover:scale-110 transition-transform duration-700" unoptimized />
+          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />}
+        </div>
+      )}
+      <div className={isList ? "flex flex-col flex-1 min-w-0 py-1" : "p-8 flex flex-col gap-4 flex-1 min-w-0"}>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors tracking-tight">{memo.title}</h4>
+          <Star className={`w-4 h-4 ${memo.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-100'}`} />
+        </div>
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{memo.content}</p>
+        <div className="flex flex-wrap gap-1.5 mb-6">
+          {memo.tags?.slice(0, 3).map(tag => <span key={tag} className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2 py-0.5 rounded-md">#{tag}</span>)}
+        </div>
+        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+          <div className="flex items-center gap-2">
+             <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 text-[8px] font-black">{memo.authorNickname[0]}</div>
+             <span className="text-[10px] text-gray-400 font-black tracking-tight">{memo.authorNickname}</span>
+          </div>
+          <span className="text-[10px] text-gray-300 font-bold">{format(new Date(memo.createdAt), 'yyyy.MM.dd')}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -702,28 +499,21 @@ export default function GroupDetailPage() {
 function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
   const isList = viewMode === 'list';
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-
   return (
-    <div onClick={onClick} className={`bg-white border border-gray-100 shadow-sm transition-all group flex overflow-hidden cursor-pointer ${isList ? 'rounded-2xl p-6 gap-6 hover:border-indigo-100 hover:shadow-md' : 'rounded-[2rem] flex-col hover:border-indigo-200 hover:shadow-xl hover:-translate-y-1'}`}>
+    <div onClick={onClick} className={`bg-white shadow-sm transition-all group flex overflow-hidden cursor-pointer border-0 ${isList ? 'rounded-2xl p-6 gap-6 hover:shadow-md' : 'rounded-[2.5rem] flex-col hover:border-indigo-200 hover:shadow-2xl hover:-translate-y-2'}`}>
       {topic.imageUrl && (
         <div className={isList ? "w-32 h-32 relative rounded-2xl overflow-hidden shrink-0 shadow-md border border-gray-50" : "h-48 w-full relative bg-gray-50 overflow-hidden"}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} alt={topic.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+          <Image src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} alt={topic.title} fill className="object-cover group-hover:scale-110 transition-transform duration-700" unoptimized />
           {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />}
         </div>
       )}
-      <div className={isList ? "flex flex-col flex-1 min-w-0 py-1" : "p-6 flex flex-col gap-4 flex-1 min-w-0"}>
+      <div className={isList ? "flex flex-col flex-1 min-w-0 py-1" : "p-8 flex flex-col gap-4 flex-1 min-w-0"}>
         <div className="flex items-center justify-between mb-2">
-          <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors">{topic.title}</h4>
-          <div className="flex items-center gap-2 text-gray-400 font-bold text-[10px]">
-            <MessageSquare className="w-3.5 h-3.5" />
-            {topic.commentCount}
-          </div>
+          <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors tracking-tight">{topic.title}</h4>
+          <div className="flex items-center gap-1 text-gray-400 font-black text-[10px] bg-gray-50 px-2 py-0.5 rounded-lg"><MessageSquare className="w-3 h-3" /> {topic.commentCount}</div>
         </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-medium mb-4 flex-1">
-          {topic.content.replace(/[#*`]/g, '')}
-        </p>
-        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{topic.content.replace(/[#*`]/g, '')}</p>
+        <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-full overflow-hidden relative bg-gray-100">
               {topic.authorProfileImage ? <Image src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} alt="" fill className="object-cover" /> : <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-[8px] text-indigo-500 font-bold">{topic.authorNickname[0]}</div>}
@@ -737,57 +527,34 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
   );
 }
 
-function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
+interface ModalsProps {
+  isMemoModalOpen: boolean; setIsMemoModalOpen: (o: boolean) => void;
+  isScheduleModalOpen: boolean; setIsScheduleModalOpen: (o: boolean) => void;
+  isListModalOpen: boolean; setIsListModalOpen: (o: boolean) => void;
+  isDetailOpen: boolean; setIsDetailOpen: (o: boolean) => void;
+  isEditModalOpen: boolean; setIsEditModalOpen: (o: boolean) => void;
+  isTopicModalOpen: boolean; setIsTopicModalOpen: (o: boolean) => void;
+  isTopicDetailOpen: boolean; setIsTopicDetailOpen: (o: boolean) => void;
+  isMemoDetailOpen: boolean; setIsMemoDetailOpen: (o: boolean) => void;
+  groupId: string; group: GroupResponse; session: Session | null;
+  selectedDate: string; selectedSchedule: ScheduleResponse | null;
+  selectedTopic: TopicResponse | null; selectedMemoId: string | null;
+  onSuccess: () => void; handleTopicEdit: (t: TopicResponse) => void;
+  handleMemoClick: (id: string) => void; handleEdit: (s: ScheduleResponse) => void;
+  handleScheduleClick: (s: ScheduleResponse) => void;
+}
 
-  if (viewMode === 'list') {
-    return (
-      <div onClick={onClick} className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group">
-        {imageSrc ? (
-          <div className="w-16 h-16 relative shrink-0">
-            <Image src={imageSrc} alt="" fill className="rounded-xl object-cover" />
-          </div>
-        ) : (
-          <div className="w-16 h-16 rounded-xl bg-gray-50 flex items-center justify-center text-gray-300">
-            <LayoutGrid className="w-6 h-6" />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
-            {memo.title}
-          </h4>
-          <p className="text-xs text-gray-400 mt-1 truncate font-medium">{memo.content}</p>
-        </div>
-      </div>
-    );
-  }
-
+function Modals({ isMemoModalOpen, setIsMemoModalOpen, isScheduleModalOpen, setIsScheduleModalOpen, isListModalOpen, setIsListModalOpen, isDetailOpen, setIsDetailOpen, isEditModalOpen, setIsEditModalOpen, isTopicModalOpen, setIsTopicModalOpen, isTopicDetailOpen, setIsTopicDetailOpen, isMemoDetailOpen, setIsMemoDetailOpen, groupId, group, session, selectedDate, selectedSchedule, selectedTopic, selectedMemoId, onSuccess, handleTopicEdit, handleMemoClick, handleEdit, handleScheduleClick }: ModalsProps) {
   return (
-    <div onClick={onClick} className="flex flex-col bg-white border border-gray-100 rounded-3xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
-      {imageSrc && (
-        <div className="h-40 overflow-hidden relative">
-          <Image 
-            src={imageSrc} 
-            alt={memo.title} 
-            fill
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-        </div>
-      )}
-      <div className="p-6 flex flex-col flex-1">
-        <h4 className="text-lg font-black text-gray-800 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-1">
-          {memo.title}
-        </h4>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-medium mb-4 flex-1">
-          {memo.content}
-        </p>
-        <div className="flex items-center justify-between pt-4 border-t border-gray-50 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-          <span>{format(new Date(memo.createdAt), 'yyyy.MM.dd')}</span>
-          {memo.tags && memo.tags.length > 0 && <span className="text-indigo-500">#{memo.tags[0]}</span>}
-        </div>
-      </div>
-    </div>
+    <>
+      <MemoCreateModal isOpen={isMemoModalOpen} onClose={() => setIsMemoModalOpen(false)} userId={session?.user?.id || ''} groupId={groupId} onSuccess={onSuccess} />
+      <AppointmentModal isOpen={isScheduleModalOpen} onClose={() => setIsScheduleModalOpen(false)} initialDate={selectedDate} onSuccess={onSuccess} initialSchedule={null} />
+      <AppointmentListModal isOpen={isListModalOpen} onClose={() => setIsListModalOpen(false)} date={selectedDate} appointments={[]} onCreateNew={() => setIsScheduleModalOpen(true)} onAppointmentClick={handleScheduleClick} />
+      <AppointmentDetailModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} schedule={selectedSchedule} onSuccess={onSuccess} onEdit={handleEdit} />
+      <GroupEditModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} group={group} onSuccess={onSuccess} />
+      <GroupTopicCreateModal isOpen={isTopicModalOpen} onClose={() => setIsTopicModalOpen(false)} groupId={groupId} onSuccess={onSuccess} initialTopic={selectedTopic} />
+      <GroupTopicDetailModal isOpen={isTopicDetailOpen} onClose={() => setIsTopicDetailOpen(false)} topicId={selectedTopic?.id || null} onDelete={onSuccess} onEdit={handleTopicEdit} onMemoClick={handleMemoClick} />
+      <MemoDetailModal isOpen={isMemoDetailOpen} onClose={() => setIsMemoDetailOpen(false)} memoId={selectedMemoId} userId={session?.user?.id || ''} onDelete={onSuccess} />
+    </>
   );
 }
