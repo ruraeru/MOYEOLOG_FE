@@ -250,7 +250,6 @@ export default function HomePage() {
           onClose={() => setIsMemoModalOpen(false)}
           memoId={selectedMemoId}
           userId={userId}
-          authorName={session?.user?.name}
         />
       )}
     </div>

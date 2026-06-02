@@ -217,7 +217,7 @@ function MemoContent() {
 
       {userId && (
         <>
-          <MemoDetailModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} memoId={selectedMemoId} userId={userId} authorName={session?.user?.name} onDelete={loadData} />
+          <MemoDetailModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} memoId={selectedMemoId} userId={userId} onDelete={loadData} />
           <MemoCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} userId={userId} onSuccess={loadData} />
         </>
       )}

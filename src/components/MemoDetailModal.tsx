@@ -31,7 +31,6 @@ interface MemoDetailModalProps {
   onClose: () => void;
   memoId: string | null;
   userId: string;
-  authorName?: string | null;
   onDelete?: () => void;
 }
 
@@ -66,7 +65,6 @@ export default function MemoDetailModal({
   onClose,
   memoId,
   userId,
-  authorName,
   onDelete,
 }: MemoDetailModalProps) {
   const { data: session } = useSession();
@@ -223,21 +221,25 @@ export default function MemoDetailModal({
                 >
                   <Pencil className="w-5 h-5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setIsShareModalOpen(true)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="p-2 hover:bg-red-50 rounded-full transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
-                >
-                  {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-                </button>
+                {userId === memo.authorId && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsShareModalOpen(true)}
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+                    >
+                      <Share2 className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="p-2 hover:bg-red-50 rounded-full transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
+                    >
+                      {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                    </button>
+                  </>
+                )}
               </div>
               <button
                 type="button"
@@ -248,9 +250,18 @@ export default function MemoDetailModal({
               </button>
             </div>
 
-            <div className="space-y-1 mb-6 text-sm text-gray-400 font-medium">
-              <p>작성자: {authorName || '나'}</p>
-              <p>최종 수정: {formatDateTime(memo.updatedAt)}</p>
+            <div className="space-y-1 mb-6 text-xs text-gray-400 font-medium">
+              <div className="flex items-center gap-2">
+                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-bold">작성자</span>
+                <span className="text-gray-600 font-black">{memo.authorNickname}</span>
+              </div>
+              {memo.lastModifierNickname && (
+                <div className="flex items-center gap-2">
+                  <span className="bg-gray-50 px-2 py-0.5 rounded text-gray-400 font-bold">마지막 수정</span>
+                  <span className="text-gray-500 font-bold">{memo.lastModifierNickname}</span>
+                </div>
+              )}
+              <p className="pt-1">{formatDateTime(memo.createdAt)} 작성</p>
             </div>
 
             {imageSrc && <MemoImage src={imageSrc} alt={memo.title} />}

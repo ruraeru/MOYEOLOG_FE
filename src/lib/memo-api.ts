@@ -57,6 +57,11 @@ export interface MemoResponse {
   title: string;
   content: string;
   imageUrl?: string;
+  authorId: string;
+  authorNickname: string;
+  authorProfileImage?: string;
+  lastModifierId?: string;
+  lastModifierNickname?: string;
   groupId?: string;
   tags: string[];
   insight?: MemoInsight;

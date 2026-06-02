@@ -605,7 +605,6 @@ export default function GroupDetailPage() {
         onClose={() => setIsMemoDetailOpen(false)}
         memoId={selectedMemoId}
         userId={session?.user?.id || ''}
-        authorName={session?.user?.name}
         onDelete={fetchGroupData}
       />
     </div>

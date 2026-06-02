@@ -1,6 +1,10 @@
 export type Memo = {
   id: string;
   authorId: string;
+  authorNickname: string;
+  authorProfileImage?: string;
+  lastModifierId?: string;
+  lastModifierNickname?: string;
   title: string;
   content: string;
   imageDataUrl?: string;
