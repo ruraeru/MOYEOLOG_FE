@@ -186,16 +186,16 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
             <div className="relative">
               <input type="text" value={location} onChange={(e) => { setLocation(e.target.value); searchPlaces(e.target.value); }} placeholder="장소를 검색해보세요" className="form-input pr-14" />
               <div className="absolute right-4 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" /> : <Search className="w-5 h-5 text-gray-400" />}</div>
+              {searchResults.length > 0 && (
+                <div className="absolute z-20 w-full top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto">
+                  {searchResults.map((r, i) => (
+                    <button key={i} type="button" onClick={() => handleLocationSelect(r)} className="w-full text-left px-5 py-3.5 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 font-bold text-sm text-gray-800">
+                      {r.place_name}<div className="text-[10px] text-gray-400 font-medium mt-0.5">{r.address_name}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            {searchResults.length > 0 && (
-              <div className="absolute z-20 w-full mt-1 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto">
-                {searchResults.map((r, i) => (
-                  <button key={i} onClick={() => handleLocationSelect(r)} className="w-full text-left px-5 py-3.5 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 font-bold text-sm text-gray-800">
-                    {r.place_name}<div className="text-[10px] text-gray-400 font-medium mt-0.5">{r.address_name}</div>
-                  </button>
-                ))}
-              </div>
-            )}
             <div className="rounded-3xl overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50 relative mt-4">
               <div ref={mapContainer} className="w-full h-[220px]" />
               {isMapLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center z-10"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" /><p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">위치 확인 중...</p></div>}
