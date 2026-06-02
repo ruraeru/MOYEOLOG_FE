@@ -198,7 +198,7 @@ export default function SchedulePage() {
                 <Search className="w-4 h-4 absolute left-4 top-3 text-gray-400" />
               </div>
               <ViewSelector currentView={view} onViewChange={setView} />
-              <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-90"><Plus className="w-5 h-5" /></button>
+              <button onClick={() => { setSelectedSchedule(null); setIsModalOpen(true); }} className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-90"><Plus className="w-5 h-5" /></button>
             </div>
           </div>
 
@@ -238,7 +238,7 @@ export default function SchedulePage() {
         </main>
       </div>
 
-      <AppointmentModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} initialDate={selectedDate} onSuccess={fetchSchedules} initialSchedule={selectedSchedule} />
+      <AppointmentModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedSchedule(null); }} initialDate={selectedDate} onSuccess={fetchSchedules} initialSchedule={selectedSchedule} />
       <AppointmentDetailModal isOpen={isDetailOpen} onClose={() => { setIsDetailOpen(false); setSelectedSchedule(null); }} schedule={selectedSchedule} onSuccess={fetchSchedules} onEdit={handleEdit} />
     </div>
   );

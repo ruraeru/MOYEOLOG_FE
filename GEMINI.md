@@ -124,12 +124,20 @@ Gemini CLI must automatically verify the following before ANY commit or code gen
   - Advanced Gemini API integration (OCR, 3-line summaries, keyword extraction, and clickable recommended tags).
   - Integrated `@uiw/react-md-editor` with live preview.
   - Upgraded infrastructure settings (50MB upload limit, 60s timeouts including Nginx).
-
+- **2026-06-02:**
+  - **Group UI Redesign:** Implemented a modern Discord-style sidebar navigation and Glassmorphism dashboard for the Group Detail page. Removed focus outlines and borders for a cleaner aesthetic.
+  - **Browse (Activity Feed):** Developed a centralized timeline on the `/groups` landing page showing recent memos, topics, schedules, and comments from all joined groups.
+  - **Author/Modifier Tracking:** Enhanced memo system to display the original creator and the latest modifier. Allowed all group members to edit group memos.
+  - **Image Proxy:** Implemented a server-side proxy (`/api/proxy-image`) and frontend fallback to fix 403 Forbidden errors when loading external images from Kakao search.
+  - **Group Schedule Fix:** Resolved a bug where clicking a date in the group calendar wouldn't display its schedules.
+  - **Code Cleanup:** Removed legacy `memo-storage.ts` and unified shared utilities in `src/lib/utils.ts`.
+- **2026-06-01 (Part 2):**
+...
 ### 🏃 Next Steps
 
-- [ ] **Real-time Notifications (SSE/WebSocket):** Build a global notification hub to send instant push popups for group invites and friend requests.
-- [ ] **AI Smart Place Recommendations:** Implement an algorithm that analyzes accumulated memos and group characteristics to suggest optimal meeting locations via Kakao Map.
-
+- [ ] **Real-time Notifications (SSE/WebSocket):** Build a global notification hub for instant push popups.
+- [ ] **AI Smart Place Recommendations:** Implement an algorithm to suggest locations based on group memos and characteristics.
+- [ ] **Mobile Optimization:** Refine the new sidebar layout for smaller screens.
 ### ⚠️ Infrastructure Warnings
 
 - **Nginx Configuration:** To apply changes to `client_max_body_size`, you must run `docker compose up --build -d` in local/production environments.

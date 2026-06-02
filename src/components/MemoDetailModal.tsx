@@ -152,7 +152,7 @@ export default function MemoDetailModal({
 
   if (loadingMemo) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
         <div className="bg-white rounded-3xl p-10 flex items-center gap-3">
           <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
           <span className="font-bold text-gray-600">메모를 불러오는 중...</span>
@@ -194,7 +194,7 @@ export default function MemoDetailModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
         onClick={onClose}
       >
         <div

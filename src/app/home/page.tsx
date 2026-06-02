@@ -92,6 +92,7 @@ export default function HomePage() {
   };
 
   const handleScheduleClick = (schedule: ScheduleResponse) => {
+    setIsListModalOpen(false);
     setSelectedSchedule(schedule);
     setIsDetailModalOpen(true);
   };
@@ -221,7 +222,7 @@ export default function HomePage() {
 
       <AppointmentModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setSelectedSchedule(null); }}
         initialDate={selectedDate}
         onSuccess={fetchData}
         initialSchedule={selectedSchedule}
@@ -232,13 +233,13 @@ export default function HomePage() {
         onClose={() => setIsListModalOpen(false)}
         date={selectedDate}
         appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))}
-        onCreateNew={() => setIsModalOpen(true)}
+        onCreateNew={() => { setSelectedSchedule(null); setIsModalOpen(true); }}
         onAppointmentClick={handleScheduleClick}
       />
 
       <AppointmentDetailModal
         isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
+        onClose={() => { setIsDetailModalOpen(false); setSelectedSchedule(null); }}
         schedule={selectedSchedule}
         onSuccess={fetchData}
         onEdit={handleEdit}

@@ -192,7 +192,7 @@ export default function GroupTopicDetailModal({
 
   if (loading && !data) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
         <div className="bg-white rounded-3xl p-10 flex items-center gap-3">
           <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
           <span className="font-bold text-gray-600">토픽을 불러오는 중...</span>
@@ -208,7 +208,7 @@ export default function GroupTopicDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
