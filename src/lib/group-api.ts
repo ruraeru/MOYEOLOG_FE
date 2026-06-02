@@ -30,6 +30,18 @@ export interface GroupInvitationResponse {
   invitedAt: string;
 }
 
+export interface GroupActivityResponse {
+  type: 'MEMO' | 'TOPIC';
+  groupId: string;
+  groupName: string;
+  id: string;
+  title: string;
+  contentSnippet: string;
+  authorNickname: string;
+  authorProfileImage?: string;
+  createdAt: string;
+}
+
 export const groupApi = {
   async getAll(session: Session | null): Promise<GroupResponse[]> {
     const response = await fetchWithAuth('/api/groups', {}, session);
@@ -142,5 +154,11 @@ export const groupApi = {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || '멤버 내보내기에 실패했습니다.');
     }
+  },
+
+  async getActivities(session: Session | null): Promise<GroupActivityResponse[]> {
+    const response = await fetchWithAuth('/api/groups/activities', {}, session);
+    if (!response.ok) throw new Error('Failed to fetch group activities');
+    return response.json();
   }
 };

@@ -8,18 +8,27 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import GroupCreateModal from '@/components/GroupCreateModal';
+import { GroupModalProvider, useGroupModal } from './GroupModalContext';
 
 export default function GroupsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  return (
+    <GroupModalProvider>
+      <GroupsLayoutContent>{children}</GroupsLayoutContent>
+    </GroupModalProvider>
+  );
+}
+
+function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const params = useParams();
   const { data: session } = useSession();
   const [groups, setGroups] = useState<GroupResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isModalOpen, setIsModalOpen, openCreateModal } = useGroupModal();
   const activeGroupId = params?.id as string;
 
   const fetchGroups = useCallback(async () => {
@@ -48,7 +57,7 @@ export default function GroupsLayout({
         <aside className="w-20 bg-white border-r border-gray-100 flex flex-col items-center py-6 gap-4 shrink-0 overflow-y-auto no-scrollbar z-20 shadow-sm">
           {/* Create Group Button */}
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={openCreateModal}
             className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all duration-300 shadow-sm group outline-none"
             title="새 모임 만들기"
           >
