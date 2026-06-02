@@ -15,7 +15,9 @@ import {
   Check,
   Link as LinkIcon,
   Settings,
-  Sparkles
+  Sparkles,
+  Users,
+  Trash2
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -66,7 +68,7 @@ export default function GroupDetailPage() {
   const [selectedTopic, setSelectedTopic] = useState<TopicResponse | null>(null);
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeTab, setActiveTab] = useState<'memos' | 'calendar' | 'topics'>('memos');
+  const [activeTab, setActiveTab] = useState<'memos' | 'calendar' | 'topics' | 'members'>('memos');
 
   const fetchGroupData = useCallback(async () => {
     if (!session || !groupId) return;
@@ -123,6 +125,19 @@ export default function GroupDetailPage() {
     setIsDetailOpen(false);
     setSelectedSchedule(schedule);
     setIsScheduleModalOpen(true);
+  };
+
+  const handleKickMember = async (memberId: string) => {
+    if (!session || !group) return;
+    if (!confirm('정말로 이 멤버를 내보내시겠습니까?')) return;
+    
+    try {
+      await groupApi.kickMember(group.id, memberId, session);
+      fetchGroupData();
+    } catch (error) {
+      console.error('Failed to kick member:', error);
+      alert('멤버 내보내기에 실패했습니다.');
+    }
   };
 
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
@@ -335,6 +350,19 @@ export default function GroupDetailPage() {
                 </div>
                 {activeTab === 'topics' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
               </button>
+              <button 
+                onClick={() => setActiveTab('members')}
+                className={`px-4 py-3 text-sm font-black transition-all relative ${activeTab === 'members' ? 'text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  모임 멤버
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${activeTab === 'members' ? 'bg-indigo-50 text-indigo-600' : 'bg-gray-50 text-gray-400'}`}>
+                    {group.memberCount}
+                  </span>
+                </div>
+                {activeTab === 'members' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-600 rounded-full" />}
+              </button>
             </div>
 
             {activeTab === 'memos' ? (
@@ -434,6 +462,47 @@ export default function GroupDetailPage() {
                   </div>
                 )}
               </>
+            ) : activeTab === 'members' ? (
+              <div className="flex flex-col gap-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-lg font-black text-gray-800">참여 중인 멤버</h3>
+                  <span className="text-sm font-bold text-gray-400">총 {group.memberCount}명</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {group.members.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 transition-all hover:shadow-md">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full overflow-hidden relative border border-gray-100 shrink-0">
+                          {member.profileImage ? (
+                            <Image src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} fill className="object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-bold">
+                              {member.nickname[0]}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="font-black text-gray-800 flex items-center gap-2">
+                            {member.nickname}
+                            {member.id === group.createdById && (
+                              <span className="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full font-bold">그룹장</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      {session?.user?.id === group.createdById && member.id !== group.createdById && (
+                        <button
+                          onClick={() => handleKickMember(member.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                          title="멤버 내보내기"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col gap-6">
                 <div className="flex justify-end">

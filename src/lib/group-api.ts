@@ -7,6 +7,7 @@ export interface GroupResponse {
   name: string;
   description: string;
   colorTheme: string;
+  createdById: string;
   createdByNickname: string;
   members: Array<{
     id: string;
@@ -130,6 +131,16 @@ export const groupApi = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.message || '가입에 실패했습니다. 코드를 확인해주세요.');
+    }
+  },
+
+  async kickMember(groupId: string, memberId: string, session: Session | null): Promise<void> {
+    const response = await fetchWithAuth(`/api/groups/${groupId}/members/${memberId}`, {
+      method: 'DELETE',
+    }, session);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || '멤버 내보내기에 실패했습니다.');
     }
   }
 };
