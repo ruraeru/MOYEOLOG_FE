@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
+import AppointmentListModal from '@/components/AppointmentListModal';
 import { 
   Search, 
   ChevronLeft, 
@@ -11,7 +12,8 @@ import {
   Calendar as CalendarIcon,
   CheckCircle2,
   Plus,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { 
   format, 
@@ -41,9 +43,11 @@ export default function SchedulePage() {
   
   const [view, setView] = useState<'month' | 'week' | 'list'>('month');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Filtering state
   const [activeFilter, setActiveFilter] = useState<{ type: 'all' | 'my' | 'group', id?: string }>({ type: 'all' });
@@ -69,10 +73,10 @@ export default function SchedulePage() {
     fetchSchedules();
   }, [fetchSchedules]);
 
-  const handleOpenModal = (date: Date) => {
+  const handleOpenListModal = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'));
     setSelectedSchedule(null);
-    setIsModalOpen(true);
+    setIsListModalOpen(true);
   };
 
   const handleEdit = (schedule: ScheduleResponse) => {
@@ -81,23 +85,36 @@ export default function SchedulePage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenDetail = (e: React.MouseEvent, schedule: ScheduleResponse) => {
-    e.stopPropagation();
-    setSelectedSchedule(schedule);
-    setIsDetailOpen(true);
-  };
-
   const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
   const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
-  const goToToday = () => setCurrentDate(new Date());
+  const goToToday = () => {
+    setCurrentDate(new Date());
+    setSearchQuery('');
+  };
 
   // Filtered schedules logic
   const filteredSchedules = useMemo(() => {
-    if (activeFilter.type === 'all') return schedules;
-    if (activeFilter.type === 'my') return schedules.filter(s => !s.groupId);
-    if (activeFilter.type === 'group') return schedules.filter(s => s.groupId === activeFilter.id);
-    return schedules;
-  }, [schedules, activeFilter]);
+    let result = [...schedules];
+
+    // Filter by Type
+    if (activeFilter.type === 'my') {
+      result = result.filter(s => !s.groupId);
+    } else if (activeFilter.type === 'group') {
+      result = result.filter(s => s.groupId === activeFilter.id);
+    }
+
+    // Filter by Search Query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(s => 
+        s.title.toLowerCase().includes(query) || 
+        (s.description && s.description.toLowerCase().includes(query)) ||
+        (s.location && s.location.toLowerCase().includes(query))
+      );
+    }
+
+    return result;
+  }, [schedules, activeFilter, searchQuery]);
 
   // Month Grid Days
   const monthDays = useMemo(() => {
@@ -115,54 +132,66 @@ export default function SchedulePage() {
       <div className="flex-1 flex overflow-hidden">
         
         {/* Sidebar */}
-        <aside className="w-[280px] bg-white border-r border-gray-100 flex flex-col p-6 gap-8 overflow-y-auto no-scrollbar hidden lg:flex">
+        <aside className="w-[300px] bg-white border-r border-gray-100 flex flex-col p-8 gap-10 overflow-y-auto no-scrollbar hidden lg:flex relative z-10">
           
           {/* Mini Calendar (Quick Date Selection) */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-gray-800 font-bold text-sm">
-              <CalendarIcon className="w-4 h-4" />
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 text-gray-900 font-black text-xs uppercase tracking-widest px-1">
+              <CalendarIcon className="w-4 h-4 text-indigo-500" />
               <span>빠른 날짜 선택</span>
             </div>
             
-            <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold">{format(currentDate, 'yyyy년 M월')}</span>
-                <div className="flex gap-2">
-                  <button onClick={prevMonth} className="p-0.5 hover:bg-gray-100 rounded text-gray-400"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={nextMonth} className="p-0.5 hover:bg-gray-100 rounded text-gray-400"><ChevronRight className="w-4 h-4" /></button>
+            <div className="bg-gray-50/50 rounded-3xl border border-gray-100 p-5 shadow-inner">
+              <div className="flex items-center justify-between mb-5 px-1">
+                <span className="text-xs font-black text-gray-800">{format(currentDate, 'yyyy년 M월')}</span>
+                <div className="flex gap-1">
+                  <button onClick={prevMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-xl text-gray-400 transition-all"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={nextMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-xl text-gray-400 transition-all"><ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
-              <div className="grid grid-cols-7 gap-y-2 text-center">
+              <div className="grid grid-cols-7 gap-y-3 text-center">
                 {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                  <span key={d} className={`text-[10px] font-bold ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-400'}`}>{d}</span>
+                  <span key={d} className={`text-[9px] font-black uppercase tracking-tighter ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-indigo-500' : 'text-gray-300'}`}>{d}</span>
                 ))}
-                {monthDays.map((day, i) => (
-                  <button 
-                    key={i} 
-                    onClick={() => setCurrentDate(day)}
-                    className={`text-[10px] font-medium w-6 h-6 flex items-center justify-center mx-auto rounded-full transition-colors 
-                      ${!isSameMonth(day, currentDate) ? 'text-gray-200' : 'text-gray-700'} 
-                      ${isToday(day) ? 'bg-indigo-600 text-white' : 'hover:bg-gray-100'}
-                      ${isSameDay(day, currentDate) && !isToday(day) ? 'ring-1 ring-indigo-400' : ''}`}
-                  >
-                    {format(day, 'd')}
-                  </button>
-                ))}
+                {monthDays.map((day, i) => {
+                  const hasSchedule = filteredSchedules.some(s => isSameDay(parseISO(s.startTime), day));
+                  const isTodayDay = isToday(day);
+                  return (
+                    <button 
+                      key={i} 
+                      onClick={() => {
+                        setCurrentDate(day);
+                        handleOpenListModal(day);
+                      }}
+                      className={`text-[10px] font-black w-7 h-7 flex flex-col items-center justify-center mx-auto rounded-xl transition-all duration-300 relative
+                        ${!isSameMonth(day, currentDate) ? 'text-gray-200' : 'text-gray-700'} 
+                        ${isTodayDay ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-110' : 'hover:bg-white hover:shadow-sm hover:scale-110'}
+                        ${isSameDay(day, currentDate) && !isTodayDay ? 'ring-2 ring-indigo-100 bg-white' : ''}`}
+                    >
+                      {format(day, 'd')}
+                      {hasSchedule && (
+                        <span className={`w-1 h-1 rounded-full absolute bottom-1 ${isTodayDay ? 'bg-white' : 'bg-indigo-500'}`} />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
           {/* Schedule Filter */}
           <div className="space-y-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">일정 필터</h3>
-            <FilterItem label="전체 일정" isActive={activeFilter.type === 'all'} onClick={() => setActiveFilter({ type: 'all' })} />
-            <FilterItem label="내 일정" isActive={activeFilter.type === 'my'} onClick={() => setActiveFilter({ type: 'my' })} />
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">일정 필터</h3>
+            <div className="space-y-1.5">
+              <FilterItem label="전체 일정" isActive={activeFilter.type === 'all'} onClick={() => setActiveFilter({ type: 'all' })} />
+              <FilterItem label="내 일정" isActive={activeFilter.type === 'my'} onClick={() => setActiveFilter({ type: 'my' })} />
+            </div>
           </div>
 
           {/* Participating Groups */}
           <div className="space-y-4">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">참여 그룹</h3>
-            <div className="space-y-2">
+            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">참여 그룹</h3>
+            <div className="space-y-1.5">
               {userGroups.length > 0 ? userGroups.map((group) => (
                 <GroupFilterItem 
                   key={group.id} 
@@ -173,52 +202,73 @@ export default function SchedulePage() {
                   count={schedules.filter(s => s.groupId === group.id).length} 
                 />
               )) : (
-                <p className="text-xs text-gray-400 font-medium">참여 중인 모임이 없습니다.</p>
+                <p className="text-[10px] text-gray-400 font-bold px-1">참여 중인 모임이 없습니다.</p>
               )}
             </div>
           </div>
         </aside>
 
         {/* Main Calendar Section */}
-        <main className="flex-1 flex flex-col bg-white overflow-hidden">
-          {/* Toolbar */}
-          <div className="h-20 border-b border-gray-100 flex items-center justify-between px-8 shrink-0">
-            <div className="flex items-center gap-8">
-              <button onClick={goToToday} className="px-6 py-2 bg-white border border-gray-200 rounded-xl text-sm font-black hover:bg-gray-50 transition-all shadow-sm active:scale-95">오늘</button>
-              <div className="flex items-center gap-4">
-                <button onClick={prevMonth} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors"><ChevronLeft className="w-6 h-6" /></button>
-                <h2 className="text-2xl font-black tracking-tight text-gray-800 w-48 text-center">{format(currentDate, 'yyyy년 M월')}</h2>
-                <button onClick={nextMonth} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors"><ChevronRight className="w-6 h-6" /></button>
+        <main className="flex-1 flex flex-col bg-white overflow-hidden relative">
+          {/* Toolbar (Glassmorphism) */}
+          <div className="h-24 border-b border-gray-100 flex items-center justify-between px-10 shrink-0 sticky top-0 bg-white/80 backdrop-blur-xl z-20">
+            <div className="flex items-center gap-10">
+              <button onClick={goToToday} className="px-8 py-3 bg-white border border-gray-100 rounded-2xl text-xs font-black hover:bg-gray-50 transition-all shadow-sm active:scale-95 uppercase tracking-widest">Today</button>
+              <div className="flex items-center gap-6">
+                <button onClick={prevMonth} className="p-2.5 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all active:scale-90"><ChevronLeft className="w-6 h-6" /></button>
+                <h2 className="text-3xl font-black tracking-tighter text-gray-900 w-56 text-center">{format(currentDate, 'yyyy년 M월')}</h2>
+                <button onClick={nextMonth} className="p-2.5 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all active:scale-90"><ChevronRight className="w-6 h-6" /></button>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="relative hidden md:block">
-                <input type="text" placeholder="일정 검색..." className="w-72 bg-gray-50 border border-transparent rounded-xl pl-11 pr-4 py-2.5 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none shadow-sm" />
-                <Search className="w-4 h-4 absolute left-4 top-3 text-gray-400" />
+            <div className="flex items-center gap-6">
+              <div className="relative hidden xl:block">
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="일정 검색..." 
+                  className="w-80 bg-gray-50/50 border-0 rounded-[1.25rem] pl-12 pr-4 py-3.5 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-50 transition-all outline-none shadow-inner" 
+                />
+                <Search className="w-5 h-5 absolute left-4 top-3.5 text-gray-300" />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
               <ViewSelector currentView={view} onViewChange={setView} />
-              <button onClick={() => { setSelectedSchedule(null); setIsModalOpen(true); }} className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-90"><Plus className="w-5 h-5" /></button>
+              <button 
+                onClick={() => { setSelectedSchedule(null); setIsModalOpen(true); }} 
+                className="bg-indigo-600 text-white p-4 rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-90 hover:rotate-90"
+              >
+                <Plus className="w-6 h-6" />
+              </button>
             </div>
           </div>
 
           {/* Calendar View Container */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-hidden flex flex-col bg-[#F8F9FB]/30">
             {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-                <p className="font-bold text-gray-500">일정을 불러오는 중...</p>
+              <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                <div className="w-16 h-16 bg-white rounded-3xl shadow-xl flex items-center justify-center animate-bounce">
+                  <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                </div>
+                <p className="font-black text-gray-400 text-xs uppercase tracking-widest">일정을 동기화 중입니다...</p>
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-7 border-b border-gray-100 shrink-0 bg-gray-50/50">
+                <div className="grid grid-cols-7 border-b border-gray-100 shrink-0 bg-white/50 backdrop-blur-md">
                   {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                    <div key={day} className={`py-4 text-center text-xs font-black uppercase tracking-widest ${i === 0 ? 'text-red-500' : i === 6 ? 'text-blue-500' : 'text-gray-400'}`}>{day}</div>
+                    <div key={day} className={`py-6 text-center text-[10px] font-black uppercase tracking-widest ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-indigo-500' : 'text-gray-300'}`}>{day}</div>
                   ))}
                 </div>
 
-                <div className="flex-1 overflow-y-auto no-scrollbar">
-                  <div className="grid grid-cols-7 h-full min-h-[840px] border-l border-gray-100">
+                <div className="flex-1 overflow-hidden">
+                  <div className="grid grid-cols-7 h-full">
                     {monthDays.map((day, i) => (
                       <CalendarDay 
                         key={i} 
@@ -226,8 +276,8 @@ export default function SchedulePage() {
                         currentDate={currentDate} 
                         schedules={filteredSchedules} 
                         userGroups={userGroups} 
-                        onDayClick={handleOpenModal} 
-                        onScheduleClick={handleOpenDetail} 
+                        onDayClick={handleOpenListModal} 
+                        onScheduleClick={(e, schedule) => { e.stopPropagation(); setIsListModalOpen(false); setSelectedSchedule(schedule); setIsDetailOpen(true); }} 
                       />
                     ))}
                   </div>
@@ -239,6 +289,14 @@ export default function SchedulePage() {
       </div>
 
       <AppointmentModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedSchedule(null); }} initialDate={selectedDate} onSuccess={fetchSchedules} initialSchedule={selectedSchedule} />
+      <AppointmentListModal 
+        isOpen={isListModalOpen} 
+        onClose={() => setIsListModalOpen(false)} 
+        date={selectedDate} 
+        appointments={filteredSchedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))} 
+        onCreateNew={() => { setSelectedSchedule(null); setIsModalOpen(true); }} 
+        onAppointmentClick={(s) => { setIsListModalOpen(false); setSelectedSchedule(s); setIsDetailOpen(true); }} 
+      />
       <AppointmentDetailModal isOpen={isDetailOpen} onClose={() => { setIsDetailOpen(false); setSelectedSchedule(null); }} schedule={selectedSchedule} onSuccess={fetchSchedules} onEdit={handleEdit} />
     </div>
   );
@@ -254,9 +312,16 @@ interface FilterItemProps {
 
 function FilterItem({ label, isActive, onClick }: FilterItemProps) {
   return (
-    <div onClick={onClick} className={`flex items-center justify-between group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all ${isActive ? 'bg-indigo-50' : ''}`}>
-      <span className={`text-sm font-bold ${isActive ? 'text-indigo-600' : 'text-gray-700'}`}>{label}</span>
-      {isActive && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
+    <div 
+      onClick={onClick} 
+      className={`flex items-center justify-between group cursor-pointer p-3 rounded-2xl transition-all duration-300 border-0 ${
+        isActive 
+          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-[1.02]' 
+          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+      }`}
+    >
+      <span className="text-sm font-black tracking-tight">{label}</span>
+      {isActive && <CheckCircle2 className="w-4 h-4 text-white" />}
     </div>
   );
 }
@@ -271,12 +336,23 @@ interface GroupFilterItemProps {
 
 function GroupFilterItem({ color, name, count, isActive, onClick }: GroupFilterItemProps) {
   return (
-    <div onClick={onClick} className={`flex items-center justify-between group cursor-pointer hover:bg-gray-50 p-2 -mx-2 rounded-xl transition-all ${isActive ? 'bg-indigo-50' : ''}`}>
+    <div 
+      onClick={onClick} 
+      className={`flex items-center justify-between group cursor-pointer p-3 rounded-2xl transition-all duration-300 border-0 ${
+        isActive 
+          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-[1.02]' 
+          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+      }`}
+    >
       <div className="flex items-center gap-3">
-        <div className={`w-2.5 h-2.5 rounded-full ${color} shadow-sm`} />
-        <span className={`text-sm font-bold ${isActive ? 'text-indigo-600' : 'text-gray-700'} group-hover:text-gray-900`}>{name}</span>
+        <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-white' : color} shadow-sm transition-colors`} />
+        <span className="text-sm font-black tracking-tight">{name}</span>
       </div>
-      <span className={`text-xs font-black ${isActive ? 'text-indigo-600' : 'text-gray-300'} group-hover:text-indigo-600 transition-colors bg-gray-50 group-hover:bg-indigo-50 px-2 py-0.5 rounded-lg`}>{count}</span>
+      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-colors ${
+        isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600'
+      }`}>
+        {count}
+      </span>
     </div>
   );
 }
@@ -288,10 +364,18 @@ interface ViewSelectorProps {
 
 function ViewSelector({ currentView, onViewChange }: ViewSelectorProps) {
   return (
-    <div className="flex p-1.5 bg-gray-100 rounded-2xl shadow-inner">
+    <div className="flex p-1.5 bg-gray-100/50 backdrop-blur-md rounded-2xl shadow-inner border border-gray-100/50">
       {(['month', 'week', 'list'] as const).map(v => (
-        <button key={v} onClick={() => onViewChange(v)} className={`px-5 py-2 text-xs font-black rounded-xl transition-all ${currentView === v ? 'bg-white shadow-md text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}>
-          {v === 'month' ? '월' : v === 'week' ? '주' : '목록'}
+        <button 
+          key={v} 
+          onClick={() => onViewChange(v)} 
+          className={`px-6 py-2.5 text-[10px] font-black rounded-xl transition-all duration-300 uppercase tracking-widest ${
+            currentView === v 
+              ? 'bg-white shadow-md text-indigo-600 scale-105' 
+              : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          {v === 'month' ? 'Month' : v === 'week' ? 'Week' : 'List'}
         </button>
       ))}
     </div>
@@ -313,25 +397,52 @@ function CalendarDay({ day, currentDate, schedules, userGroups, onDayClick, onSc
   const isTodayDay = isToday(day);
 
   return (
-    <div className={`border-r border-b border-gray-100 p-2 min-h-[140px] flex flex-col gap-1 transition-all hover:bg-gray-50/50 relative group ${!isCurrMonth ? 'bg-gray-50/30' : 'bg-white'} ${isTodayDay ? 'bg-indigo-50/20' : ''}`}>
-      <div className="flex items-center justify-between mb-1">
-        <span className={`text-xs font-black w-7 h-7 flex items-center justify-center rounded-lg transition-all ${!isCurrMonth ? 'text-gray-300' : 'text-gray-700'} ${isTodayDay ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'group-hover:bg-gray-100'}`}>
+    <div 
+      onClick={() => onDayClick(day)}
+      className={`border-r border-b border-gray-100 p-3 h-full flex flex-col gap-1 transition-all duration-500 hover:bg-white hover:shadow-2xl hover:z-10 hover:scale-[1.01] hover:rounded-2xl relative group cursor-pointer ${!isCurrMonth ? 'bg-gray-50/30 opacity-40' : 'bg-white'}`}
+    >
+      <div className="flex items-center justify-between mb-1 shrink-0">
+        <span className={`text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg transition-all duration-300 ${
+          !isCurrMonth ? 'text-gray-300' : 'text-gray-700'
+        } ${
+          isTodayDay ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-110' : 'group-hover:bg-gray-50 group-hover:text-indigo-600'
+        }`}>
           {format(day, 'd')}
         </span>
-        <button onClick={() => onDayClick(day)} className="opacity-0 group-hover:opacity-100 transition-all bg-indigo-50 text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-100 active:scale-90 shadow-sm"><Plus className="w-3.5 h-3.5" /></button>
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onDayClick(day);
+          }} 
+          className="opacity-0 group-hover:opacity-100 transition-all duration-300 bg-indigo-50 text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-600 hover:text-white active:scale-90 shadow-sm"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
       </div>
-      <div className="flex flex-col gap-1.5 overflow-hidden">
-        {daySchedules.map((s) => {
+      <div className="flex-1 flex flex-col gap-1 overflow-hidden min-h-0">
+        {daySchedules.slice(0, 2).map((s) => {
           const group = userGroups.find((g) => g.id === s.groupId);
           const theme = getThemeColors(group?.colorTheme);
           return (
-            <div key={s.id} onClick={(e) => onScheduleClick(e, s)}>
-              <div className={`${theme.light} ${theme.soft} ${theme.border} border border-opacity-50 px-2.5 py-1 rounded-lg text-[10px] font-black truncate shadow-sm hover:brightness-95 transition-all cursor-pointer`}>
+            <div 
+              key={s.id} 
+              onClick={(e) => {
+                e.stopPropagation();
+                onScheduleClick(e, s);
+              }} 
+              className="transform transition-all duration-300 hover:scale-105 active:scale-95 shrink-0"
+            >
+              <div className={`${theme.light} ${theme.soft} ${theme.border} border border-opacity-50 px-2.5 py-1 rounded-lg text-[9px] font-black truncate shadow-sm hover:shadow-md transition-all cursor-pointer`}>
                 {s.title}
               </div>
             </div>
           );
         })}
+        {daySchedules.length > 2 && (
+          <div className="text-[8px] text-gray-400 font-black text-center pt-0.5 animate-pulse shrink-0">
+            + {daySchedules.length - 2} more
+          </div>
+        )}
       </div>
     </div>
   );

@@ -76,6 +76,11 @@ export default function GroupEditModal({
   };
 
   const handleSave = async () => {
+    if (session?.user?.id !== group.createdById) {
+      setError('모임 수정 권한이 없습니다.');
+      return;
+    }
+
     if (!name.trim()) {
       setError('모임 이름을 입력해주세요.');
       return;
@@ -102,7 +107,7 @@ export default function GroupEditModal({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || (session?.user?.id !== group.createdById)) return null;
 
   return (
     <div

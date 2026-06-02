@@ -258,12 +258,14 @@ export default function GroupDetailPage() {
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl text-white hover:bg-white/20 hover:scale-105 transition-all shadow-xl active:scale-95 border-0"
-                >
-                  <Settings className="w-6 h-6" />
-                </button>
+                {session?.user?.id === group.createdById && (
+                  <button 
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl text-white hover:bg-white/20 hover:scale-105 transition-all shadow-xl active:scale-95 border-0"
+                  >
+                    <Settings className="w-6 h-6" />
+                  </button>
+                )}
               </div>
               
               <p className="text-white/90 max-w-3xl font-bold text-lg leading-relaxed drop-shadow-sm">
