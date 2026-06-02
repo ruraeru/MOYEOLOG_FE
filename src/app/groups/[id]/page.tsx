@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { 
@@ -17,7 +17,12 @@ import {
   Settings,
   Sparkles,
   Users,
-  Trash2
+  Trash2,
+  Search,
+  Archive,
+  User as UserIcon,
+  Star,
+  ChevronDown,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -38,6 +43,8 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
 import Image from 'next/image';
+
+type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 
 export default function GroupDetailPage() {
   const params = useParams();
@@ -69,6 +76,7 @@ export default function GroupDetailPage() {
   const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'memos' | 'calendar' | 'topics' | 'members'>('memos');
+  const [memoFilter, setMemoFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
 
   const fetchGroupData = useCallback(async () => {
     if (!session || !groupId) return;
@@ -126,6 +134,24 @@ export default function GroupDetailPage() {
     setSelectedSchedule(schedule);
     setIsScheduleModalOpen(true);
   };
+
+  const filteredMemos = useMemo(() => {
+    let result = [...memos];
+    if (memoFilter.type === 'my') {
+      result = result.filter(m => m.authorId === session?.user?.id);
+    } else if (memoFilter.type === 'favorites') {
+      result = result.filter(m => m.isFavorite);
+    } else if (memoFilter.type === 'tag' && memoFilter.id) {
+      result = result.filter(m => m.tags?.includes(memoFilter.id!));
+    }
+    return result;
+  }, [memos, memoFilter, session]);
+
+  const dynamicTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    memos.forEach(m => m.tags?.forEach(t => tagSet.add(t)));
+    return Array.from(tagSet).slice(0, 10);
+  }, [memos]);
 
   const handleKickMember = async (memberId: string) => {
     if (!session || !group) return;
@@ -366,56 +392,118 @@ export default function GroupDetailPage() {
             </div>
 
             {activeTab === 'memos' ? (
-              <>
-                {/* Memo Toolbar */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-center gap-3">
-                    <div className="hidden sm:flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
+              <div className="flex gap-8">
+                {/* Memo Filter Sidebar */}
+                <aside className="w-48 shrink-0 flex flex-col gap-8 py-2">
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1">
+                      <ChevronDown className="w-3 h-3" /> 카테고리
+                    </h3>
+                    <div className="space-y-1">
                       <button 
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                        onClick={() => setMemoFilter({ type: 'all' })}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${memoFilter.type === 'all' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
                       >
-                        <LayoutGrid className="w-4 h-4" />
+                        <Archive className="w-3.5 h-3.5" />
+                        전체 메모
                       </button>
                       <button 
-                        onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                        onClick={() => setMemoFilter({ type: 'my' })}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${memoFilter.type === 'my' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
                       >
-                        <ListIcon className="w-4 h-4" />
+                        <UserIcon className="w-3.5 h-3.5" />
+                        내가 쓴 메모
+                      </button>
+                      <button 
+                        onClick={() => setMemoFilter({ type: 'favorites' })}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${memoFilter.type === 'favorites' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                      >
+                        <Star className={`w-3.5 h-3.5 ${memoFilter.type === 'favorites' ? 'fill-indigo-600' : ''}`} />
+                        즐겨찾기
                       </button>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <button 
-                      onClick={() => setIsMemoModalOpen(true)}
-                      className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
-                    >
-                      <Plus className="w-4 h-4" />
-                      새 메모 작성
-                    </button>
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1">
+                      <ChevronDown className="w-3 h-3" /> 태그
+                    </h3>
+                    <div className="flex flex-wrap gap-2 px-1">
+                      {dynamicTags.length > 0 ? dynamicTags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => setMemoFilter({ type: 'tag', id: tag })}
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-lg transition-all ${
+                            memoFilter.type === 'tag' && memoFilter.id === tag
+                              ? 'bg-indigo-500 text-white shadow-md shadow-indigo-100'
+                              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          #{tag}
+                        </button>
+                      )) : (
+                        <p className="text-[10px] text-gray-400">사용된 태그 없음</p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </aside>
 
-                {/* Memos List/Grid */}
-                {memos.length > 0 ? (
-                  <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-                    {memos.map((memo) => (
-                      <MemoCard 
-                        key={memo.id} 
-                        memo={memo} 
-                        viewMode={viewMode} 
-                        onClick={() => handleMemoClick(memo.id)}
-                      />
-                    ))}
+                <div className="flex-1 flex flex-col gap-6">
+                  {/* Memo Toolbar */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-3">
+                      <div className="hidden sm:flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
+                        <button 
+                          onClick={() => setViewMode('grid')}
+                          className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                        >
+                          <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setViewMode('list')}
+                          className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-indigo-600' : 'text-gray-400 hover:bg-gray-50'}`}
+                        >
+                          <ListIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => setIsMemoModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                        새 메모 작성
+                      </button>
+                    </div>
                   </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-24 text-center">
-                    <MessageSquare className="w-12 h-12 text-gray-200 mb-4" />
-                    <p className="text-gray-400 font-medium">아직 작성된 메모가 없습니다.</p>
-                  </div>
-                )}
-              </>
+
+                  {/* Memos List/Grid */}
+                  {filteredMemos.length > 0 ? (
+                    <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6" : "space-y-4"}>
+                      {filteredMemos.map((memo) => (
+                        <MemoCard 
+                          key={memo.id} 
+                          memo={memo} 
+                          viewMode={viewMode} 
+                          onClick={() => handleMemoClick(memo.id)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-24 text-center">
+                      <MessageSquare className="w-12 h-12 text-gray-200 mb-4" />
+                      <p className="text-gray-400 font-bold">
+                        {memoFilter.type === 'my' ? '내가 작성한 메모가 없습니다.' : 
+                         memoFilter.type === 'favorites' ? '즐겨찾기한 메모가 없습니다.' : 
+                         memoFilter.type === 'tag' ? '해당 태그가 포함된 메모가 없습니다.' : '아직 작성된 메모가 없습니다.'}
+                      </p>
+                      <p className="text-[11px] text-gray-300 mt-1 font-medium">새로운 메모를 작성해보세요!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             ) : activeTab === 'topics' ? (
               <>
                 {/* Topic Toolbar */}
