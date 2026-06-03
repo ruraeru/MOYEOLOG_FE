@@ -42,33 +42,33 @@ export default function Navbar() {
             </div>
             <span className="text-lg font-bold text-gray-800 hidden xs:block">모여로그</span>
           </Link>
+        </div>
 
-          {/* Center: Menu (Hidden on mobile) */}
-          <div className="hidden xl:flex items-center gap-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                    ? 'bg-[#F0F2FF] text-[#6366F1]'
-                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                >
-                  <div className="relative">
-                    <item.icon className="w-5 h-5" />
-                    {item.badge && (
-                      <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold border-2 border-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
-          </div>
+        {/* Center: Menu (Hidden on mobile/tablet, shown on XL screens) */}
+        <div className="hidden xl:flex items-center gap-1">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isActive
+                  ? 'bg-[#F0F2FF] text-[#6366F1]'
+                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                  }`}
+              >
+                <div className="relative">
+                  <item.icon className="w-5 h-5" />
+                  {item.badge && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold border-2 border-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
         </div>
 
         {/* Right: User */}

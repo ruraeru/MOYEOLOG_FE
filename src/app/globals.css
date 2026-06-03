@@ -90,6 +90,10 @@ body {
 .react-calendar__tile {
   background: white !important;
   min-height: 100px !important;
+  @media (max-width: 1024px) {
+    min-height: 44px !important;
+    padding: 0.125rem !important;
+  }
   padding: 0.5rem !important;
   display: flex !important;
   flex-direction: column !important;
@@ -129,11 +133,18 @@ body {
 
 .react-calendar__navigation {
   margin-bottom: 1.5rem !important;
+  @media (max-width: 1024px) {
+    margin-bottom: 0.5rem !important;
+  }
   height: auto !important;
 }
 
 .react-calendar__navigation button {
   min-width: 44px !important;
+  @media (max-width: 1024px) {
+    min-width: 36px !important;
+    padding: 4px !important;
+  }
   background: none !important;
   font-size: 1.125rem !important;
   font-weight: bold !important;

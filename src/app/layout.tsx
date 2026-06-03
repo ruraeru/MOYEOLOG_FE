@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Script from "next/script";
+import BottomNavbar from "@/components/BottomNavbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,7 +41,12 @@ export default function RootLayout({
           src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`}
           strategy="beforeInteractive"
         />
-        <Providers>{children}</Providers>
+        <Providers>
+          <div className="flex-1 flex flex-col pb-16 lg:pb-0">
+            {children}
+          </div>
+          <BottomNavbar />
+        </Providers>
       </body>
     </html>
   );

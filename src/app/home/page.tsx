@@ -6,13 +6,15 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import {
   Plus,
   Lock,
   Share2,
   ChevronRight,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
@@ -144,22 +146,26 @@ export default function HomePage() {
   return (
     <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
       <Navbar />
-      <main className="flex-1 w-full grid grid-cols-1 lg:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] gap-6 p-4 sm:p-6 overflow-hidden">
+      <main className="flex-1 w-full flex flex-col lg:grid lg:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] gap-4 lg:gap-6 p-4 sm:p-6 overflow-y-auto lg:overflow-hidden no-scrollbar">
 
-        {/* Left Section: Memo */}
-        <section className="hidden lg:flex flex-col gap-4 overflow-hidden h-full">
+        {/* Left Section: Memo (Shown under calendar on mobile) */}
+        <section className="order-2 lg:order-1 flex flex-col gap-3 lg:gap-4 overflow-hidden h-full mt-2 lg:mt-0">
           <div className="flex items-center justify-between shrink-0">
-            <h2 className="text-xl font-bold">최근 메모</h2>
+            <h2 className="text-lg lg:text-xl font-black tracking-tight">최근 메모</h2>
+            <Link href="/memo" className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 lg:hidden">전체보기</Link>
           </div>
 
-          <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar">
+          <div className="flex-1 flex flex-col gap-2 lg:gap-3 overflow-y-auto pr-1 no-scrollbar min-h-0">
             {loading ? (
               <div className="py-10 flex flex-col items-center gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
                 <span className="text-xs text-gray-400 font-bold">로딩 중...</span>
               </div>
             ) : recentMemos.length === 0 ? (
-              <p className="text-xs text-gray-400 font-medium py-4 text-center">최근 메모가 없습니다.</p>
+              <div className="bg-white rounded-3xl border border-dashed border-gray-200 py-10 flex flex-col items-center justify-center gap-2 text-center px-4">
+                <Plus className="w-8 h-8 text-gray-200" />
+                <p className="text-xs text-gray-400 font-medium leading-relaxed">아직 메모가 없습니다.<br/>새로운 생각을 기록해보세요!</p>
+              </div>
             ) : (
               recentMemos.map((memo) => (
                 <MemoCard
@@ -176,36 +182,47 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Center Section: Calendar */}
-        <section className="bg-white rounded-3xl border border-gray-100 p-4 sm:p-8 shadow-sm flex flex-col h-full overflow-hidden relative group">
+        {/* Center Section: Calendar (Top on mobile) */}
+        <section className="order-1 lg:order-2 bg-white rounded-3xl lg:rounded-[2.5rem] border border-gray-100 p-4 lg:p-8 shadow-sm flex flex-col h-fit lg:h-full lg:overflow-hidden relative group">
+          <div className="flex items-center justify-between mb-2 lg:hidden">
+            <h2 className="text-lg lg:text-xl font-black tracking-tight text-gray-800">일정 캘린더</h2>
+          </div>
           {isMounted ? (
-            <Calendar
-              onChange={(val) => val instanceof Date && setCurrentDate(val)}
-              value={currentDate}
-              className="w-full h-full border-none font-sans"
-              tileContent={getTileContent}
-              formatDay={(locale, date) => format(date, 'd')}
-              calendarType="gregory"
-              onClickDay={handleOpenListModal}
-            />
+            <div className="flex-1 min-h-[420px] lg:min-h-[400px]">
+              <Calendar
+                onChange={(val) => val instanceof Date && setCurrentDate(val)}
+                value={currentDate}
+                className="w-full h-full border-none font-sans"
+                tileContent={getTileContent}
+                formatDay={(locale, date) => format(date, 'd')}
+                calendarType="gregory"
+                onClickDay={handleOpenListModal}
+              />
+            </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center min-h-[420px] lg:min-h-[400px]">
               <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
             </div>
           )}
         </section>
 
-        {/* Right Section: Groups */}
-        <section className="hidden xl:flex flex-col gap-4 h-full overflow-hidden">
-          <h2 className="text-xl font-bold shrink-0">내 모임</h2>
-          <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar">
+        {/* Right Section: Groups (Bottom on mobile) */}
+        <section className="order-3 lg:order-3 flex flex-col gap-3 lg:gap-4 h-full overflow-hidden mt-2 lg:mt-0">
+          <div className="flex items-center justify-between shrink-0">
+            <h2 className="text-lg lg:text-xl font-black tracking-tight">내 모임</h2>
+            <Link href="/groups" className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 lg:hidden">전체보기</Link>
+          </div>
+          <div className="flex-1 flex flex-col gap-2 lg:gap-3 overflow-y-auto pr-1 no-scrollbar min-h-0">
             {loading ? (
               <div className="py-10 flex flex-col items-center gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
                 <span className="text-xs text-gray-400 font-bold">로딩 중...</span>
               </div>
             ) : userGroups.length === 0 ? (
-              <p className="text-xs text-gray-400 font-medium py-4 text-center">참여 중인 모임이 없습니다.</p>
+              <div className="bg-white rounded-3xl border border-dashed border-gray-200 py-10 flex flex-col items-center justify-center gap-2 text-center px-4">
+                <Users className="w-8 h-8 text-gray-200" />
+                <p className="text-xs text-gray-400 font-medium leading-relaxed">참여 중인 모임이 없습니다.<br/>친구들을 초대해 모임을 만들어보세요!</p>
+              </div>
             ) : (
               userGroups.map((group) => (
                 <GroupCard 
