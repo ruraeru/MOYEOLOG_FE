@@ -7,6 +7,7 @@ import { groupApi, type GroupActivityResponse } from '@/lib/group-api';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
+import { stripMarkdown } from '@/lib/utils';
 import Image from 'next/image';
 
 export default function GroupsPage() {
@@ -188,9 +189,8 @@ function ActivityCard({ activity, onClick }: { activity: GroupActivityResponse, 
         </h3>
         
         <p className="text-sm text-gray-400 font-bold line-clamp-1 leading-relaxed">
-          {activity.contentSnippet}
+          {stripMarkdown(activity.contentSnippet)}
         </p>
-
         <div className="pt-2 flex items-center gap-2 border-t border-gray-50 mt-1">
           <div className="w-5 h-5 rounded-full overflow-hidden relative border border-gray-100 shrink-0">
             {activity.authorProfileImage ? (

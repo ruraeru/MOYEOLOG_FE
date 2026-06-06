@@ -38,6 +38,7 @@ import GroupTopicDetailModal from '@/components/GroupTopicDetailModal';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
+import { stripMarkdown } from '@/lib/utils';
 import Image from 'next/image';
 
 type FilterType = 'all' | 'my' | 'favorites' | 'tag';
@@ -486,7 +487,7 @@ function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: '
           <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors tracking-tight">{memo.title}</h4>
           <Star className={`w-4 h-4 ${memo.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-100'}`} />
         </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{memo.content}</p>
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{stripMarkdown(memo.content)}</p>
         <div className="flex flex-wrap gap-1.5 mb-6">
           {memo.tags?.slice(0, 3).map(tag => <span key={tag} className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2 py-0.5 rounded-md">#{tag}</span>)}
         </div>
@@ -518,7 +519,7 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
           <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors tracking-tight">{topic.title}</h4>
           <div className="flex items-center gap-1 text-gray-400 font-black text-[10px] bg-gray-50 px-2 py-0.5 rounded-lg"><MessageSquare className="w-3 h-3" /> {topic.commentCount}</div>
         </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{topic.content.replace(/[#*`]/g, '')}</p>
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{stripMarkdown(topic.content)}</p>
         <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 rounded-full overflow-hidden relative bg-gray-100">

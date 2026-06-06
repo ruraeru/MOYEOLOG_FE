@@ -24,6 +24,7 @@ import MemoDetailModal from '@/components/MemoDetailModal';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { stripMarkdown } from '@/lib/utils';
 
 const emptySubscribe = () => () => { };
 
@@ -171,8 +172,9 @@ export default function HomePage() {
                 <MemoCard
                   key={memo.id}
                   title={memo.title}
-                  description={memo.content}
+                  description={stripMarkdown(memo.content)}
                   author={session?.user?.name || '나'}
+
                   date={format(new Date(memo.createdAt), 'yyyy.MM.dd')}
                   tags={memo.tags.map((t) => `#${t}`)}
                   onClick={() => handleMemoClick(memo.id)}

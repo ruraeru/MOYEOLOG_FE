@@ -24,7 +24,7 @@ import MemoCreateModal from '@/components/MemoCreateModal';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import type { MemoCardView } from '@/types/memo';
-import { getThemeColors, getFileUrl } from '@/lib/utils';
+import { getThemeColors, getFileUrl, stripMarkdown } from '@/lib/utils';
 
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
@@ -115,7 +115,7 @@ function MemoContent() {
       return {
         id: m.id,
         title: m.title,
-        description: m.content,
+        description: stripMarkdown(m.content),
         image: getFileUrl(m.imageUrl) || undefined,
         tags: m.tags || [],
         category: isShared ? '공유받음' : (group ? group.name : '내 메모'),

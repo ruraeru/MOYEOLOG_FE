@@ -40,3 +40,36 @@ export async function fileToDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+/**
+ * 마크다운 문법을 제거하고 순수 텍스트만 추출합니다.
+ */
+export const stripMarkdown = (markdown: string): string => {
+  if (!markdown) return '';
+  return markdown
+    // 코드 블록 제거
+    .replace(/```[\s\S]*?```/g, '')
+    // 인라인 코드 제거
+    .replace(/`([^`]+)`/g, '$1')
+    // 이미지 제거
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
+    // 링크 처리 [텍스트](URL) -> 텍스트
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // 헤더 제거 (# Header -> Header)
+    .replace(/^#{1,6}\s+/gm, '')
+    // 굵게, 기울임 제거
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    // 취소선 제거
+    .replace(/~~(.*?)~~/g, '$1')
+    // 인용문 제거 (> text -> text)
+    .replace(/^>\s+/gm, '')
+    // 리스트 마커 제거 (- text, * text, 1. text)
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    // 수평선 제거
+    .replace(/^---$/gm, '')
+    // 줄바꿈을 공백으로
+    .replace(/\s+/g, ' ')
+    .trim();
+};
