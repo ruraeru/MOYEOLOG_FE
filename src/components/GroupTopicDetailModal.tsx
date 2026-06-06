@@ -5,6 +5,7 @@ import Image from 'next/image';
 import {
   X,
   Sparkles,
+  RefreshCw,
   MessageSquare,
   Loader2,
   Trash2,
@@ -292,12 +293,19 @@ export default function GroupTopicDetailModal({
         <div className="w-[420px] bg-gray-50/50 flex flex-col shrink-0 overflow-hidden relative">
           {/* AI Insights Section */}
           <div className="p-8 border-b border-gray-100 shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 font-black text-gray-800">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
-                <span>AI 스마트 요약</span>
-              </div>
-              {loadingInsight && <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />}
+            <div className="flex items-center gap-2 font-black text-gray-800 mb-4">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+              <span>AI 스마트 요약</span>
+              {insight && !loadingInsight && (
+                <button
+                  onClick={handleAnalyze}
+                  className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all ml-1"
+                  title="AI 분석 다시하기"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {loadingInsight && <Loader2 className="w-4 h-4 animate-spin text-indigo-500 ml-1" />}
             </div>
 
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 min-h-[120px] flex flex-col justify-center">

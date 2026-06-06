@@ -6,6 +6,7 @@ import {
   X,
   Share2,
   Sparkles,
+  RefreshCw,
   Tag as TagIcon,
   MessageSquare,
   Loader2,
@@ -292,7 +293,16 @@ export default function MemoDetailModal({
               <div className="flex items-center gap-2 text-gray-900 font-bold">
                 <Sparkles className="w-5 h-5 text-blue-500" />
                 <span>AI 인사이트</span>
-                {loadingInsight && <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />}
+                {insight && !loadingInsight && (
+                  <button
+                    onClick={handleAnalyze}
+                    className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all ml-1"
+                    title="AI 분석 다시하기"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {loadingInsight && <Loader2 className="w-4 h-4 animate-spin text-indigo-500 ml-1" />}
               </div>
 
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
