@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import {
   Search,
@@ -37,6 +37,7 @@ export default function MemoPage() {
 }
 
 function MemoContent() {
+  const router = useRouter();
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const initialMemoId = searchParams.get('id');
@@ -53,6 +54,7 @@ function MemoContent() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const [filter, setFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const loadData = useCallback(async () => {
     if (!session) return;
@@ -90,13 +92,20 @@ function MemoContent() {
     return Array.from(new Map(combined.map(m => [m.id, m])).values());
   }, [allMemos, sharedMemos]);
 
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag) 
+        : [...prev, tag]
+    );
+  };
+
   const memos = useMemo((): MemoCardView[] => {
     let filtered: MemoResponse[] = [];
 
+    // Category filtering
     if (filter.type === 'favorites') {
       filtered = combinedUniqueMemos.filter(m => m.isFavorite);
-    } else if (filter.type === 'tag' && filter.id) {
-      filtered = combinedUniqueMemos.filter(m => m.tags?.includes(filter.id!));
     } else {
       const source = filter.type === 'shared' ? sharedMemos : allMemos;
       filtered = source;
@@ -105,6 +114,13 @@ function MemoContent() {
       } else if (filter.type === 'my') {
         filtered = source.filter(m => !m.groupId);
       }
+    }
+
+    // Tag filtering (Multi-select AND condition)
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(m => 
+        selectedTags.every(tag => m.tags?.includes(tag))
+      );
     }
 
     return filtered.map(m => {
@@ -126,7 +142,7 @@ function MemoContent() {
         groupId: m.groupId
       };
     });
-  }, [filter, allMemos, sharedMemos, userGroups, combinedUniqueMemos]);
+  }, [filter, allMemos, sharedMemos, userGroups, combinedUniqueMemos, selectedTags]);
 
   const dynamicTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -153,12 +169,16 @@ function MemoContent() {
   };
 
   const getPageTitle = () => {
-    if (filter.type === 'group') return userGroups.find(g => g.id === filter.id)?.name || '모임 메모';
-    if (filter.type === 'shared') return '공유받은 메모';
-    if (filter.type === 'my') return '내 메모';
-    if (filter.type === 'favorites') return '즐겨찾기';
-    if (filter.type === 'tag') return `#${filter.id}`;
-    return '전체 메모';
+    let baseTitle = '전체 메모';
+    if (filter.type === 'group') baseTitle = userGroups.find(g => g.id === filter.id)?.name || '모임 메모';
+    if (filter.type === 'shared') baseTitle = '공유받은 메모';
+    if (filter.type === 'my') baseTitle = '내 메모';
+    if (filter.type === 'favorites') baseTitle = '즐겨찾기';
+    
+    if (selectedTags.length > 0) {
+      return `${baseTitle} (#${selectedTags.join(', #')})`;
+    }
+    return baseTitle;
   };
 
   if (status === 'loading') return <div className="h-screen flex items-center justify-center bg-[#F8F9FB]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" /></div>;
@@ -184,7 +204,7 @@ function MemoContent() {
           <SectionTitle label="태그" />
           <div className="flex flex-wrap gap-2 px-1">
             {dynamicTags.length > 0 ? dynamicTags.map(tag => (
-              <TagBadge key={tag} label={tag} isActive={filter.type === 'tag' && filter.id === tag} onClick={() => setFilter({ type: 'tag', id: tag })} />
+              <TagBadge key={tag} label={tag} isActive={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
             )) : <p className="text-[10px] text-gray-400">사용된 태그가 없습니다.</p>}
           </div>
         </aside>
@@ -200,9 +220,9 @@ function MemoContent() {
                     key={memo.id} 
                     {...memo} 
                     viewMode={viewMode} 
-                    onClick={() => { setSelectedMemoId(memo.id); setIsDetailOpen(true); }} 
+                    onClick={() => router.push(`/memo/${memo.id}`)} 
                     onToggleFavorite={(e: React.MouseEvent) => handleToggleFavorite(e, memo.id)} 
-                    onTagClick={(e: React.MouseEvent, tag: string) => { e.stopPropagation(); setFilter({ type: 'tag', id: tag }); }} 
+                    onTagClick={(e: React.MouseEvent, tag: string) => { e.stopPropagation(); toggleTag(tag); }} 
                   />
                 ))}
               </div>

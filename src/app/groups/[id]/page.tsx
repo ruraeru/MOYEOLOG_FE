@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { 
   Plus, 
   Loader2, 
@@ -45,6 +45,7 @@ type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 
 export default function GroupDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const { data: session } = useSession();
   const groupId = params?.id as string;
 
@@ -71,6 +72,7 @@ export default function GroupDetailPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'memos' | 'calendar' | 'topics' | 'members'>('memos');
   const [memoFilter, setMemoFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const fetchGroupData = useCallback(async () => {
     if (!session || !groupId) return;
@@ -110,8 +112,15 @@ export default function GroupDetailPage() {
   };
 
   const handleMemoClick = (id: string) => {
-    setSelectedMemoId(id);
-    setIsMemoDetailOpen(true);
+    router.push(`/memo/${id}`);
+  };
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag) 
+        : [...prev, tag]
+    );
   };
 
   const handleTopicClick = (topic: TopicResponse) => {
@@ -137,11 +146,15 @@ export default function GroupDetailPage() {
       result = result.filter(m => m.authorId === session?.user?.id);
     } else if (memoFilter.type === 'favorites') {
       result = result.filter(m => m.isFavorite);
-    } else if (memoFilter.type === 'tag' && memoFilter.id) {
-      result = result.filter(m => m.tags?.includes(memoFilter.id!));
+    }
+
+    if (selectedTags.length > 0) {
+      result = result.filter(m => 
+        selectedTags.every(tag => m.tags?.includes(tag))
+      );
     }
     return result;
-  }, [memos, memoFilter, session]);
+  }, [memos, memoFilter, session, selectedTags]);
 
   const dynamicTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -305,7 +318,7 @@ export default function GroupDetailPage() {
                   <SectionTitle label="태그" />
                   <div className="flex flex-wrap gap-2 px-1">
                     {dynamicTags.length > 0 ? dynamicTags.map(tag => (
-                      <TagBadge key={tag} label={tag} active={memoFilter.type === 'tag' && memoFilter.id === tag} onClick={() => setMemoFilter({ type: 'tag', id: tag })} />
+                      <TagBadge key={tag} label={tag} active={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
                     )) : <p className="text-[10px] text-gray-400 font-bold">사용된 태그 없음</p>}
                   </div>
                 </aside>

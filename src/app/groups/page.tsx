@@ -73,7 +73,13 @@ export default function GroupsPage() {
                 <ActivityCard 
                   key={`${activity.type}-${activity.id}-${idx}`} 
                   activity={activity} 
-                  onClick={() => router.push(`/groups/${activity.groupId}`)}
+                  onClick={() => {
+                    if (activity.type === 'MEMO') {
+                      router.push(`/memo/${activity.id}`);
+                    } else {
+                      router.push(`/groups/${activity.groupId}`);
+                    }
+                  }}
                 />
               ))
             ) : (

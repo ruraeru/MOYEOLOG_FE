@@ -101,8 +101,7 @@ export default function HomePage() {
   };
 
   const handleMemoClick = (memoId: string) => {
-    setSelectedMemoId(memoId);
-    setIsMemoModalOpen(true);
+    router.push(`/memo/${memoId}`);
   };
 
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
