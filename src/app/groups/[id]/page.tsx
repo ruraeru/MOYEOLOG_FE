@@ -6,39 +6,40 @@ import {
   Plus, 
   Loader2, 
   MessageSquare, 
-  LayoutGrid,
-  List as ListIcon,
   Calendar as LucideCalendar,
   Link as LinkIcon,
   Settings,
   Sparkles,
   Users,
-  Trash2,
   Search,
   Archive,
   User as UserIcon,
   Star,
-  ChevronDown,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { type Session } from 'next-auth';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
-import MemoCreateModal from '@/components/MemoCreateModal';
-import AppointmentModal from '@/components/AppointmentModal';
-import AppointmentListModal from '@/components/AppointmentListModal';
-import AppointmentDetailModal from '@/components/AppointmentDetailModal';
-import GroupEditModal from '@/components/GroupEditModal';
-import GroupTopicCreateModal from '@/components/GroupTopicCreateModal';
-import GroupTopicDetailModal from '@/components/GroupTopicDetailModal';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
-import { stripMarkdown } from '@/lib/utils';
+
+// ─── Imported Sub Components ─────────────────────────────────────
 import ImageWithFallback from '@/components/ImageWithFallback';
+import { 
+  TabButton, 
+  FilterButton, 
+  SectionTitle, 
+  TagBadge, 
+  ViewSelector, 
+  EmptyState 
+} from '@/components/groups/GroupUI';
+import { MemberCard } from '@/components/groups/MemberCard';
+import { MemoCard } from '@/components/groups/MemoCard';
+import { TopicCard } from '@/components/groups/TopicCard';
+import { GroupModals } from '@/components/groups/GroupModals';
 
 type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 
@@ -379,7 +380,7 @@ export default function GroupDetailPage() {
         </div>
       </main>
 
-      <Modals 
+      <GroupModals 
         isMemoModalOpen={isMemoModalOpen} setIsMemoModalOpen={setIsMemoModalOpen}
         isScheduleModalOpen={isScheduleModalOpen} setIsScheduleModalOpen={setIsScheduleModalOpen}
         isListModalOpen={isListModalOpen} setIsListModalOpen={setIsListModalOpen}
@@ -397,296 +398,5 @@ export default function GroupDetailPage() {
         setSelectedSchedule={setSelectedSchedule}
       />
     </div>
-  );
-}
-
-// ─── Sub Components ─────────────────────────────────────────────
-
-function TabButton({ active, icon: IconComponent, label, onClick }: { active: boolean, icon: React.ReactElement, label: string, onClick: () => void }) {
-  return (
-    <button 
-      onClick={onClick} 
-      className={`flex items-center gap-2.5 px-6 py-3.5 text-sm font-black rounded-2xl select-none border-0 no-outline transition-all duration-300 ${
-        active 
-          ? 'bg-white text-indigo-600 shadow-md ring-1 ring-black/5' 
-          : 'text-gray-400 hover:text-indigo-600 hover:bg-white/50'
-      }`}
-    >
-      {React.cloneElement(IconComponent, { size: 16, className: active ? 'stroke-[2.5]' : 'stroke-2' } as React.SVGAttributes<SVGElement>)}
-      {label}
-    </button>
-  );
-}
-
-function FilterButton({ active, icon: IconComponent, label, onClick, isFavorite }: { active: boolean, icon: React.ReactElement, label: string, onClick: () => void, isFavorite?: boolean }) {
-  return (
-    <button 
-      onClick={onClick} 
-      className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-black border-0 transition-all duration-300 no-outline ${
-        active 
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
-          : 'text-gray-400 hover:bg-white hover:text-indigo-600'
-      }`}
-    >
-      {React.cloneElement(IconComponent, { 
-        size: 16, 
-        className: `transition-colors ${active && isFavorite ? 'fill-white stroke-white' : ''}` 
-      } as React.SVGAttributes<SVGElement>)}
-      {label}
-    </button>
-  );
-}
-
-function SectionTitle({ label }: { label: string }) {
-  return <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2 mb-4 flex items-center gap-2"><ChevronDown className="w-3 h-3" /> {label}</h3>;
-}
-
-function TagBadge({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
-  return (
-    <button 
-      onClick={onClick} 
-      className={`text-[10px] font-black px-3.5 py-2 rounded-xl transition-all duration-300 no-outline border-0 ${
-        active 
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-50' 
-          : 'bg-white text-gray-400 hover:text-indigo-600 hover:shadow-sm'
-      }`}
-    >
-      #{label}
-    </button>
-  );
-}
-
-function ViewSelector({ current, onChange }: { current: 'grid' | 'list', onChange: (mode: 'grid' | 'list') => void }) {
-  return (
-    <div className="flex p-1.5 bg-gray-200/50 rounded-2xl no-outline border-0">
-      <button 
-        onClick={() => onChange('grid')} 
-        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'grid' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-      >
-        <LayoutGrid className="w-4 h-4" />
-      </button>
-      <button 
-        onClick={() => onChange('list')} 
-        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'list' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
-      >
-        <ListIcon className="w-4 h-4" />
-      </button>
-    </div>
-  );
-}
-
-function EmptyState({ icon: Icon, text }: { icon: React.ReactElement, text: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-32 text-center bg-white/30 backdrop-blur-sm border-2 border-dashed border-gray-200 rounded-[3rem]">
-      {React.cloneElement(Icon, { size: 64, className: 'text-gray-200 mb-6 stroke-[1.5]' } as React.SVGAttributes<SVGElement>)}
-      <p className="text-gray-500 font-black text-lg">{text}</p>
-      <p className="text-sm text-gray-400 mt-2 font-bold tracking-tight">새로운 활동을 시작해보세요!</p>
-    </div>
-  );
-}
-
-function MemberCard({ member, isOwner, currentUserIsOwner, onKick, apiUrl }: { member: GroupResponse['members'][0], isOwner: boolean, currentUserIsOwner: boolean, onKick: () => void, apiUrl: string }) {
-  return (
-    <div className="flex items-center justify-between p-6 bg-white rounded-[2.5rem] transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group/member border border-transparent hover:border-indigo-50">
-      <div className="flex items-center gap-5">
-        <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden relative shadow-lg shrink-0 group-hover/member:scale-105 transition-transform duration-500">
-          {member.profileImage ? (
-            <ImageWithFallback 
-              src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} 
-              alt={member.nickname} 
-              fill 
-              containerClassName="w-full h-full"
-              className="object-cover" 
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center text-indigo-500 font-black text-2xl">
-              {member.nickname[0]}
-            </div>
-          )}
-        </div>
-        <div className="flex flex-col">
-          <span className="text-lg font-black text-gray-900 flex items-center gap-2">
-            {member.nickname}
-            {isOwner && (
-              <span className="bg-indigo-600 text-white text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider shadow-md shadow-indigo-100">
-                Leader
-              </span>
-            )}
-          </span>
-          <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Community Member</p>
-        </div>
-      </div>
-      {currentUserIsOwner && !isOwner && (
-        <button onClick={onKick} className="p-3.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all opacity-0 group-hover/member:opacity-100 active:scale-90">
-          <Trash2 className="w-5 h-5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
-  const isList = viewMode === 'list';
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
-  
-  return (
-    <div 
-      onClick={onClick} 
-      className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
-        isList 
-          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-lg hover:-translate-x-1' 
-          : 'rounded-[3rem] flex-col hover:shadow-lg hover:-translate-y-2'
-      }`}
-    >
-      {imageSrc && (
-        <ImageWithFallback 
-          src={imageSrc} 
-          alt={memo.title} 
-          fill 
-          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-sm" : "h-56 w-full bg-gray-50"} 
-          className="object-cover group-hover:scale-110 transition-transform duration-700" 
-          unoptimized 
-        />
-      )}
-      <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between">
-          <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
-            {memo.title}
-          </h4>
-        </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold flex-1">
-          {stripMarkdown(memo.content)}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {memo.tags?.slice(0, 3).map(tag => (
-            <span key={tag} className="text-[10px] text-indigo-500 font-black bg-indigo-50/50 px-3 py-1 rounded-xl">
-              #{tag}
-            </span>
-          ))}
-        </div>
-        <div className="flex items-center justify-between pt-5 border-t border-gray-50 mt-2">
-          <div className="flex items-center gap-3">
-             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 flex items-center justify-center text-indigo-500 text-[9px] font-black shadow-inner">
-               {memo.authorNickname[0]}
-             </div>
-             <span className="text-[11px] text-gray-500 font-black tracking-tight">{memo.authorNickname}</span>
-          </div>
-          <span className="text-[11px] text-gray-300 font-black">{format(new Date(memo.createdAt), 'yyyy.MM.dd')}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
-  const isList = viewMode === 'list';
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  
-  return (
-    <div 
-      onClick={onClick} 
-      className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
-        isList 
-          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-xl hover:-translate-x-1' 
-          : 'rounded-[3rem] flex-col hover:shadow-2xl hover:-translate-y-2'
-      }`}
-    >
-      {topic.imageUrl && (
-        <ImageWithFallback 
-          src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} 
-          alt={topic.title} 
-          fill 
-          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-sm" : "h-56 w-full bg-gray-50"} 
-          className="object-cover group-hover:scale-110 transition-transform duration-700" 
-          unoptimized 
-        />
-      )}
-      <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between">
-          <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
-            {topic.title}
-          </h4>
-          <div className="flex items-center gap-1.5 text-indigo-500 font-black text-[11px] bg-indigo-50 px-3 py-1 rounded-xl shadow-sm">
-            <MessageSquare className="w-3.5 h-3.5" /> 
-            {topic.commentCount}
-          </div>
-        </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold flex-1">
-          {stripMarkdown(topic.content)}
-        </p>
-        <div className="flex items-center justify-between pt-5 border-t border-gray-50 mt-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full overflow-hidden relative bg-indigo-50 shadow-inner">
-              {topic.authorProfileImage ? (
-                <ImageWithFallback 
-                  src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
-                  alt="" 
-                  fill 
-                  containerClassName="w-full h-full"
-                  className="object-cover" 
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[9px] text-indigo-500 font-black">
-                  {topic.authorNickname[0]}
-                </div>
-              )}
-            </div>
-            <span className="text-[11px] text-gray-500 font-black tracking-tight">{topic.authorNickname}</span>
-          </div>
-          <span className="text-[11px] text-gray-300 font-black">{format(new Date(topic.createdAt), 'yyyy.MM.dd')}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface ModalsProps {
-  isMemoModalOpen: boolean; setIsMemoModalOpen: (o: boolean) => void;
-  isScheduleModalOpen: boolean; setIsScheduleModalOpen: (o: boolean) => void;
-  isListModalOpen: boolean; setIsListModalOpen: (o: boolean) => void;
-  isDetailOpen: boolean; setIsDetailOpen: (o: boolean) => void;
-  isEditModalOpen: boolean; setIsEditModalOpen: (o: boolean) => void;
-  isTopicModalOpen: boolean; setIsTopicModalOpen: (o: boolean) => void;
-  isTopicDetailOpen: boolean; setIsTopicDetailOpen: (o: boolean) => void;
-  groupId: string; group: GroupResponse; session: Session | null;
-  selectedDate: string; selectedSchedule: ScheduleResponse | null;
-  selectedTopic: TopicResponse | null;
-  onSuccess: () => void; handleTopicEdit: (t: TopicResponse) => void;
-  handleMemoClick: (id: string) => void; handleEdit: (s: ScheduleResponse) => void;
-  handleScheduleClick: (s: ScheduleResponse) => void;
-  schedules: ScheduleResponse[];
-}
-
-function Modals({ isMemoModalOpen, setIsMemoModalOpen, isScheduleModalOpen, setIsScheduleModalOpen, isListModalOpen, setIsListModalOpen, isDetailOpen, setIsDetailOpen, isEditModalOpen, setIsEditModalOpen, isTopicModalOpen, setIsTopicModalOpen, isTopicDetailOpen, setIsTopicDetailOpen, groupId, group, session, selectedDate, selectedSchedule, selectedTopic, onSuccess, handleTopicEdit, handleMemoClick, handleEdit, handleScheduleClick, schedules, setSelectedSchedule }: ModalsProps & { setSelectedSchedule: (s: ScheduleResponse | null) => void }) {
-  return (
-    <>
-      <MemoCreateModal isOpen={isMemoModalOpen} onClose={() => setIsMemoModalOpen(false)} userId={session?.user?.id || ''} groupId={groupId} onSuccess={onSuccess} />
-      <AppointmentModal 
-        isOpen={isScheduleModalOpen} 
-        onClose={() => { setIsScheduleModalOpen(false); setSelectedSchedule(null); }} 
-        initialDate={selectedDate} 
-        onSuccess={onSuccess} 
-        initialSchedule={selectedSchedule} 
-      />
-      <AppointmentListModal 
-        isOpen={isListModalOpen} 
-        onClose={() => setIsListModalOpen(false)} 
-        date={selectedDate} 
-        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))} 
-        onCreateNew={() => { setSelectedSchedule(null); setIsScheduleModalOpen(true); }} 
-        onAppointmentClick={handleScheduleClick} 
-      />
-      <AppointmentDetailModal 
-        isOpen={isDetailOpen} 
-        onClose={() => { setIsDetailOpen(false); setSelectedSchedule(null); }} 
-        schedule={selectedSchedule} 
-        onSuccess={onSuccess} 
-        onEdit={handleEdit} 
-      />
-      <GroupEditModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} group={group} onSuccess={onSuccess} />
-      <GroupTopicCreateModal isOpen={isTopicModalOpen} onClose={() => setIsTopicModalOpen(false)} groupId={groupId} onSuccess={onSuccess} initialTopic={selectedTopic} />
-      <GroupTopicDetailModal isOpen={isTopicDetailOpen} onClose={() => setIsTopicDetailOpen(false)} topicId={selectedTopic?.id || null} onDelete={onSuccess} onEdit={handleTopicEdit} onMemoClick={handleMemoClick} />
-    </>
   );
 }
