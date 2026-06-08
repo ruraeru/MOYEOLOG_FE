@@ -15,11 +15,9 @@ import {
   Share2,
   Star,
   Lock,
-  Circle,
   Loader2,
 } from 'lucide-react';
 import ImageWithFallback from '@/components/ImageWithFallback';
-import MemoDetailModal from '@/components/MemoDetailModal';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -39,8 +37,6 @@ export default function MemoPage() {
 function MemoContent() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const searchParams = useSearchParams();
-  const initialMemoId = searchParams.get('id');
   const userId = session?.user?.id;
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -49,8 +45,6 @@ function MemoContent() {
   const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const [filter, setFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
@@ -78,14 +72,6 @@ function MemoContent() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // URL 파라미터로 전달된 메모 ID가 있으면 상세 모달 열기
-  useEffect(() => {
-    if (initialMemoId) {
-      setSelectedMemoId(initialMemoId);
-      setIsDetailOpen(true);
-    }
-  }, [initialMemoId]);
 
   const combinedUniqueMemos = useMemo(() => {
     const combined = [...allMemos, ...sharedMemos];
@@ -250,10 +236,7 @@ function MemoContent() {
       </div>
 
       {userId && (
-        <>
-          <MemoDetailModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} memoId={selectedMemoId} userId={userId} onDelete={loadData} />
-          <MemoCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} userId={userId} onSuccess={loadData} />
-        </>
+        <MemoCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} userId={userId} onSuccess={loadData} />
       )}
     </div>
   );

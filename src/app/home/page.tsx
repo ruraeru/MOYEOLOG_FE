@@ -41,9 +41,7 @@ export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
   
-  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -266,15 +264,6 @@ export default function HomePage() {
         onSuccess={fetchData}
         onEdit={handleEdit}
       />
-
-      {userId && (
-        <MemoDetailModal
-          isOpen={isMemoModalOpen}
-          onClose={() => setIsMemoModalOpen(false)}
-          memoId={selectedMemoId}
-          userId={userId}
-        />
-      )}
     </div>
   );
 }

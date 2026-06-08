@@ -5,7 +5,7 @@ import { format, parseISO } from 'date-fns';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
-import MemoDetailModal from './MemoDetailModal';
+import { useRouter } from 'next/navigation';
 
 interface AppointmentDetailModalProps {
   isOpen: boolean;
@@ -29,10 +29,9 @@ export default function AppointmentDetailModal({
   onSuccess,
   onEdit
 }: AppointmentDetailModalProps) {
+  const router = useRouter();
   const { data: session } = useSession();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
-  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
   
   // 장소 상세 정보 상태
   const [locationDetail, setLocationDetail] = useState<LocationDetail | null>(null);
@@ -106,8 +105,8 @@ export default function AppointmentDetailModal({
   };
 
   const handleMemoClick = (id: string) => {
-    setSelectedMemoId(id);
-    setIsMemoModalOpen(true);
+    router.push(`/memo/${id}`);
+    onClose();
   };
 
   const startTime = parseISO(schedule.startTime);
@@ -351,15 +350,6 @@ export default function AppointmentDetailModal({
           </button>
         </div>
       </div>
-
-      {session?.user?.id && (
-        <MemoDetailModal
-          isOpen={isMemoModalOpen}
-          onClose={() => setIsMemoModalOpen(false)}
-          memoId={selectedMemoId}
-          userId={session.user.id}
-        />
-      )}
     </div>
   );
 }

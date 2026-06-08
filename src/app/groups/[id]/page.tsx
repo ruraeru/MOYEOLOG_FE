@@ -28,7 +28,6 @@ import { type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import MemoCreateModal from '@/components/MemoCreateModal';
-import MemoDetailModal from '@/components/MemoDetailModal';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
@@ -45,6 +44,7 @@ type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 
 export default function GroupDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const { data: session } = useSession();
   const groupId = params?.id as string;
 
@@ -61,13 +61,11 @@ export default function GroupDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [isTopicDetailOpen, setIsTopicDetailOpen] = useState(false);
-  const [isMemoDetailOpen, setIsMemoDetailOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<TopicResponse | null>(null);
-  const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'memos' | 'calendar' | 'topics' | 'members'>('memos');
   const [memoFilter, setMemoFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
@@ -111,8 +109,7 @@ export default function GroupDetailPage() {
   };
 
   const handleMemoClick = (id: string) => {
-    setSelectedMemoId(id);
-    setIsMemoDetailOpen(true);
+    router.push(`/memo/${id}`);
   };
 
   const toggleTag = (tag: string) => {
@@ -390,10 +387,9 @@ export default function GroupDetailPage() {
         isEditModalOpen={isEditModalOpen} setIsEditModalOpen={setIsEditModalOpen}
         isTopicModalOpen={isTopicModalOpen} setIsTopicModalOpen={setIsTopicModalOpen}
         isTopicDetailOpen={isTopicDetailOpen} setIsTopicDetailOpen={setIsTopicDetailOpen}
-        isMemoDetailOpen={isMemoDetailOpen} setIsMemoDetailOpen={setIsMemoDetailOpen}
         groupId={groupId} group={group} session={session}
         selectedDate={selectedDate} selectedSchedule={selectedSchedule}
-        selectedTopic={selectedTopic} selectedMemoId={selectedMemoId}
+        selectedTopic={selectedTopic}
         onSuccess={fetchGroupData} handleTopicEdit={handleTopicEdit}
         handleMemoClick={handleMemoClick} handleEdit={handleEdit}
         handleScheduleClick={handleScheduleClick}
@@ -592,8 +588,8 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
       onClick={onClick} 
       className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
         isList 
-          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-lg hover:-translate-x-1' 
-          : 'rounded-[3rem] flex-col hover:shadow-lg hover:-translate-y-2'
+          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-xl hover:-translate-x-1' 
+          : 'rounded-[3rem] flex-col hover:shadow-2xl hover:-translate-y-2'
       }`}
     >
       {topic.imageUrl && (
@@ -653,17 +649,16 @@ interface ModalsProps {
   isEditModalOpen: boolean; setIsEditModalOpen: (o: boolean) => void;
   isTopicModalOpen: boolean; setIsTopicModalOpen: (o: boolean) => void;
   isTopicDetailOpen: boolean; setIsTopicDetailOpen: (o: boolean) => void;
-  isMemoDetailOpen: boolean; setIsMemoDetailOpen: (o: boolean) => void;
   groupId: string; group: GroupResponse; session: Session | null;
   selectedDate: string; selectedSchedule: ScheduleResponse | null;
-  selectedTopic: TopicResponse | null; selectedMemoId: string | null;
+  selectedTopic: TopicResponse | null;
   onSuccess: () => void; handleTopicEdit: (t: TopicResponse) => void;
   handleMemoClick: (id: string) => void; handleEdit: (s: ScheduleResponse) => void;
   handleScheduleClick: (s: ScheduleResponse) => void;
   schedules: ScheduleResponse[];
 }
 
-function Modals({ isMemoModalOpen, setIsMemoModalOpen, isScheduleModalOpen, setIsScheduleModalOpen, isListModalOpen, setIsListModalOpen, isDetailOpen, setIsDetailOpen, isEditModalOpen, setIsEditModalOpen, isTopicModalOpen, setIsTopicModalOpen, isTopicDetailOpen, setIsTopicDetailOpen, isMemoDetailOpen, setIsMemoDetailOpen, groupId, group, session, selectedDate, selectedSchedule, selectedTopic, selectedMemoId, onSuccess, handleTopicEdit, handleMemoClick, handleEdit, handleScheduleClick, schedules, setSelectedSchedule }: ModalsProps & { setSelectedSchedule: (s: ScheduleResponse | null) => void }) {
+function Modals({ isMemoModalOpen, setIsMemoModalOpen, isScheduleModalOpen, setIsScheduleModalOpen, isListModalOpen, setIsListModalOpen, isDetailOpen, setIsDetailOpen, isEditModalOpen, setIsEditModalOpen, isTopicModalOpen, setIsTopicModalOpen, isTopicDetailOpen, setIsTopicDetailOpen, groupId, group, session, selectedDate, selectedSchedule, selectedTopic, onSuccess, handleTopicEdit, handleMemoClick, handleEdit, handleScheduleClick, schedules, setSelectedSchedule }: ModalsProps & { setSelectedSchedule: (s: ScheduleResponse | null) => void }) {
   return (
     <>
       <MemoCreateModal isOpen={isMemoModalOpen} onClose={() => setIsMemoModalOpen(false)} userId={session?.user?.id || ''} groupId={groupId} onSuccess={onSuccess} />
@@ -692,7 +687,6 @@ function Modals({ isMemoModalOpen, setIsMemoModalOpen, isScheduleModalOpen, setI
       <GroupEditModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} group={group} onSuccess={onSuccess} />
       <GroupTopicCreateModal isOpen={isTopicModalOpen} onClose={() => setIsTopicModalOpen(false)} groupId={groupId} onSuccess={onSuccess} initialTopic={selectedTopic} />
       <GroupTopicDetailModal isOpen={isTopicDetailOpen} onClose={() => setIsTopicDetailOpen(false)} topicId={selectedTopic?.id || null} onDelete={onSuccess} onEdit={handleTopicEdit} onMemoClick={handleMemoClick} />
-      <MemoDetailModal isOpen={isMemoDetailOpen} onClose={() => setIsMemoDetailOpen(false)} memoId={selectedMemoId} userId={session?.user?.id || ''} onDelete={onSuccess} />
     </>
   );
 }
