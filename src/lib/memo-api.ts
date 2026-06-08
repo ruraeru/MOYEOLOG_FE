@@ -54,17 +54,51 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, sess
   });
 }
 
+/**
+ * 메모 본문 내의 마크다운 멘션([@제목](/memo/id))을 최신 제목으로 치환합니다.
+ */
+function syncMentionTitles(content: string, taggedMemos?: {id:string, title:string}[], taggedSchedules?: {id:string, title:string}[]) {
+  if (!content) return content;
+  let updatedContent = content;
+  
+  taggedMemos?.forEach(m => {
+    // 마크다운 형식 [@[^\\]]+](/memo/${m.id}) 를 찾아서 최신 제목으로 변경
+    const regex = new RegExp(`\\[@[^\\]]+\\]\\(\\/memo\\/${m.id}\\)`, 'g');
+    updatedContent = updatedContent.replace(regex, `[@${m.title}](/memo/${m.id})`);
+  });
+  
+  taggedSchedules?.forEach(s => {
+    // 마크다운 형식 [@[^\\]]+](/schedule/${s.id}) 를 찾아서 최신 제목으로 변경
+    const regex = new RegExp(`\\[@[^\\]]+\\]\\(\\/schedule\\/${s.id}\\)`, 'g');
+    updatedContent = updatedContent.replace(regex, `[@${s.title}](/schedule/${s.id})`);
+  });
+  
+  return updatedContent;
+}
+
+/**
+ * 백엔드 응답을 받아 본문을 파싱하여 멘션 제목을 최신화한 뒤 반환합니다.
+ */
+function processMemoResponse(memo: MemoResponse): MemoResponse {
+  return {
+    ...memo,
+    content: syncMentionTitles(memo.content, memo.taggedMemos, memo.taggedSchedules)
+  };
+}
+
 export const memoApi = {
   async getAll(session: Session | null): Promise<MemoResponse[]> {
     const response = await fetchWithAuth('/api/memos', {}, session);
     if (!response.ok) throw new Error('Failed to fetch memos');
-    return response.json();
+    const data: MemoResponse[] = await response.json();
+    return data.map(processMemoResponse);
   },
 
   async getById(id: string, session: Session | null): Promise<MemoResponse> {
     const response = await fetchWithAuth(`/api/memos/${id}`, {}, session);
     if (!response.ok) throw new Error('Failed to fetch memo detail');
-    return response.json();
+    const data: MemoResponse = await response.json();
+    return processMemoResponse(data);
   },
 
   async create(data: { title: string; content: string; imageFile?: File; groupId?: string; tags?: string[]; taggedMemoIds?: string[]; taggedScheduleIds?: string[] }, session: Session | null): Promise<MemoResponse> {
@@ -89,7 +123,6 @@ export const memoApi = {
       headers['Authorization'] = `Bearer ${session.user.accessToken}`;
     }
 
-    // create에서도 동일한 Proxy 로직 적용
     const path = isBrowser ? '/api-proxy/memos' : '/api/memos';
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method: 'POST',
@@ -98,7 +131,8 @@ export const memoApi = {
     });
 
     if (!response.ok) throw new Error('Failed to create memo');
-    return response.json();
+    const responseData: MemoResponse = await response.json();
+    return processMemoResponse(responseData);
   },
 
   async update(id: string, data: { title: string; content: string; imageFile?: File; tags?: string[]; taggedMemoIds?: string[]; taggedScheduleIds?: string[] }, session: Session | null): Promise<MemoResponse> {
@@ -130,7 +164,8 @@ export const memoApi = {
     });
 
     if (!response.ok) throw new Error('Failed to update memo');
-    return response.json();
+    const responseData: MemoResponse = await response.json();
+    return processMemoResponse(responseData);
   },
 
   async delete(id: string, session: Session | null): Promise<void> {
@@ -145,7 +180,8 @@ export const memoApi = {
       method: 'PUT',
     }, session);
     if (!response.ok) throw new Error('Failed to toggle favorite');
-    return response.json();
+    const data: MemoResponse = await response.json();
+    return processMemoResponse(data);
   },
 
   async share(id: string, friendIds: string[], session: Session | null): Promise<void> {
@@ -159,7 +195,8 @@ export const memoApi = {
   async getSharedMemos(session: Session | null): Promise<MemoResponse[]> {
     const response = await fetchWithAuth('/api/memos/shared', {}, session);
     if (!response.ok) throw new Error('Failed to fetch shared memos');
-    return response.json();
+    const data: MemoResponse[] = await response.json();
+    return data.map(processMemoResponse);
   },
 
   async updateTags(id: string, tags: string[], session: Session | null): Promise<MemoResponse> {
@@ -168,7 +205,8 @@ export const memoApi = {
       body: JSON.stringify({ tags }),
     }, session);
     if (!response.ok) throw new Error('Failed to update tags');
-    return response.json();
+    const data: MemoResponse = await response.json();
+    return processMemoResponse(data);
   },
 
   async getInsight(id: string, session: Session | null): Promise<MemoInsight | null> {
