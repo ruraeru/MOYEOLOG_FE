@@ -499,6 +499,7 @@ function MemberCard({ member, isOwner, currentUserIsOwner, onKick, apiUrl }: { m
               src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} 
               alt={member.nickname} 
               fill 
+              containerClassName="w-full h-full"
               className="object-cover" 
             />
           ) : (
@@ -538,8 +539,8 @@ function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: '
       onClick={onClick} 
       className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
         isList 
-          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-xl hover:-translate-x-1' 
-          : 'rounded-[3rem] flex-col hover:shadow-2xl hover:-translate-y-2'
+          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-lg hover:-translate-x-1' 
+          : 'rounded-[3rem] flex-col hover:shadow-lg hover:-translate-y-2'
       }`}
     >
       {imageSrc && (
@@ -547,12 +548,11 @@ function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: '
           src={imageSrc} 
           alt={memo.title} 
           fill 
-          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-xl" : "h-56 w-full bg-gray-50"} 
+          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-sm" : "h-56 w-full bg-gray-50"} 
           className="object-cover group-hover:scale-110 transition-transform duration-700" 
           unoptimized 
         />
       )}
-      {imageSrc && !isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60 pointer-events-none" />}
       <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
         <div className="flex items-center justify-between">
           <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
@@ -592,8 +592,8 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
       onClick={onClick} 
       className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
         isList 
-          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-xl hover:-translate-x-1' 
-          : 'rounded-[3rem] flex-col hover:shadow-2xl hover:-translate-y-2'
+          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-lg hover:-translate-x-1' 
+          : 'rounded-[3rem] flex-col hover:shadow-lg hover:-translate-y-2'
       }`}
     >
       {topic.imageUrl && (
@@ -601,12 +601,11 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
           src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} 
           alt={topic.title} 
           fill 
-          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-xl" : "h-56 w-full bg-gray-50"} 
+          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-sm" : "h-56 w-full bg-gray-50"} 
           className="object-cover group-hover:scale-110 transition-transform duration-700" 
           unoptimized 
         />
       )}
-      {topic.imageUrl && !isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60 pointer-events-none" />}
       <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
         <div className="flex items-center justify-between">
           <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
