@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 import { X } from 'lucide-react';
 
 export interface MentionItem {
@@ -22,9 +22,13 @@ export function Chip({ label, image, icon, onRemove }: ChipProps) {
   return (
     <div className="bg-indigo-50 text-indigo-700 text-[10px] font-black pl-1.5 pr-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100 shadow-sm">
       {image ? (
-        <div className="w-5 h-5 rounded-full border border-indigo-200 relative overflow-hidden shrink-0">
-          <Image src={image} alt={label} fill className="object-cover" />
-        </div>
+        <ImageWithFallback 
+          src={image} 
+          alt={label} 
+          fill 
+          containerClassName="w-5 h-5 rounded-full border border-indigo-200 shrink-0" 
+          className="object-cover" 
+        />
       ) : (
         <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center border border-indigo-200 text-indigo-500 shrink-0">
           {icon || label[0]}
@@ -60,9 +64,9 @@ export function MentionList({ items, onSelect, isMemo }: MentionListProps) {
             m.title
           ) : (
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden relative shrink-0">
+              <div className="w-6 h-6 rounded-full bg-gray-200 relative shrink-0 overflow-hidden">
                 {m.profileImage ? (
-                  <Image src={m.profileImage} alt={m.nickname || ''} fill className="object-cover" />
+                  <ImageWithFallback src={m.profileImage} alt={m.nickname || ''} fill className="object-cover" />
                 ) : (
                   <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-[10px] text-indigo-600 font-bold">
                     {(m.nickname || '')[0]}

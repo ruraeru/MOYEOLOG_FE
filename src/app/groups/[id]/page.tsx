@@ -39,13 +39,12 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { stripMarkdown } from '@/lib/utils';
-import Image from 'next/image';
+import ImageWithFallback from '@/components/ImageWithFallback';
 
 type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 
 export default function GroupDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const { data: session } = useSession();
   const groupId = params?.id as string;
 
@@ -112,7 +111,8 @@ export default function GroupDetailPage() {
   };
 
   const handleMemoClick = (id: string) => {
-    router.push(`/memo/${id}`);
+    setSelectedMemoId(id);
+    setIsMemoDetailOpen(true);
   };
 
   const toggleTag = (tag: string) => {
@@ -240,18 +240,27 @@ export default function GroupDetailPage() {
         <div className="px-10 pt-10">
           <div className={`w-full rounded-[2.5rem] ${bannerBg} p-12 lg:p-16 relative overflow-hidden`}>
             {groupBg && (
-              <div className="absolute inset-0 z-0">
-                <Image src={groupBg} alt="Background" fill className="object-cover opacity-10 grayscale" unoptimized />
-              </div>
+              <ImageWithFallback 
+                src={groupBg} 
+                alt="Background" 
+                fill 
+                containerClassName="absolute inset-0 z-0" 
+                className="object-cover opacity-10 grayscale" 
+                unoptimized 
+              />
             )}
             
             <div className="relative z-10 max-w-7xl mx-auto flex flex-col gap-8">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-6">
                   {groupProfile ? (
-                    <div className="w-24 h-24 rounded-[2rem] overflow-hidden shadow-sm relative shrink-0 border-4 border-white">
-                      <Image src={groupProfile} alt={group.name} fill className="object-cover" />
-                    </div>
+                    <ImageWithFallback 
+                      src={groupProfile} 
+                      alt={group.name} 
+                      fill 
+                      containerClassName="w-24 h-24 rounded-[2rem] shadow-sm relative shrink-0 border-4 border-white" 
+                      className="object-cover" 
+                    />
                   ) : (
                     <div className="w-24 h-24 rounded-[2rem] bg-white flex items-center justify-center text-4xl font-black shadow-sm shrink-0 border-4 border-white">
                       <span className={themeText}>{group.name.substring(0, 1)}</span>
@@ -486,7 +495,12 @@ function MemberCard({ member, isOwner, currentUserIsOwner, onKick, apiUrl }: { m
       <div className="flex items-center gap-5">
         <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden relative shadow-lg shrink-0 group-hover/member:scale-105 transition-transform duration-500">
           {member.profileImage ? (
-            <Image src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} fill className="object-cover" />
+            <ImageWithFallback 
+              src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} 
+              alt={member.nickname} 
+              fill 
+              className="object-cover" 
+            />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center text-indigo-500 font-black text-2xl">
               {member.nickname[0]}
@@ -529,13 +543,20 @@ function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: '
       }`}
     >
       {imageSrc && (
-        <div className={isList ? "w-40 h-40 relative rounded-2xl overflow-hidden shrink-0 shadow-xl" : "h-56 w-full relative bg-gray-50 overflow-hidden"}>
-          <Image src={imageSrc} alt={memo.title} fill className="object-cover group-hover:scale-110 transition-transform duration-700" unoptimized />
-          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60" />}
-          <div className="absolute top-6 right-6 z-10">
-            <div className={`p-2 rounded-2xl backdrop-blur-md shadow-xl transition-all ${memo.isFavorite ? 'bg-amber-400/90 text-white' : 'bg-white/90 text-gray-300 group-hover:text-indigo-400'}`}>
-              <Star className={`w-4 h-4 ${memo.isFavorite ? 'fill-current' : ''}`} />
-            </div>
+        <ImageWithFallback 
+          src={imageSrc} 
+          alt={memo.title} 
+          fill 
+          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-xl" : "h-56 w-full bg-gray-50"} 
+          className="object-cover group-hover:scale-110 transition-transform duration-700" 
+          unoptimized 
+        />
+      )}
+      {imageSrc && !isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60 pointer-events-none" />}
+      {imageSrc && !isList && (
+        <div className="absolute top-6 right-6 z-10">
+          <div className={`p-2 rounded-2xl backdrop-blur-md shadow-xl transition-all ${memo.isFavorite ? 'bg-amber-400/90 text-white' : 'bg-white/90 text-gray-300 group-hover:text-indigo-400'}`}>
+            <Star className={`w-4 h-4 ${memo.isFavorite ? 'fill-current' : ''}`} />
           </div>
         </div>
       )}
@@ -586,11 +607,16 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
       }`}
     >
       {topic.imageUrl && (
-        <div className={isList ? "w-40 h-40 relative rounded-2xl overflow-hidden shrink-0 shadow-xl" : "h-56 w-full relative bg-gray-50 overflow-hidden"}>
-          <Image src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} alt={topic.title} fill className="object-cover group-hover:scale-110 transition-transform duration-700" unoptimized />
-          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60" />}
-        </div>
+        <ImageWithFallback 
+          src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} 
+          alt={topic.title} 
+          fill 
+          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-xl" : "h-56 w-full bg-gray-50"} 
+          className="object-cover group-hover:scale-110 transition-transform duration-700" 
+          unoptimized 
+        />
       )}
+      {topic.imageUrl && !isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60 pointer-events-none" />}
       <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
         <div className="flex items-center justify-between">
           <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
@@ -608,7 +634,12 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
           <div className="flex items-center gap-3">
             <div className="w-6 h-6 rounded-full overflow-hidden relative bg-indigo-50 shadow-inner">
               {topic.authorProfileImage ? (
-                <Image src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} alt="" fill className="object-cover" />
+                <ImageWithFallback 
+                  src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
+                  alt="" 
+                  fill 
+                  className="object-cover" 
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[9px] text-indigo-500 font-black">
                   {topic.authorNickname[0]}

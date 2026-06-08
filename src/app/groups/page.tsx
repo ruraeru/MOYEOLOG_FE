@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Plus, Users, Sparkles, LayoutGrid, ArrowLeft, Loader2, MessageSquare, FileText, ChevronRight } from 'lucide-react';
 import { useGroupModal } from './GroupModalContext';
 import { groupApi, type GroupActivityResponse } from '@/lib/group-api';
@@ -8,7 +8,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { stripMarkdown } from '@/lib/utils';
-import Image from 'next/image';
+import ImageWithFallback from '@/components/ImageWithFallback';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -193,9 +193,9 @@ function ActivityCard({ activity, onClick }: { activity: GroupActivityResponse, 
           {stripMarkdown(activity.contentSnippet)}
         </p>
         <div className="pt-3.5 flex items-center gap-2.5 border-t border-gray-50 mt-1">
-          <div className="w-6 h-6 rounded-full overflow-hidden relative border border-white shadow-sm shrink-0">
+          <div className="w-6 h-6 rounded-full relative border border-white shadow-sm shrink-0 overflow-hidden">
             {activity.authorProfileImage ? (
-              <Image src={activity.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${activity.authorProfileImage}` : activity.authorProfileImage} alt="" fill className="object-cover" />
+              <ImageWithFallback src={activity.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${activity.authorProfileImage}` : activity.authorProfileImage} alt="" fill className="object-cover" />
             ) : (
               <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[9px] text-gray-400 font-black">{activity.authorNickname[0]}</div>
             )}

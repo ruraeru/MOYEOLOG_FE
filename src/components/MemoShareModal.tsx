@@ -5,7 +5,7 @@ import { X, Users, Check, Loader2, Search } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { memoApi } from '@/lib/memo-api';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 
 interface MemoShareModalProps {
   isOpen: boolean;
@@ -104,7 +104,7 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: M
                   <div className="flex items-center gap-3">
                     <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
                       {friend.profileImage ? (
-                        <Image src={friend.profileImage} alt={friend.nickname} fill className="object-cover" />
+                        <ImageWithFallback src={friend.profileImage} alt={friend.nickname} fill className="object-cover" />
                       ) : (
                         <span className="text-sm font-black text-indigo-200">{friend.nickname[0]}</span>
                       )}

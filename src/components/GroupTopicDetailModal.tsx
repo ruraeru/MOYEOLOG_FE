@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 import {
   X,
   Sparkles,
@@ -72,6 +72,8 @@ export default function GroupTopicDetailModal({
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
   const [friends, setFriends] = useState<FriendResponse[]>([]);
   const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
   const { 
     showParticipantMentions, setShowParticipantMentions, filteredParticipants,
@@ -228,9 +230,14 @@ export default function GroupTopicDetailModal({
           {/* Header */}
           <div className="px-10 py-8 border-b border-gray-50 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full overflow-hidden relative border-2 border-gray-100">
+              <div className="w-12 h-12 rounded-full relative border-2 border-gray-100 flex items-center justify-center overflow-hidden">
                 {topic.authorProfileImage ? (
-                  <Image src={topic.authorProfileImage} alt={topic.authorNickname} fill className="object-cover" />
+                  <ImageWithFallback 
+                    src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
+                    alt={topic.authorNickname} 
+                    fill 
+                    className="object-cover" 
+                  />
                 ) : (
                   <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-bold">
                     {topic.authorNickname[0]}
@@ -282,10 +289,14 @@ export default function GroupTopicDetailModal({
             <h2 className="text-4xl font-black text-gray-900 leading-tight tracking-tight">{topic.title}</h2>
             
             {topic.imageUrl && (
-              <div className="relative w-full max-h-[500px] min-h-[200px] rounded-3xl overflow-hidden shadow-xl border border-gray-100 bg-gray-50">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={topic.imageUrl} alt={topic.title} className="w-full h-full object-contain" />
-              </div>
+              <ImageWithFallback 
+                src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} 
+                alt={topic.title} 
+                width={1200}
+                height={600}
+                containerClassName="w-full max-h-[500px] min-h-[200px] rounded-3xl shadow-xl border border-gray-100 bg-gray-50" 
+                className="w-full h-auto object-contain" 
+              />
             )}
 
             <div className="text-gray-700 leading-relaxed" data-color-mode="light">
@@ -358,9 +369,14 @@ export default function GroupTopicDetailModal({
             <div className="flex-1 overflow-y-auto no-scrollbar px-8 space-y-6 pb-24">
               {comments.length > 0 ? comments.map((comment) => (
                 <div key={comment.id} className="flex gap-4 group/comment">
-                  <div className="w-10 h-10 rounded-2xl overflow-hidden relative shrink-0 border border-gray-100 shadow-sm">
+                  <div className="w-10 h-10 rounded-2xl relative shrink-0 border border-gray-100 shadow-sm flex items-center justify-center overflow-hidden">
                     {comment.authorProfileImage ? (
-                      <Image src={comment.authorProfileImage} alt={comment.authorNickname} fill className="object-cover" />
+                      <ImageWithFallback 
+                        src={comment.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${comment.authorProfileImage}` : comment.authorProfileImage} 
+                        alt={comment.authorNickname} 
+                        fill 
+                        className="object-cover" 
+                      />
                     ) : (
                       <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-bold">
                         {comment.authorNickname[0]}
@@ -408,14 +424,6 @@ export default function GroupTopicDetailModal({
                   onChange={(e) => {
                     setCommentInput(e.target.value);
                     handleInputChange(e.target.value, 'participant');
-                    // Note: In comments we'll stick to participant mentions first for simplicity, 
-                    // or we can detect both. Let's do both by checking last char manually if needed.
-                  }}
-                  onKeyDown={(e) => {
-                    // Detect @ for memo mentions too
-                    if (e.key === '@') {
-                      // handleInputChange already handles @
-                    }
                   }}
                   placeholder="댓글을 입력하세요... (@로 친구 언급)"
                   className="w-full bg-white border border-gray-200 rounded-2xl pl-6 pr-14 py-4 text-sm font-bold focus:border-indigo-500 outline-none shadow-sm transition-all"

@@ -7,7 +7,7 @@ import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+import ImageWithFallback from '@/components/ImageWithFallback';
 import {
   Plus,
   Lock,
@@ -24,7 +24,7 @@ import MemoDetailModal from '@/components/MemoDetailModal';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
-import { stripMarkdown, getThemeColors } from '@/lib/utils';
+import { stripMarkdown } from '@/lib/utils';
 
 const emptySubscribe = () => () => { };
 
@@ -328,22 +328,31 @@ function GroupCard({ group, onClick }: GroupCardProps) {
 
   return (
     <div onClick={onClick} className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-indigo-100 hover:shadow-sm transition-all cursor-pointer group flex items-center gap-4">
-      <div className={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform overflow-hidden relative border border-white shadow-sm`}>
-        {profileSrc ? <Image src={profileSrc} alt={group.name} fill className="object-cover" /> : initial}
-      </div>
+      <ImageWithFallback 
+        src={profileSrc || ''} 
+        alt={group.name} 
+        fill 
+        containerClassName={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm`} 
+        className="object-cover"
+        fallbackIcon={initial}
+      />
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-bold text-gray-800 truncate group-hover:text-indigo-500 transition-colors tracking-tight">{group.name}</h3>
         <div className="flex items-center gap-1.5 mt-1.5">
           <div className="flex -space-x-1.5">
             {group.members.slice(0, 3).map((member) => (
-              <div 
-                key={member.id} 
-                className={`w-5 h-5 rounded-full ${theme.memberBg} ${theme.memberText} border border-white flex items-center justify-center text-[8px] font-bold overflow-hidden shrink-0 shadow-sm`}
+              <div
+                key={member.id}
+                className={`w-5 h-5 rounded-full ${theme.memberBg} ${theme.memberText} border border-white flex items-center justify-center text-[8px] font-bold overflow-hidden shrink-0 shadow-sm relative`}
                 title={member.nickname}
               >
                 {member.profileImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} className="w-full h-full object-cover" />
+                  <ImageWithFallback 
+                    src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} 
+                    alt={member.nickname} 
+                    fill 
+                    className="object-cover" 
+                  />
                 ) : member.nickname.substring(0, 1)}
               </div>
             ))}

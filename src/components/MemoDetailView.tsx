@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 import {
   X,
   Share2,
@@ -119,9 +119,14 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
     );
   }
   return (
-    <div className="relative w-full h-48 mb-6 rounded-2xl overflow-hidden">
-      <Image src={src} alt={alt} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-    </div>
+    <ImageWithFallback 
+      src={src} 
+      alt={alt} 
+      fill 
+      sizes="(max-width: 768px) 100vw, 50vw" 
+      containerClassName="w-full h-48 mb-6 rounded-2xl" 
+      className="object-cover" 
+    />
   );
 }
 

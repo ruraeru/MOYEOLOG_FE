@@ -6,7 +6,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { useRouter, useParams } from 'next/navigation';
-import Image from 'next/image';
+import ImageWithFallback from '@/components/ImageWithFallback';
 import GroupCreateModal from '@/components/GroupCreateModal';
 import { GroupModalProvider, useGroupModal } from './GroupModalContext';
 
@@ -69,7 +69,9 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
           {/* Group Icons */}
           {loading ? (
             <div className="flex flex-col gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center"><Loader2 className="w-4 h-4 animate-spin text-gray-200" /></div>
+              <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center">
+                <Loader2 className="w-4 h-4 animate-spin text-gray-200" />
+              </div>
             </div>
           ) : (
             groups.map((group) => {
@@ -99,7 +101,7 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
                     title={group.name}
                   >
                     {profileSrc ? (
-                      <Image src={profileSrc} alt={group.name} fill className="object-cover" />
+                      <ImageWithFallback src={profileSrc} alt={group.name} fill className="object-cover" />
                     ) : (
                       group.name.substring(0, 1)
                     )}

@@ -5,7 +5,7 @@ import { X, Loader2, Search, UserPlus, Check } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { groupApi } from '@/lib/group-api';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 
 interface GroupInviteModalProps {
   isOpen: boolean;
@@ -134,9 +134,9 @@ export default function GroupInviteModal({
                       isSelected ? 'bg-indigo-50 border-indigo-100' : 'hover:bg-gray-50 border-transparent'
                     } border`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-gray-100 relative overflow-hidden shrink-0 border border-gray-100">
+                    <div className="w-10 h-10 rounded-full relative overflow-hidden shrink-0 border border-gray-100">
                       {friend.profileImage ? (
-                        <Image src={friend.profileImage} alt={friend.nickname} fill className="object-cover" />
+                        <ImageWithFallback src={friend.profileImage} alt={friend.nickname} fill className="object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 font-bold text-sm">
                           {friend.nickname.substring(0, 1)}

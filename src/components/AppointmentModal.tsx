@@ -11,7 +11,7 @@ import { useKakaoMap } from '@/hooks/useKakaoMap';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { useMentions } from '@/hooks/useMentions';
 import { Chip, MentionList, type MentionItem } from './Mentions';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 import {
   X,
   Calendar,
@@ -268,8 +268,8 @@ function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name
   
   return (
     <div onClick={onClick} className="flex-shrink-0 w-44 bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer group">
-      <div className="relative h-24 w-full overflow-hidden bg-gray-100">
-        <Image 
+      <div className="relative h-24 w-full bg-gray-100">
+        <ImageWithFallback 
           src={imgSrc} 
           alt={rec.name} 
           fill 
@@ -277,7 +277,7 @@ function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name
           unoptimized 
           onError={() => setImgSrc('https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop')}
         />
-        <div className="absolute top-1.5 right-1.5 bg-white/90 text-gray-800 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5"><Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" /> {rec.rating}</div>
+        <div className="absolute top-1.5 right-1.5 z-10 bg-white/90 text-gray-800 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5"><Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" /> {rec.rating}</div>
       </div>
       <div className="p-2.5"><h4 className="font-black text-gray-800 text-xs truncate">{rec.name}</h4><p className="text-[10px] text-gray-400">{rec.category} · {rec.distance}</p></div>
     </div>

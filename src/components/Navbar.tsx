@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import Image from 'next/image';
+import ImageWithFallback from './ImageWithFallback';
 import { usePathname } from 'next/navigation';
 import {
   Home,
@@ -86,7 +86,7 @@ export default function Navbar() {
             className="h-10 w-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 hover:border-indigo-100 hover:text-indigo-500 transition-all overflow-hidden"
           >
             {session?.user?.image ? (
-              <Image src={session.user.image} alt="User" width={40} height={40} className="object-cover" />
+              <ImageWithFallback src={session.user.image} alt="User" width={40} height={40} className="object-cover" />
             ) : (
               <span>{session?.user?.name?.[0] || '나'}</span>
             )}

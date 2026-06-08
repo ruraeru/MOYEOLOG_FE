@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
 import { UserPlus, MessageCircle, UserCheck, Clock, Loader2, UserX, Users } from 'lucide-react';
-import Image from 'next/image';
+import ImageWithFallback from '@/components/ImageWithFallback';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import FriendSearchModal from '@/components/FriendSearchModal';
@@ -110,9 +110,9 @@ export default function FriendsPage() {
                     {friendRequests.map(req => (
                       <div key={req.id} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between group hover:border-indigo-100 transition-all">
                         <div className="flex items-center gap-4">
-                          <div className="relative w-12 h-12 rounded-2xl overflow-hidden border border-gray-50 shadow-inner bg-gray-50 flex items-center justify-center">
+                          <div className="relative w-12 h-12 rounded-2xl border border-gray-50 shadow-inner bg-gray-50 flex items-center justify-center overflow-hidden">
                             {req.profileImage ? (
-                              <Image 
+                              <ImageWithFallback 
                                 src={req.profileImage} 
                                 alt={req.nickname} 
                                 fill 
@@ -170,9 +170,9 @@ export default function FriendsPage() {
                         </button>
 
                         <div className="relative mb-5">
-                          <div className="w-24 h-24 rounded-[2rem] overflow-hidden border-4 border-white shadow-xl bg-gray-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
+                          <div className="w-24 h-24 rounded-[2rem] border-4 border-white shadow-xl bg-gray-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 overflow-hidden">
                             {friend.profileImage ? (
-                              <Image 
+                              <ImageWithFallback 
                                 src={friend.profileImage} 
                                 alt={friend.nickname} 
                                 fill 

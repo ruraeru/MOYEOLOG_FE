@@ -18,7 +18,7 @@ import {
   Circle,
   Loader2,
 } from 'lucide-react';
-import Image from 'next/image';
+import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoDetailModal from '@/components/MemoDetailModal';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
@@ -396,19 +396,23 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
       }`}
     >
       {image && (
-        <div className={isList ? "w-28 h-28 relative rounded-xl overflow-hidden shrink-0 shadow-sm" : "h-44 w-full relative bg-gray-50 overflow-hidden"}>
-          <Image src={image} alt={title} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
-          {!isList && (
-            <button 
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }} 
-              className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg backdrop-blur-md transition-all ${
-                isFavorite ? 'bg-amber-400 text-white' : 'bg-white/80 text-gray-300 hover:text-indigo-400'
-              }`}
-            >
-              <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-            </button>
-          )}
-        </div>
+        <ImageWithFallback 
+          src={image} 
+          alt={title} 
+          fill 
+          containerClassName={isList ? "w-28 h-28 rounded-xl shrink-0 shadow-sm" : "h-44 w-full bg-gray-50"} 
+          className="object-cover group-hover:scale-105 transition-transform duration-500" 
+        />
+      )}
+      {!isList && image && (
+        <button 
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }} 
+          className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg backdrop-blur-md transition-all ${
+            isFavorite ? 'bg-amber-400 text-white' : 'bg-white/80 text-gray-300 hover:text-indigo-400'
+          }`}
+        >
+          <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+        </button>
       )}
       <div className={isList ? "flex flex-col flex-1 min-w-0 py-0.5" : "p-6 flex flex-col gap-3.5 flex-1 min-w-0"}>
         <div className="flex items-center justify-between">
