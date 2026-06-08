@@ -14,6 +14,9 @@ import {
   ChevronLeft,
   Upload,
   Check,
+  Calendar as LucideCalendar,
+  FileText,
+  ChevronRight
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
@@ -209,6 +212,8 @@ export default function MemoDetailView({
         content: editContent,
         imageFile: editImageFile || undefined,
         tags: currentTags,
+        taggedMemoIds: memo.taggedMemos?.map(m => m.id),
+        taggedScheduleIds: memo.taggedSchedules?.map(s => s.id)
       }, session);
       
       await fetchMemoDetail();
@@ -605,6 +610,46 @@ export default function MemoDetailView({
             </div>
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-xs text-gray-500 leading-relaxed font-medium whitespace-pre-wrap min-h-[100px]">
               {loadingInsight ? '분석 중…' : insight?.ocrText ?? '—'}
+            </div>
+          </div>
+        )}
+
+        {/* Tagged Memos and Schedules */}
+        {!isEditing && memo.taggedSchedules && memo.taggedSchedules.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="flex items-center gap-2 text-gray-900 font-bold">
+              <LucideCalendar className="w-5 h-5 text-indigo-500" /> 
+              <span className="text-sm">연결된 일정</span>
+            </h3>
+            <div className="grid grid-cols-1 gap-2">
+              {memo.taggedSchedules.map((sch) => (
+                <div key={sch.id} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                  <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 shrink-0">
+                    <LucideCalendar className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-bold text-gray-800 text-xs truncate flex-1">{sch.title}</h4>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isEditing && memo.taggedMemos && memo.taggedMemos.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="flex items-center gap-2 text-gray-900 font-bold">
+              <FileText className="w-5 h-5 text-indigo-500" /> 
+              <span className="text-sm">연결된 메모</span>
+            </h3>
+            <div className="grid grid-cols-1 gap-2">
+              {memo.taggedMemos.map((m) => (
+                <div key={m.id} onClick={() => router.push(`/memo/${m.id}`)} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm hover:border-indigo-200 cursor-pointer transition-all">
+                  <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-bold text-gray-800 text-xs truncate flex-1">{m.title}</h4>
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                </div>
+              ))}
             </div>
           </div>
         )}
