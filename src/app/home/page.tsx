@@ -332,7 +332,7 @@ function GroupCard({ group, onClick }: GroupCardProps) {
         src={profileSrc || ''} 
         alt={group.name} 
         fill 
-        containerClassName={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm`} 
+        containerClassName={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm relative`} 
         className="object-cover"
         fallbackIcon={initial}
       />
@@ -351,6 +351,7 @@ function GroupCard({ group, onClick }: GroupCardProps) {
                     src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} 
                     alt={member.nickname} 
                     fill 
+                    containerClassName="w-full h-full"
                     className="object-cover" 
                   />
                 ) : member.nickname.substring(0, 1)}

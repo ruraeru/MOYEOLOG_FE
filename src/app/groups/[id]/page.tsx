@@ -356,7 +356,7 @@ export default function GroupDetailPage() {
                 </div>
               </div>
             ) : activeTab === 'calendar' ? (
-              <div className="bg-white p-12 rounded-[3rem] border border-gray-100 shadow-sm animate-in zoom-in-95 duration-500 border-0 no-outline">
+              <div className="bg-white p-12 rounded-[3rem] border border-gray-100 animate-in zoom-in-95 duration-500 no-outline">
                 <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
               </div>
             ) : activeTab === 'topics' ? (
@@ -553,21 +553,11 @@ function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: '
         />
       )}
       {imageSrc && !isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60 pointer-events-none" />}
-      {imageSrc && !isList && (
-        <div className="absolute top-6 right-6 z-10">
-          <div className={`p-2 rounded-2xl backdrop-blur-md shadow-xl transition-all ${memo.isFavorite ? 'bg-amber-400/90 text-white' : 'bg-white/90 text-gray-300 group-hover:text-indigo-400'}`}>
-            <Star className={`w-4 h-4 ${memo.isFavorite ? 'fill-current' : ''}`} />
-          </div>
-        </div>
-      )}
       <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
         <div className="flex items-center justify-between">
           <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
             {memo.title}
           </h4>
-          {(!imageSrc || isList) && (
-            <Star className={`w-5 h-5 ${memo.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-100'}`} />
-          )}
         </div>
         <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold flex-1">
           {stripMarkdown(memo.content)}
@@ -638,6 +628,7 @@ function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMod
                   src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
                   alt="" 
                   fill 
+                  containerClassName="w-full h-full"
                   className="object-cover" 
                 />
               ) : (

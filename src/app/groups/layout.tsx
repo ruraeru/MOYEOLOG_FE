@@ -101,7 +101,13 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
                     title={group.name}
                   >
                     {profileSrc ? (
-                      <ImageWithFallback src={profileSrc} alt={group.name} fill className="object-cover" />
+                      <ImageWithFallback 
+                        src={profileSrc} 
+                        alt={group.name} 
+                        fill 
+                        containerClassName="w-full h-full"
+                        className="object-cover" 
+                      />
                     ) : (
                       group.name.substring(0, 1)
                     )}
