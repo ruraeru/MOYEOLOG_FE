@@ -2,10 +2,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #F8F9FB; /* 연한 Off-white 배경 */
-  --foreground: #1A1C1E; /* 더 깊은 차콜 색상 */
-  --brand-violet: #6366F1;
-  --brand-violet-dark: #4F46E5;
+  --background: #FFFFFF;
+  --foreground: #2D3136;
+  --brand-violet: #A5B4FC; /* Soft Pastel Lavender */
+  --brand-violet-dark: #818CF8;
+  --pastel-gray: #F3F4F6;
+  --soft-border: #E5E7EB;
 }
 
 @theme inline {
@@ -13,13 +15,19 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--brand-violet);
   --color-primary-dark: var(--brand-violet-dark);
+  --color-pastel-gray: var(--pastel-gray);
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  --shadow-pastel: 0 4px 20px -1px rgba(0, 0, 0, 0.03), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0F1115;
-    --foreground: #F1F3F5;
+    --background: #1A1C1E;
+    --foreground: #F9FAFB;
+    --brand-violet: #818CF8;
+    --brand-violet-dark: #6366F1;
+    --pastel-gray: #2D3136;
+    --soft-border: #374151;
   }
 }
 
@@ -27,173 +35,70 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Pretendard Variable", Pretendard, sans-serif;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* React Calendar Custom Styles */
+/* React Calendar Pastel Custom Styles */
 .react-calendar {
   width: 100% !important;
   height: 100% !important;
   border: none !important;
   font-family: inherit !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-.react-calendar__viewContainer {
-  flex: 1 !important;
-  display: flex !important;
-}
-
-.react-calendar__month-view {
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-.react-calendar__month-view > div {
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-.react-calendar__month-view > div > div {
-  flex: 1 !important;
-}
-
-.react-calendar__month-view__weekdays {
-  font-weight: bold !important;
-  text-decoration: none !important;
-  font-size: 0.875rem !important;
-  padding: 0.5rem 0 !important;
-  display: grid !important;
-  grid-template-columns: repeat(7, 1fr) !important;
-  gap: 1px !important;
-}
-
-.react-calendar__month-view__weekdays__weekday {
-  padding: 0.5rem !important;
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-  width: auto !important;
-  flex: none !important;
-}
-
-.react-calendar__month-view__weekdays__weekday abbr {
-  text-decoration: none !important;
-}
-
-.react-calendar__month-view__days {
-  display: grid !important;
-  grid-template-columns: repeat(7, 1fr) !important;
-  background-color: #f3f4f6 !important; /* gray-100 */
-  gap: 1px !important;
-  flex: 1 !important;
+  background: transparent !important;
 }
 
 .react-calendar__tile {
   background: white !important;
-  min-height: 100px !important;
-  @media (max-width: 1024px) {
-    min-height: 44px !important;
-    padding: 0.125rem !important;
-  }
-  padding: 0.5rem !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  justify-content: flex-start !important;
-  position: relative !important;
-  overflow: hidden !important;
-  transition: background-color 0.2s !important;
-  width: auto !important;
-  max-width: none !important;
-  flex-basis: auto !important;
+  min-height: 110px !important;
+  padding: 0.75rem !important;
+  border-radius: 0 !important;
+  transition: all 0.2s ease-in-out;
 }
 
-.react-calendar__tile:enabled:hover,
-.react-calendar__tile:enabled:focus {
-  background-color: #f9fafb !important; /* gray-50 */
+.react-calendar__tile:enabled:hover {
+  background-color: #F9FAFB !important;
 }
 
 .react-calendar__tile--now {
-  background: #f0f2ff !important; /* indigo-50 */
+  background: #EEF2FF !important;
 }
 
 .react-calendar__tile--now abbr {
-  color: #6366f1 !important; /* indigo-600 */
-  font-weight: bold !important;
+  color: #818CF8 !important;
+  font-weight: 800 !important;
 }
 
-.react-calendar__tile--active {
-  background: white !important;
-  color: inherit !important;
-}
-
-.react-calendar__tile--active:enabled:hover,
-.react-calendar__tile--active:enabled:focus {
-  background-color: #f9fafb !important;
-}
-
-.react-calendar__navigation {
-  margin-bottom: 1.5rem !important;
-  @media (max-width: 1024px) {
-    margin-bottom: 0.5rem !important;
-  }
-  height: auto !important;
-}
-
-.react-calendar__navigation button {
-  min-width: 44px !important;
-  @media (max-width: 1024px) {
-    min-width: 36px !important;
-    padding: 4px !important;
-  }
-  background: none !important;
-  font-size: 1.125rem !important;
-  font-weight: bold !important;
-}
-
-.react-calendar__navigation button:enabled:hover,
-.react-calendar__navigation button:enabled:focus {
-  background-color: #f3f4f6 !important;
-  border-radius: 0.5rem !important;
-}
-
-.react-calendar__month-view__days__day--neighboringMonth {
-  color: #d1d5db !important; /* gray-300 */
+.react-calendar__navigation button:enabled:hover {
+  background-color: #F3F4F6 !important;
+  border-radius: 1rem !important;
 }
 
 @layer components {
   .form-input {
-    @apply w-full bg-gray-50 border-2 border-transparent rounded-2xl px-6 py-4 text-sm focus:bg-white focus:border-indigo-500 transition-all outline-none font-bold;
+    @apply w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-sm focus:bg-white focus:border-indigo-200 focus:ring-4 focus:ring-indigo-50/50 transition-all outline-none font-semibold;
   }
 
   .btn-primary {
-    @apply px-4 py-4 bg-indigo-600 text-white rounded-2xl text-base font-black hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95 disabled:opacity-70 flex items-center justify-center gap-2;
+    @apply px-6 py-3 bg-indigo-400 text-white rounded-2xl text-sm font-bold hover:bg-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2;
   }
 
   .btn-secondary {
-    @apply px-4 py-4 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl text-sm font-black hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-70;
-  }
-
-  .no-outline {
-    @apply outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none;
+    @apply px-6 py-3 bg-white border border-gray-100 text-gray-500 rounded-2xl text-sm font-bold hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50;
   }
 }
 
-/* Global focus outline reset for all browsers */
+/* Universal Clean Reset */
 *:focus, *:active, *:focus-visible {
   outline: none !important;
   box-shadow: none !important;
-  ring: 0 !important;
 }
 
-button:focus, button:active {
-  outline: none !important;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
-* {
-  -webkit-tap-highlight-color: transparent;
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

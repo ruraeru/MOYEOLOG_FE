@@ -2,13 +2,13 @@
  * 공통 테마 색상 정의
  */
 export const THEME_COLORS = {
-  indigo: { bg: 'bg-indigo-600', text: 'text-indigo-600', light: 'bg-indigo-50', border: 'border-indigo-100', soft: 'text-indigo-800' },
-  blue: { bg: 'bg-blue-600', text: 'text-blue-600', light: 'bg-blue-50', border: 'border-blue-100', soft: 'text-blue-800' },
-  emerald: { bg: 'bg-emerald-600', text: 'text-emerald-600', light: 'bg-emerald-50', border: 'border-emerald-100', soft: 'text-emerald-800' },
-  orange: { bg: 'bg-orange-600', text: 'text-orange-600', light: 'bg-orange-50', border: 'border-orange-100', soft: 'text-orange-800' },
-  rose: { bg: 'bg-rose-600', text: 'text-rose-600', light: 'bg-rose-50', border: 'border-rose-100', soft: 'text-rose-800' },
-  amber: { bg: 'bg-amber-600', text: 'text-amber-600', light: 'bg-amber-50', border: 'border-amber-100', soft: 'text-amber-800' },
-  purple: { bg: 'bg-purple-600', text: 'text-purple-600', light: 'bg-purple-50', border: 'border-purple-100', soft: 'text-purple-800' },
+  indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', light: 'bg-indigo-50/50', border: 'border-indigo-200', soft: 'text-indigo-500' },
+  blue: { bg: 'bg-sky-100', text: 'text-sky-600', light: 'bg-sky-50/50', border: 'border-sky-200', soft: 'text-sky-500' },
+  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-600', light: 'bg-emerald-50/50', border: 'border-emerald-200', soft: 'text-emerald-500' },
+  orange: { bg: 'bg-orange-100', text: 'text-orange-600', light: 'bg-orange-50/50', border: 'border-orange-200', soft: 'text-orange-500' },
+  rose: { bg: 'bg-rose-100', text: 'text-rose-600', light: 'bg-rose-50/50', border: 'border-rose-200', soft: 'text-rose-500' },
+  amber: { bg: 'bg-amber-100', text: 'text-amber-600', light: 'bg-amber-50/50', border: 'border-amber-200', soft: 'text-amber-500' },
+  purple: { bg: 'bg-purple-100', text: 'text-purple-600', light: 'bg-purple-50/50', border: 'border-purple-200', soft: 'text-purple-500' },
 } as const;
 
 export type ThemeKey = keyof typeof THEME_COLORS;

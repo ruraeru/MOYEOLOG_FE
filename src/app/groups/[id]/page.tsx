@@ -199,61 +199,66 @@ export default function GroupDetailPage() {
   };
 
   const themeClasses = {
-    indigo: 'from-indigo-500 to-indigo-600',
-    blue: 'from-blue-500 to-blue-600',
-    emerald: 'from-emerald-500 to-emerald-600',
-    orange: 'from-orange-500 to-orange-600',
-    rose: 'from-rose-500 to-rose-600',
-    amber: 'from-amber-500 to-amber-600'
+    indigo: 'bg-indigo-50',
+    blue: 'bg-sky-50',
+    emerald: 'bg-emerald-50',
+    orange: 'bg-orange-50',
+    rose: 'bg-rose-50',
+    amber: 'bg-amber-50'
   };
-  const bannerGradient = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
+  const themeTextClasses = {
+    indigo: 'text-indigo-500',
+    blue: 'text-sky-500',
+    emerald: 'text-emerald-500',
+    orange: 'text-orange-500',
+    rose: 'text-rose-500',
+    amber: 'text-amber-500'
+  };
+  const bannerBg = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
+  const themeText = themeTextClasses[group.colorTheme as keyof typeof themeTextClasses] || themeTextClasses.indigo;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const groupBg = group.backgroundImage ? (group.backgroundImage.startsWith('/uploads/') ? `${apiUrl}${group.backgroundImage}` : group.backgroundImage) : null;
   const groupProfile = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-500">
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-20">
-        {/* Glassmorphism Banner Section */}
-        <div className="px-8 pt-8 relative">
-          <div className={`w-full rounded-[2.5rem] bg-gradient-to-br ${bannerGradient} p-10 lg:p-12 relative overflow-hidden shadow-2xl`}>
+    <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in duration-700 bg-white">
+      <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
+        {/* Clean Banner Section */}
+        <div className="px-10 pt-10">
+          <div className={`w-full rounded-[2.5rem] ${bannerBg} p-12 lg:p-16 relative overflow-hidden`}>
             {groupBg && (
               <div className="absolute inset-0 z-0">
-                <Image src={groupBg} alt="Background" fill className="object-cover opacity-40 mix-blend-overlay scale-105" unoptimized />
-                <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]" />
+                <Image src={groupBg} alt="Background" fill className="object-cover opacity-10 grayscale" unoptimized />
               </div>
             )}
             
-            <div className="relative z-10 max-w-7xl mx-auto flex flex-col gap-10">
+            <div className="relative z-10 max-w-7xl mx-auto flex flex-col gap-8">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-5">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-white/20 blur-xl rounded-full scale-150" />
-                    {groupProfile ? (
-                      <div className="w-20 h-20 rounded-3xl overflow-hidden shadow-2xl relative shrink-0">
-                        <Image src={groupProfile} alt={group.name} fill className="object-cover" />
-                      </div>
-                    ) : (
-                      <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-xl flex items-center justify-center text-white text-3xl font-black shadow-2xl shrink-0">
-                        {group.name.substring(0, 1)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter drop-shadow-sm">
+                <div className="flex items-center gap-6">
+                  {groupProfile ? (
+                    <div className="w-24 h-24 rounded-[2rem] overflow-hidden shadow-sm relative shrink-0 border-4 border-white">
+                      <Image src={groupProfile} alt={group.name} fill className="object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-24 h-24 rounded-[2rem] bg-white flex items-center justify-center text-4xl font-black shadow-sm shrink-0 border-4 border-white">
+                      <span className={themeText}>{group.name.substring(0, 1)}</span>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <h1 className="text-4xl md:text-5xl font-black text-gray-800 tracking-tight">
                       {group.name}
                     </h1>
                     <div className="flex items-center gap-3">
-                      <div className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full flex items-center gap-1.5">
-                        <Users className="w-3 h-3 text-white/80" />
-                        <span className="text-[10px] font-black text-white uppercase tracking-wider">{group.memberCount} members</span>
+                      <div className="px-3.5 py-1.5 bg-white/60 rounded-xl flex items-center gap-2 border border-white/40">
+                        <Users className={`w-3.5 h-3.5 ${themeText}`} />
+                        <span className={`text-[11px] font-bold uppercase tracking-wider ${themeText}`}>{group.memberCount} members</span>
                       </div>
                       <button 
                         onClick={handleCopyInviteLink}
-                        className={`px-3 py-1 bg-white/10 backdrop-blur-md rounded-full flex items-center gap-1.5 hover:bg-white/20 transition-all ${copied ? 'text-emerald-300' : 'text-white/80'}`}
+                        className={`px-3.5 py-1.5 bg-white/60 rounded-xl flex items-center gap-2 border border-white/40 hover:bg-white transition-all ${copied ? 'text-emerald-500' : 'text-gray-500'}`}
                       >
-                        <LinkIcon className="w-3 h-3" />
-                        <span className="text-[10px] font-black uppercase tracking-wider">{copied ? 'Copied!' : 'Invite Link'}</span>
+                        <LinkIcon className="w-3.5 h-3.5" />
+                        <span className="text-[11px] font-bold uppercase tracking-wider">{copied ? 'Copied!' : 'Invite Link'}</span>
                       </button>
                     </div>
                   </div>
@@ -262,29 +267,24 @@ export default function GroupDetailPage() {
                 {session?.user?.id === group.createdById && (
                   <button 
                     onClick={() => setIsEditModalOpen(true)}
-                    className="p-3 bg-white/10 backdrop-blur-xl rounded-2xl text-white hover:bg-white/20 hover:scale-105 transition-all shadow-xl active:scale-95 border-0"
+                    className="p-4 bg-white/80 rounded-[1.5rem] text-gray-400 hover:text-indigo-500 hover:shadow-md transition-all active:scale-95 border border-white"
                   >
                     <Settings className="w-6 h-6" />
                   </button>
                 )}
               </div>
               
-              <p className="text-white/90 max-w-3xl font-bold text-lg leading-relaxed drop-shadow-sm">
+              <p className="text-gray-600 max-w-3xl font-medium text-lg leading-relaxed">
                 {group.description || '모임 설명이 없습니다. 팀원들과 함께 메모와 일정을 공유해보세요!'}
               </p>
-            </div>
-            
-            {/* Background pattern */}
-            <div className="absolute top-0 right-0 p-8 opacity-10">
-              <Sparkles className="w-64 h-64 text-white rotate-12" />
             </div>
           </div>
         </div>
 
         {/* Content Section */}
-        <div className="max-w-7xl mx-auto px-8 mt-12 space-y-10">
-          {/* Navigation Tabs (Modern Glass Style) */}
-          <div className="flex items-center gap-2 p-1.5 bg-gray-100/50 backdrop-blur-sm rounded-[1.5rem] w-fit">
+        <div className="max-w-7xl mx-auto px-10 mt-12 space-y-12">
+          {/* Navigation Tabs (Modern Clean Style) */}
+          <div className="flex items-center gap-3 p-1.5 bg-gray-50 rounded-[1.75rem] w-fit">
             <TabButton active={activeTab === 'memos'} icon={<Archive />} label="모임 메모" onClick={() => setActiveTab('memos')} />
             <TabButton active={activeTab === 'calendar'} icon={<LucideCalendar />} label="모임 일정" onClick={() => setActiveTab('calendar')} />
             <TabButton active={activeTab === 'topics'} icon={<Sparkles />} label="모임 토픽" onClick={() => setActiveTab('topics')} />
@@ -293,32 +293,36 @@ export default function GroupDetailPage() {
 
           <div className="min-h-[500px] outline-none">
             {activeTab === 'memos' ? (
-              <div className="flex gap-10 items-start outline-none">
+              <div className="flex gap-12 items-start outline-none">
                 {/* Sidebar Filter */}
-                <aside className="w-56 shrink-0 space-y-8 animate-in slide-in-from-left-4 duration-500">
-                  <SectionTitle label="카테고리" />
-                  <div className="space-y-1.5">
-                    <FilterButton active={memoFilter.type === 'all'} icon={<Archive />} label="전체 메모" onClick={() => setMemoFilter({ type: 'all' })} />
-                    <FilterButton active={memoFilter.type === 'my'} icon={<UserIcon />} label="내가 쓴 메모" onClick={() => setMemoFilter({ type: 'my' })} />
-                    <FilterButton active={memoFilter.type === 'favorites'} icon={<Star />} label="즐겨찾기" onClick={() => setMemoFilter({ type: 'favorites' })} isFavorite />
+                <aside className="w-60 shrink-0 space-y-10 animate-in slide-in-from-left-4 duration-500">
+                  <div>
+                    <SectionTitle label="카테고리" />
+                    <div className="space-y-1.5">
+                      <FilterButton active={memoFilter.type === 'all'} icon={<Archive />} label="전체 메모" onClick={() => setMemoFilter({ type: 'all' })} />
+                      <FilterButton active={memoFilter.type === 'my'} icon={<UserIcon />} label="내가 쓴 메모" onClick={() => setMemoFilter({ type: 'my' })} />
+                      <FilterButton active={memoFilter.type === 'favorites'} icon={<Star />} label="즐겨찾기" onClick={() => setMemoFilter({ type: 'favorites' })} isFavorite />
+                    </div>
                   </div>
-                  <SectionTitle label="태그" />
-                  <div className="flex flex-wrap gap-2 px-1">
-                    {dynamicTags.length > 0 ? dynamicTags.map(tag => (
-                      <TagBadge key={tag} label={tag} active={memoFilter.type === 'tag' && memoFilter.id === tag} onClick={() => setMemoFilter({ type: 'tag', id: tag })} />
-                    )) : <p className="text-[10px] text-gray-400 font-bold">사용된 태그 없음</p>}
+                  <div>
+                    <SectionTitle label="태그" />
+                    <div className="flex flex-wrap gap-2 px-1">
+                      {dynamicTags.length > 0 ? dynamicTags.map(tag => (
+                        <TagBadge key={tag} label={tag} active={memoFilter.type === 'tag' && memoFilter.id === tag} onClick={() => setMemoFilter({ type: 'tag', id: tag })} />
+                      )) : <p className="text-[10px] text-gray-400 font-semibold">사용된 태그 없음</p>}
+                    </div>
                   </div>
                 </aside>
 
-                <div className="flex-1 space-y-8 animate-in fade-in duration-700">
+                <div className="flex-1 space-y-10 animate-in fade-in duration-700">
                   <div className="flex justify-between items-center">
-                    <div className="relative flex-1 max-w-lg group">
-                      <input type="text" placeholder="메모 검색..." className="w-full bg-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-50 transition-all outline-none shadow-sm group-hover:shadow-md" />
+                    <div className="relative flex-1 max-w-xl group">
+                      <input type="text" placeholder="메모 검색..." className="w-full bg-gray-50 border border-gray-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-semibold focus:bg-white focus:border-indigo-200 focus:ring-4 focus:ring-indigo-50/50 transition-all outline-none" />
                       <Search className="w-5 h-5 absolute left-4 top-4 text-gray-300 group-hover:text-indigo-400 transition-colors" />
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4">
                       <ViewSelector current={viewMode} onChange={setViewMode} />
-                      <button onClick={() => setIsMemoModalOpen(true)} className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95"><Plus className="w-4 h-4" /> 메모 작성</button>
+                      <button onClick={() => setIsMemoModalOpen(true)} className="flex items-center gap-2 px-8 py-4 bg-indigo-400 text-white rounded-2xl font-bold text-sm hover:bg-indigo-500 shadow-sm transition-all active:scale-95"><Plus className="w-4 h-4" /> 메모 작성</button>
                     </div>
                   </div>
 
@@ -330,14 +334,14 @@ export default function GroupDetailPage() {
                 </div>
               </div>
             ) : activeTab === 'calendar' ? (
-              <div className="bg-white p-10 rounded-[2.5rem] shadow-xl animate-in zoom-in-95 duration-500 border-0 no-outline">
+              <div className="bg-white p-12 rounded-[3rem] border border-gray-100 shadow-sm animate-in zoom-in-95 duration-500 border-0 no-outline">
                 <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
               </div>
             ) : activeTab === 'topics' ? (
-              <div className="space-y-8 animate-in fade-in duration-500 outline-none">
+              <div className="space-y-10 animate-in fade-in duration-500 outline-none">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-black text-gray-800 tracking-tight">공유 토픽</h3>
-                  <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95 flex items-center gap-2"><Plus className="w-4 h-4" /> 새 토픽 게시</button>
+                  <h3 className="text-2xl font-black text-gray-800 tracking-tight">공유 토픽</h3>
+                  <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="px-8 py-4 bg-indigo-400 text-white rounded-2xl font-bold text-sm hover:bg-indigo-500 shadow-sm transition-all active:scale-95 flex items-center gap-2"><Plus className="w-4 h-4" /> 새 토픽 게시</button>
                 </div>
                 {topics.length > 0 ? (
                   <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8" : "space-y-4"}>
@@ -384,9 +388,13 @@ function TabButton({ active, icon: IconComponent, label, onClick }: { active: bo
   return (
     <button 
       onClick={onClick} 
-      className={`flex items-center gap-2 px-6 py-3 text-sm font-black rounded-2xl select-none border-0 no-outline transition-all duration-200 ${active ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200/30'}`}
+      className={`flex items-center gap-2.5 px-6 py-3.5 text-sm font-black rounded-2xl select-none border-0 no-outline transition-all duration-300 ${
+        active 
+          ? 'bg-white text-indigo-600 shadow-md ring-1 ring-black/5' 
+          : 'text-gray-400 hover:text-indigo-600 hover:bg-white/50'
+      }`}
     >
-      {React.cloneElement(IconComponent, { size: 16 } as React.SVGAttributes<SVGElement>)}
+      {React.cloneElement(IconComponent, { size: 16, className: active ? 'stroke-[2.5]' : 'stroke-2' } as React.SVGAttributes<SVGElement>)}
       {label}
     </button>
   );
@@ -396,9 +404,16 @@ function FilterButton({ active, icon: IconComponent, label, onClick, isFavorite 
   return (
     <button 
       onClick={onClick} 
-      className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black border-0 transition-all no-outline ${active ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:bg-white/50 hover:text-gray-600'}`}
+      className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl text-sm font-black border-0 transition-all duration-300 no-outline ${
+        active 
+          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+          : 'text-gray-400 hover:bg-white hover:text-indigo-600'
+      }`}
     >
-      {React.cloneElement(IconComponent, { size: 16, className: active && isFavorite ? 'fill-indigo-600' : '' } as React.SVGAttributes<SVGElement>)}
+      {React.cloneElement(IconComponent, { 
+        size: 16, 
+        className: `transition-colors ${active && isFavorite ? 'fill-white stroke-white' : ''}` 
+      } as React.SVGAttributes<SVGElement>)}
       {label}
     </button>
   );
@@ -412,7 +427,11 @@ function TagBadge({ label, active, onClick }: { label: string, active: boolean, 
   return (
     <button 
       onClick={onClick} 
-      className={`text-[10px] font-black px-3 py-1.5 rounded-xl transition-all no-outline border-0 ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-white text-gray-400 hover:text-indigo-500'}`}
+      className={`text-[10px] font-black px-3.5 py-2 rounded-xl transition-all duration-300 no-outline border-0 ${
+        active 
+          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-50' 
+          : 'bg-white text-gray-400 hover:text-indigo-600 hover:shadow-sm'
+      }`}
     >
       #{label}
     </button>
@@ -421,16 +440,16 @@ function TagBadge({ label, active, onClick }: { label: string, active: boolean, 
 
 function ViewSelector({ current, onChange }: { current: 'grid' | 'list', onChange: (mode: 'grid' | 'list') => void }) {
   return (
-    <div className="flex p-1.5 bg-gray-100/50 rounded-2xl no-outline border-0">
+    <div className="flex p-1.5 bg-gray-200/50 rounded-2xl no-outline border-0">
       <button 
         onClick={() => onChange('grid')} 
-        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'grid' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400'}`}
+        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'grid' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
       >
         <LayoutGrid className="w-4 h-4" />
       </button>
       <button 
         onClick={() => onChange('list')} 
-        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'list' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400'}`}
+        className={`p-2.5 rounded-xl transition-all border-0 no-outline ${current === 'list' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
       >
         <ListIcon className="w-4 h-4" />
       </button>
@@ -440,31 +459,43 @@ function ViewSelector({ current, onChange }: { current: 'grid' | 'list', onChang
 
 function EmptyState({ icon: Icon, text }: { icon: React.ReactElement, text: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-32 text-center bg-white/50 border-2 border-dashed border-gray-200 rounded-[3rem]">
-      {React.cloneElement(Icon, { size: 64, className: 'text-gray-200 mb-4 stroke-[1.5]' } as React.SVGAttributes<SVGElement>)}
-      <p className="text-gray-500 font-bold">{text}</p>
-      <p className="text-xs text-gray-400 mt-1 font-medium">새로운 활동을 시작해보세요!</p>
+    <div className="flex flex-col items-center justify-center py-32 text-center bg-white/30 backdrop-blur-sm border-2 border-dashed border-gray-200 rounded-[3rem]">
+      {React.cloneElement(Icon, { size: 64, className: 'text-gray-200 mb-6 stroke-[1.5]' } as React.SVGAttributes<SVGElement>)}
+      <p className="text-gray-500 font-black text-lg">{text}</p>
+      <p className="text-sm text-gray-400 mt-2 font-bold tracking-tight">새로운 활동을 시작해보세요!</p>
     </div>
   );
 }
 
 function MemberCard({ member, isOwner, currentUserIsOwner, onKick, apiUrl }: { member: GroupResponse['members'][0], isOwner: boolean, currentUserIsOwner: boolean, onKick: () => void, apiUrl: string }) {
   return (
-    <div className="flex items-center justify-between p-6 bg-white rounded-[2rem] transition-all hover:shadow-xl group/member border-0">
-      <div className="flex items-center gap-4">
-        <div className="w-14 h-14 rounded-[1.25rem] overflow-hidden relative shadow-md shrink-0">
-          {member.profileImage ? <Image src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} fill className="object-cover" /> : <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-black text-lg">{member.nickname[0]}</div>}
+    <div className="flex items-center justify-between p-6 bg-white rounded-[2.5rem] transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group/member border border-transparent hover:border-indigo-50">
+      <div className="flex items-center gap-5">
+        <div className="w-16 h-16 rounded-[1.5rem] overflow-hidden relative shadow-lg shrink-0 group-hover/member:scale-105 transition-transform duration-500">
+          {member.profileImage ? (
+            <Image src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} alt={member.nickname} fill className="object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-indigo-50 to-white flex items-center justify-center text-indigo-500 font-black text-2xl">
+              {member.nickname[0]}
+            </div>
+          )}
         </div>
         <div className="flex flex-col">
-          <span className="font-black text-gray-800 flex items-center gap-2">
+          <span className="text-lg font-black text-gray-900 flex items-center gap-2">
             {member.nickname}
-            {isOwner && <span className="bg-indigo-600 text-white text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-tighter shadow-md shadow-indigo-100">Leader</span>}
+            {isOwner && (
+              <span className="bg-indigo-600 text-white text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider shadow-md shadow-indigo-100">
+                Leader
+              </span>
+            )}
           </span>
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Community Member</p>
+          <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Community Member</p>
         </div>
       </div>
       {currentUserIsOwner && !isOwner && (
-        <button onClick={onKick} className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all opacity-0 group-hover/member:opacity-100"><Trash2 className="w-5 h-5" /></button>
+        <button onClick={onKick} className="p-3.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all opacity-0 group-hover/member:opacity-100 active:scale-90">
+          <Trash2 className="w-5 h-5" />
+        </button>
       )}
     </div>
   );
@@ -474,29 +505,54 @@ function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: '
   const isList = viewMode === 'list';
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
+  
   return (
-    <div onClick={onClick} className={`bg-white shadow-sm transition-all group flex overflow-hidden cursor-pointer border-0 ${isList ? 'rounded-2xl p-6 gap-6 hover:shadow-md' : 'rounded-[2.5rem] flex-col hover:shadow-2xl hover:-translate-y-2'}`}>
+    <div 
+      onClick={onClick} 
+      className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
+        isList 
+          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-xl hover:-translate-x-1' 
+          : 'rounded-[3rem] flex-col hover:shadow-2xl hover:-translate-y-2'
+      }`}
+    >
       {imageSrc && (
-        <div className={isList ? "w-32 h-32 relative rounded-2xl overflow-hidden shrink-0 shadow-md border border-gray-50" : "h-48 w-full relative bg-gray-50 overflow-hidden"}>
+        <div className={isList ? "w-40 h-40 relative rounded-2xl overflow-hidden shrink-0 shadow-xl" : "h-56 w-full relative bg-gray-50 overflow-hidden"}>
           <Image src={imageSrc} alt={memo.title} fill className="object-cover group-hover:scale-110 transition-transform duration-700" unoptimized />
-          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />}
+          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60" />}
+          <div className="absolute top-6 right-6 z-10">
+            <div className={`p-2 rounded-2xl backdrop-blur-md shadow-xl transition-all ${memo.isFavorite ? 'bg-amber-400/90 text-white' : 'bg-white/90 text-gray-300 group-hover:text-indigo-400'}`}>
+              <Star className={`w-4 h-4 ${memo.isFavorite ? 'fill-current' : ''}`} />
+            </div>
+          </div>
         </div>
       )}
-      <div className={isList ? "flex flex-col flex-1 min-w-0 py-1" : "p-8 flex flex-col gap-4 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors tracking-tight">{memo.title}</h4>
-          <Star className={`w-4 h-4 ${memo.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-100'}`} />
+      <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
+        <div className="flex items-center justify-between">
+          <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
+            {memo.title}
+          </h4>
+          {(!imageSrc || isList) && (
+            <Star className={`w-5 h-5 ${memo.isFavorite ? 'text-amber-400 fill-amber-400' : 'text-gray-100'}`} />
+          )}
         </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{stripMarkdown(memo.content)}</p>
-        <div className="flex flex-wrap gap-1.5 mb-6">
-          {memo.tags?.slice(0, 3).map(tag => <span key={tag} className="text-[9px] text-indigo-500 font-black bg-indigo-50 px-2 py-0.5 rounded-md">#{tag}</span>)}
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold flex-1">
+          {stripMarkdown(memo.content)}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {memo.tags?.slice(0, 3).map(tag => (
+            <span key={tag} className="text-[10px] text-indigo-500 font-black bg-indigo-50/50 px-3 py-1 rounded-xl">
+              #{tag}
+            </span>
+          ))}
         </div>
-        <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-          <div className="flex items-center gap-2">
-             <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-500 text-[8px] font-black">{memo.authorNickname[0]}</div>
-             <span className="text-[10px] text-gray-400 font-black tracking-tight">{memo.authorNickname}</span>
+        <div className="flex items-center justify-between pt-5 border-t border-gray-50 mt-2">
+          <div className="flex items-center gap-3">
+             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 flex items-center justify-center text-indigo-500 text-[9px] font-black shadow-inner">
+               {memo.authorNickname[0]}
+             </div>
+             <span className="text-[11px] text-gray-500 font-black tracking-tight">{memo.authorNickname}</span>
           </div>
-          <span className="text-[10px] text-gray-300 font-bold">{format(new Date(memo.createdAt), 'yyyy.MM.dd')}</span>
+          <span className="text-[11px] text-gray-300 font-black">{format(new Date(memo.createdAt), 'yyyy.MM.dd')}</span>
         </div>
       </div>
     </div>
@@ -506,28 +562,49 @@ function MemoCard({ memo, viewMode, onClick }: { memo: MemoResponse, viewMode: '
 function TopicCard({ topic, viewMode, onClick }: { topic: TopicResponse, viewMode: 'grid' | 'list', onClick: () => void }) {
   const isList = viewMode === 'list';
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  
   return (
-    <div onClick={onClick} className={`bg-white shadow-sm transition-all group flex overflow-hidden cursor-pointer border-0 ${isList ? 'rounded-2xl p-6 gap-6 hover:shadow-md' : 'rounded-[2.5rem] flex-col hover:border-indigo-200 hover:shadow-2xl hover:-translate-y-2'}`}>
+    <div 
+      onClick={onClick} 
+      className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
+        isList 
+          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-xl hover:-translate-x-1' 
+          : 'rounded-[3rem] flex-col hover:shadow-2xl hover:-translate-y-2'
+      }`}
+    >
       {topic.imageUrl && (
-        <div className={isList ? "w-32 h-32 relative rounded-2xl overflow-hidden shrink-0 shadow-md border border-gray-50" : "h-48 w-full relative bg-gray-50 overflow-hidden"}>
+        <div className={isList ? "w-40 h-40 relative rounded-2xl overflow-hidden shrink-0 shadow-xl" : "h-56 w-full relative bg-gray-50 overflow-hidden"}>
           <Image src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} alt={topic.title} fill className="object-cover group-hover:scale-110 transition-transform duration-700" unoptimized />
-          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />}
+          {!isList && <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-60" />}
         </div>
       )}
-      <div className={isList ? "flex flex-col flex-1 min-w-0 py-1" : "p-8 flex flex-col gap-4 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-black text-gray-800 text-lg truncate group-hover:text-indigo-600 transition-colors tracking-tight">{topic.title}</h4>
-          <div className="flex items-center gap-1 text-gray-400 font-black text-[10px] bg-gray-50 px-2 py-0.5 rounded-lg"><MessageSquare className="w-3 h-3" /> {topic.commentCount}</div>
-        </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold mb-4 flex-1">{stripMarkdown(topic.content)}</p>
-        <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-full overflow-hidden relative bg-gray-100">
-              {topic.authorProfileImage ? <Image src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} alt="" fill className="object-cover" /> : <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-[8px] text-indigo-500 font-bold">{topic.authorNickname[0]}</div>}
-            </div>
-            <span className="text-[10px] text-gray-400 font-black">{topic.authorNickname}</span>
+      <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
+        <div className="flex items-center justify-between">
+          <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
+            {topic.title}
+          </h4>
+          <div className="flex items-center gap-1.5 text-indigo-500 font-black text-[11px] bg-indigo-50 px-3 py-1 rounded-xl shadow-sm">
+            <MessageSquare className="w-3.5 h-3.5" /> 
+            {topic.commentCount}
           </div>
-          <span className="text-[10px] text-gray-300 font-bold">{format(new Date(topic.createdAt), 'yyyy.MM.dd')}</span>
+        </div>
+        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold flex-1">
+          {stripMarkdown(topic.content)}
+        </p>
+        <div className="flex items-center justify-between pt-5 border-t border-gray-50 mt-auto">
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 rounded-full overflow-hidden relative bg-indigo-50 shadow-inner">
+              {topic.authorProfileImage ? (
+                <Image src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} alt="" fill className="object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[9px] text-indigo-500 font-black">
+                  {topic.authorNickname[0]}
+                </div>
+              )}
+            </div>
+            <span className="text-[11px] text-gray-500 font-black tracking-tight">{topic.authorNickname}</span>
+          </div>
+          <span className="text-[11px] text-gray-300 font-black">{format(new Date(topic.createdAt), 'yyyy.MM.dd')}</span>
         </div>
       </div>
     </div>

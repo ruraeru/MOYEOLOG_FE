@@ -32,35 +32,38 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 w-full items-center justify-between px-4 sm:px-6">
+    <nav className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/90 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full items-center justify-between px-6 lg:px-10">
         {/* Left: Logo */}
-        <div className="flex items-center gap-4 lg:gap-10">
-          <Link href="/home" className="flex items-center gap-2 shrink-0">
-            <div className="h-8 w-8 rounded-lg bg-[#6366F1] flex items-center justify-center shadow-sm">
-              <Calendar className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-8">
+          <Link href="/home" className="flex items-center gap-2.5 shrink-0 group">
+            <div className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors duration-300">
+              <Calendar className="w-5 h-5 text-indigo-500" />
             </div>
-            <span className="text-lg font-bold text-gray-800 hidden xs:block">모여로그</span>
+            <div className="flex flex-col">
+              <span className="text-lg font-extrabold text-gray-800 tracking-tight leading-none">모여로그</span>
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Moyeolog</span>
+            </div>
           </Link>
         </div>
 
-        {/* Center: Menu (Hidden on mobile/tablet, shown on XL screens) */}
-        <div className="hidden xl:flex items-center gap-1">
+        {/* Center: Menu (Visible from LG screens) */}
+        <div className="hidden lg:flex items-center gap-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isActive
-                  ? 'bg-[#F0F2FF] text-[#6366F1]'
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
+                  ? 'bg-indigo-50 text-indigo-600'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                   }`}
               >
                 <div className="relative">
-                  <item.icon className="w-5 h-5" />
+                  <item.icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
                   {item.badge && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white font-bold border-2 border-white">
+                    <span className="absolute -top-2 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-400 text-[8px] text-white font-bold border-2 border-white">
                       {item.badge}
                     </span>
                   )}
@@ -72,18 +75,18 @@ export default function Navbar() {
         </div>
 
         {/* Right: User */}
-        <div className="flex items-center gap-4">
-          <Link href="/notifications" className="relative p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
-            <Bell className="w-6 h-6" />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 border-2 border-white"></span>
+        <div className="flex items-center gap-5">
+          <Link href="/notifications" className="relative p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all">
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-2.5 right-2.5 h-1.5 w-1.5 rounded-full bg-red-400 border border-white"></span>
           </Link>
 
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="h-8 w-8 rounded-full bg-[#D1D5DB] flex items-center justify-center text-xs font-bold text-white overflow-hidden border border-gray-100 hover:ring-2 hover:ring-indigo-100 transition-all"
+            className="h-10 w-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 hover:border-indigo-100 hover:text-indigo-500 transition-all overflow-hidden"
           >
             {session?.user?.image ? (
-              <Image src={session.user.image} alt="User" width={32} height={32} />
+              <Image src={session.user.image} alt="User" width={40} height={40} className="object-cover" />
             ) : (
               <span>{session?.user?.name?.[0] || '나'}</span>
             )}
