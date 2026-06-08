@@ -11,6 +11,8 @@ import {
   Trash2,
   Pencil,
   Send,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupTopicApi } from '@/lib/group-topic-api';
@@ -64,6 +66,7 @@ export default function GroupTopicDetailModal({
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCommenting, setIsCommenting] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Mention states
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -213,7 +216,11 @@ export default function GroupTopicDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-[2.5rem] w-full max-w-6xl max-h-[90vh] flex shadow-2xl overflow-hidden relative"
+        className={`bg-white flex shadow-2xl overflow-hidden relative transition-all duration-300 ${
+          isFullscreen
+            ? 'fixed inset-0 w-screen h-screen rounded-none z-[70]'
+            : 'rounded-[2.5rem] w-full max-w-6xl max-h-[90vh]'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Main Content Area */}
@@ -254,6 +261,13 @@ export default function GroupTopicDetailModal({
                   </button>
                 </>
               )}
+              <button
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="p-2.5 hover:bg-gray-100 rounded-2xl transition-colors text-gray-400"
+                title={isFullscreen ? "축소하기" : "전체화면"}
+              >
+                {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+              </button>
               <button
                 onClick={onClose}
                 className="p-2.5 hover:bg-gray-100 rounded-2xl transition-colors text-gray-400"
