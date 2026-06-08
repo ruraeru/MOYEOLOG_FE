@@ -26,7 +26,7 @@ export default function AppointmentDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl max-h-[90vh] flex flex-col"
+        className="w-full max-w-5xl max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <AppointmentDetailView 
