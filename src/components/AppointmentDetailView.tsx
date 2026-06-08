@@ -11,6 +11,7 @@ import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ImageWithFallback from './ImageWithFallback';
+import AppointmentModal from './AppointmentModal';
 
 interface LocationDetail {
   address: string;
@@ -42,6 +43,7 @@ export default function AppointmentDetailView({
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(initialSchedule || null);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // 장소 상세 정보 상태
   const [locationDetail, setLocationDetail] = useState<LocationDetail | null>(null);
@@ -197,15 +199,13 @@ export default function AppointmentDetailView({
           <div className="flex items-center gap-2">
             {session?.user?.id === schedule.authorId && (
               <>
-                {onEdit && (
-                  <button 
-                    onClick={() => onEdit(schedule)}
-                    className="p-2 hover:bg-indigo-50 rounded-full transition-colors text-gray-400 hover:text-indigo-500"
-                    title="일정 수정"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                  </button>
-                )}
+                <button 
+                  onClick={() => onEdit ? onEdit(schedule) : setIsEditModalOpen(true)}
+                  className="p-2 hover:bg-indigo-50 rounded-full transition-colors text-gray-400 hover:text-indigo-500"
+                  title="일정 수정"
+                >
+                  <Edit2 className="w-5 h-5" />
+                </button>
                 <button 
                   onClick={handleDelete}
                   disabled={isDeleting}
@@ -420,6 +420,20 @@ export default function AppointmentDetailView({
           <span>Created: {format(parseISO(schedule.createdAt), 'yyyy. MM. dd. HH:mm')}</span>
         </div>
       </div>
+
+      <AppointmentModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        initialSchedule={schedule} 
+        onSuccess={() => {
+          setIsEditModalOpen(false);
+          onSuccess?.();
+          // 페이지 모드라면 서버 액션 또는 강제 새로고침 (또는 상태 업데이트 로직 추가 필요)
+          if (isPage) {
+            window.location.reload();
+          }
+        }} 
+      />
     </div>
   );
 }
