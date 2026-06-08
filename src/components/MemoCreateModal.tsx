@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   X,
   Upload,
@@ -12,14 +12,11 @@ import {
   Lightbulb,
   Loader2,
   Calendar,
-  FileText,
-  Link2
+  FileText
 } from 'lucide-react';
 import { fileToDataUrl } from '@/lib/utils';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
-import { useMentions } from '@/hooks/useMentions';
-import { Chip, MentionList } from './Mentions';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import '@uiw/react-md-editor/markdown-editor.css';
@@ -53,28 +50,19 @@ export default function MemoCreateModal({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [taggedMemos, setTaggedMemos] = useState<MemoResponse[]>([]);
-  const [taggedSchedules, setTaggedSchedules] = useState<ScheduleResponse[]>([]);
-
-  const [memoMentionInput, setMemoMentionInput] = useState('');
-  const [scheduleMentionInput, setScheduleMentionInput] = useState('');
-
+  // 데이터 로드
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
 
-  const { 
-    showMemoMentions, setShowMemoMentions, filteredMemos,
-    showScheduleMentions, setShowScheduleMentions, filteredSchedules,
-    handleInputChange
-  } = useMentions({ 
-    allMemos, 
-    friends: [], 
-    userGroups: [], 
-    schedules,
-    currentUserId: session?.user?.id 
+  // 인라인 멘션 상태
+  const [mentionState, setMentionState] = useState({
+    active: false,
+    query: '',
+    startPos: 0,
+    endPos: 0
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen && session) {
       Promise.all([
         memoApi.getAll(session),
@@ -84,10 +72,7 @@ export default function MemoCreateModal({
         setSchedules(schedulesData);
       }).catch(console.error);
     } else {
-      setTaggedMemos([]);
-      setTaggedSchedules([]);
-      setMemoMentionInput('');
-      setScheduleMentionInput('');
+      setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
     }
   }, [isOpen, session]);
 
@@ -99,6 +84,7 @@ export default function MemoCreateModal({
     setImagePreview(null);
     setImageFile(null);
     setError(null);
+    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
   }, []);
 
   const handleClose = () => {
@@ -131,6 +117,30 @@ export default function MemoCreateModal({
     setTagInput('');
   };
 
+  // 인라인 멘션 키보드 감지 로직
+  const handleEditorKeyUp = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    if (target.tagName !== 'TEXTAREA') return;
+
+    const cursor = target.selectionStart;
+    const textBeforeCursor = target.value.slice(0, cursor);
+    const match = textBeforeCursor.match(/@([^\s]*)$/);
+
+    if (match) {
+      setMentionState({ active: true, query: match[1], startPos: match.index!, endPos: cursor });
+    } else {
+      setMentionState(prev => prev.active ? { ...prev, active: false } : prev);
+    }
+  };
+
+  // 마크다운 링크 삽입 로직
+  const insertMention = (item: { id: string; title: string }, type: 'memo' | 'schedule') => {
+    const link = `[@${item.title}](/${type}/${item.id}) `;
+    const newContent = content.slice(0, mentionState.startPos) + link + content.slice(mentionState.endPos);
+    setContent(newContent);
+    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       setError('제목을 입력해주세요.');
@@ -141,14 +151,18 @@ export default function MemoCreateModal({
     setError(null);
 
     try {
+      // 마크다운 파싱을 통한 자동 태그 추출
+      const taggedMemoIds = Array.from(new Set([...content.matchAll(/\[@[^\]]+\]\(\/memo\/([a-zA-Z0-9-]+)\)/g)].map(m => m[1])));
+      const taggedScheduleIds = Array.from(new Set([...content.matchAll(/\[@[^\]]+\]\(\/schedule\/([a-zA-Z0-9-]+)\)/g)].map(m => m[1])));
+
       await memoApi.create({
         title,
         content,
         imageFile: imageFile || undefined,
         groupId: groupId || undefined,
         tags: tags,
-        taggedMemoIds: taggedMemos.map(m => m.id),
-        taggedScheduleIds: taggedSchedules.map(s => s.id)
+        taggedMemoIds,
+        taggedScheduleIds
       }, session);
 
       resetForm();
@@ -162,6 +176,10 @@ export default function MemoCreateModal({
   };
 
   if (!isOpen) return null;
+
+  // 멘션 필터링
+  const matchedMemos = allMemos.filter(m => m.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
+  const matchedSchedules = schedules.filter(s => s.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
 
   return (
     <div
@@ -184,7 +202,7 @@ export default function MemoCreateModal({
         </div>
 
         <div className="flex h-[600px]">
-          <div className="flex-1 flex flex-col p-8 border-r border-gray-100 overflow-y-auto no-scrollbar">
+          <div className="flex-1 flex flex-col p-8 border-r border-gray-100 overflow-y-auto no-scrollbar relative">
             <input
               type="text"
               value={title}
@@ -194,7 +212,7 @@ export default function MemoCreateModal({
             />
 
             <div
-              className="w-full border-2 border-dashed border-gray-100 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-gray-50/30 hover:bg-gray-50 transition-colors cursor-pointer mb-6 group relative overflow-hidden min-h-[120px]"
+              className="w-full border-2 border-dashed border-gray-100 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-gray-50/30 hover:bg-gray-50 transition-colors cursor-pointer mb-6 group relative overflow-hidden min-h-[120px] shrink-0"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
@@ -243,17 +261,49 @@ export default function MemoCreateModal({
               )}
             </div>
 
-            <div className="flex-1 min-h-[350px] border border-gray-100 rounded-2xl overflow-hidden bg-white" data-color-mode="light">
+            <div className="flex-1 min-h-[250px] relative" data-color-mode="light" onKeyUp={handleEditorKeyUp}>
               <MDEditor
                 value={content}
                 onChange={(val) => setContent(val || '')}
                 preview="live"
                 height="100%"
-                style={{ borderRadius: '1rem' }}
+                style={{ borderRadius: '1rem', border: '1px solid #F3F4F6' }}
                 textareaProps={{
-                  placeholder: '내용을 입력하세요 (마크다운 지원)...'
+                  placeholder: '내용을 입력하세요 (@를 입력하여 일정이나 메모를 바로 태그할 수 있습니다)...'
                 }}
               />
+              
+              {/* 에디터 인라인 멘션 팝업 */}
+              {mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
+                <div className="absolute z-50 bottom-4 left-4 w-72 max-h-64 overflow-y-auto bg-white border border-gray-100 shadow-2xl rounded-2xl p-2 no-scrollbar">
+                  {matchedSchedules.length > 0 && (
+                    <div className="mb-2">
+                      <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">일정 결과</div>
+                      {matchedSchedules.map(s => (
+                        <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
+                          <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
+                            <Calendar className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="truncate">{s.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {matchedMemos.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">메모 결과</div>
+                      {matchedMemos.map(m => (
+                        <button key={m.id} onClick={() => insertMention(m, 'memo')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
+                          <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
+                            <FileText className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="truncate">{m.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -288,12 +338,12 @@ export default function MemoCreateModal({
                     }
                   }}
                   placeholder="태그 입력"
-                  className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-blue-400 shadow-sm"
+                  className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-indigo-400 shadow-sm transition-colors"
                 />
                 <button
                   type="button"
                   onClick={addTag}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 shrink-0"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 shrink-0 shadow-sm"
                 >
                   추가
                 </button>
@@ -303,9 +353,10 @@ export default function MemoCreateModal({
                   {tags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md"
+                      className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer hover:bg-indigo-100 transition-colors"
+                      onClick={() => setTags(tags.filter(t => t !== tag))}
                     >
-                      {tag}
+                      {tag} <X className="w-3 h-3 opacity-50" />
                     </span>
                   ))}
                 </div>
@@ -314,91 +365,28 @@ export default function MemoCreateModal({
 
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <Link2 className="w-4 h-4" />
-                <span>일정 / 메모 연결 (@멘션)</span>
-              </div>
-              
-              <div className="relative">
-                <input
-                  type="text"
-                  value={scheduleMentionInput}
-                  onChange={(e) => {
-                    setScheduleMentionInput(e.target.value);
-                    handleInputChange(e.target.value, 'schedule');
-                  }}
-                  placeholder="일정 제목 입력 또는 @"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-indigo-400 shadow-sm"
-                />
-                {showScheduleMentions && (
-                  <MentionList 
-                    items={filteredSchedules} 
-                    onSelect={(m) => { 
-                      setTaggedSchedules([...taggedSchedules, schedules.find(s => s.id === m.id)!]); 
-                      setShowScheduleMentions(false); 
-                      setScheduleMentionInput(''); 
-                    }} 
-                    isMemo 
-                  />
-                )}
-              </div>
-              {taggedSchedules.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {taggedSchedules.map(s => (
-                    <Chip key={s.id} label={s.title} icon={<Calendar className="w-3 h-3" />} onRemove={() => setTaggedSchedules(taggedSchedules.filter(item => item.id !== s.id))} />
-                  ))}
-                </div>
-              )}
-
-              <div className="relative mt-2">
-                <input
-                  type="text"
-                  value={memoMentionInput}
-                  onChange={(e) => {
-                    setMemoMentionInput(e.target.value);
-                    handleInputChange(e.target.value, 'memo');
-                  }}
-                  placeholder="메모 제목 입력 또는 @"
-                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-indigo-400 shadow-sm"
-                />
-                {showMemoMentions && (
-                  <MentionList 
-                    items={filteredMemos} 
-                    onSelect={(m) => { 
-                      setTaggedMemos([...taggedMemos, allMemos.find(memo => memo.id === m.id)!]); 
-                      setShowMemoMentions(false); 
-                      setMemoMentionInput(''); 
-                    }} 
-                    isMemo 
-                  />
-                )}
-              </div>
-              {taggedMemos.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {taggedMemos.map(m => (
-                    <Chip key={m.id} label={m.title} icon={<FileText className="w-3 h-3" />} onRemove={() => setTaggedMemos(taggedMemos.filter(item => item.id !== m.id))} />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
                 <Sparkles className="w-4 h-4 text-blue-500" />
-                <span>AI 기능</span>
+                <span>AI 스마트 기능</span>
               </div>
-              <p className="text-[10px] text-gray-400 font-medium leading-relaxed">
-                저장 시 자동으로 요약·키워드·감정 분석이 실행됩니다. (서버 연동 전 목 분석)
+              <p className="text-[10px] text-gray-400 font-medium leading-relaxed bg-white p-3 rounded-xl border border-gray-100">
+                저장 시 첨부된 이미지의 텍스트를 추출하고 자동으로 핵심 키워드를 추천합니다.
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-xs font-bold text-yellow-500">
                 <Lightbulb className="w-3.5 h-3.5" />
-                <span>팁</span>
+                <span>에디터 활용 팁</span>
               </div>
-              <ul className="text-[10px] text-gray-400 space-y-2 leading-relaxed font-medium">
-                <li>• 이미지를 첨부하면 AI가 텍스트를 추출합니다</li>
-                <li>• 태그를 활용해 메모를 쉽게 찾을 수 있어요</li>
+              <ul className="text-[10px] text-gray-500 space-y-2.5 leading-relaxed font-medium bg-yellow-50/50 p-4 rounded-xl border border-yellow-100/50">
+                <li className="flex gap-1.5">
+                  <span className="text-yellow-500">•</span>
+                  에디터 본문에 <strong className="text-gray-700">@</strong>를 입력하여 일정이나 다른 메모를 즉시 멘션할 수 있습니다.
+                </li>
+                <li className="flex gap-1.5">
+                  <span className="text-yellow-500">•</span>
+                  멘션된 항목들은 저장 시 자동으로 일정 및 메모 정보와 양방향 연결됩니다.
+                </li>
               </ul>
             </div>
           </div>
@@ -416,7 +404,7 @@ export default function MemoCreateModal({
               type="button"
               onClick={handleClose}
               disabled={isSaving}
-              className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-50 disabled:opacity-50"
+              className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               취소
             </button>
@@ -424,7 +412,7 @@ export default function MemoCreateModal({
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="px-6 py-2.5 bg-[#6366F1] text-white rounded-xl text-sm font-bold hover:bg-[#5558E6] disabled:opacity-70 flex items-center gap-2"
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-70 flex items-center gap-2 shadow-sm transition-colors"
             >
               {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
               {isSaving ? '저장 중…' : '메모 저장'}
