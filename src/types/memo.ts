@@ -10,6 +10,8 @@ export type Memo = {
   imageDataUrl?: string;
   imageUrl?: string;
   tags: string[];
+  taggedMemos?: { id: string; title: string }[];
+  taggedSchedules?: { id: string; title: string }[];
   category?: string;
   categoryColor?: string;
   locked?: boolean;

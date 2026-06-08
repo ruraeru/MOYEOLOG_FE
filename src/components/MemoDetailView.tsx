@@ -14,9 +14,13 @@ import {
   ChevronLeft,
   Upload,
   Check,
+  Calendar as LucideCalendar,
+  FileText,
+  ChevronRight
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
+import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import MemoShareModal from './MemoShareModal';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -155,6 +159,16 @@ export default function MemoDetailView({
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // 멘션 데이터 및 상태
+  const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
+  const [mentionState, setMentionState] = useState({
+    active: false,
+    query: '',
+    startPos: 0,
+    endPos: 0
+  });
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
   const fetchMemoDetail = async () => {
@@ -181,6 +195,15 @@ export default function MemoDetailView({
   useEffect(() => {
     if (!memoId || !session) return;
     fetchMemoDetail();
+
+    // 멘션용 데이터 로드
+    Promise.all([
+      memoApi.getAll(session),
+      scheduleApi.getAll(session)
+    ]).then(([memosData, schedulesData]) => {
+      setAllMemos(memosData);
+      setSchedules(schedulesData);
+    }).catch(console.error);
   }, [memoId, session]);
 
   const handleStartEdit = () => {
@@ -198,21 +221,29 @@ export default function MemoDetailView({
 
   const handleCancelEdit = () => {
     setIsEditing(false);
+    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
   };
 
   const handleSaveEdit = async () => {
     if (!memo || !editTitle.trim()) return;
     setIsSaving(true);
     try {
+      // 마크다운 파싱을 통한 자동 태그 추출
+      const taggedMemoIds = Array.from(new Set([...editContent.matchAll(/\[@[^\]]+\]\(\/memo\/([a-zA-Z0-9-]+)\)/g)].map(m => m[1])));
+      const taggedScheduleIds = Array.from(new Set([...editContent.matchAll(/\[@[^\]]+\]\(\/schedule\/([a-zA-Z0-9-]+)\)/g)].map(m => m[1])));
+
       await memoApi.update(memo.id, {
         title: editTitle,
         content: editContent,
         imageFile: editImageFile || undefined,
         tags: currentTags,
+        taggedMemoIds,
+        taggedScheduleIds
       }, session);
       
       await fetchMemoDetail();
       setIsEditing(false);
+      setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
     } catch (error) {
       console.error('Failed to save memo:', error);
       alert('저장에 실패했습니다.');
@@ -299,6 +330,29 @@ export default function MemoDetailView({
     }
   };
 
+  // 인라인 멘션 핸들러
+  const handleEditorKeyUp = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLTextAreaElement;
+    if (target.tagName !== 'TEXTAREA') return;
+
+    const cursor = target.selectionStart;
+    const textBeforeCursor = target.value.slice(0, cursor);
+    const match = textBeforeCursor.match(/@([^\s]*)$/);
+
+    if (match) {
+      setMentionState({ active: true, query: match[1], startPos: match.index!, endPos: cursor });
+    } else {
+      setMentionState(prev => prev.active ? { ...prev, active: false } : prev);
+    }
+  };
+
+  const insertMention = (item: { id: string; title: string }, type: 'memo' | 'schedule') => {
+    const link = `[@${item.title}](/${type}/${item.id}) `;
+    const newContent = editContent.slice(0, mentionState.startPos) + link + editContent.slice(mentionState.endPos);
+    setEditContent(newContent);
+    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
+  };
+
   if (loadingMemo) {
     return (
       <div className="flex-1 flex items-center justify-center bg-white p-4">
@@ -313,6 +367,9 @@ export default function MemoDetailView({
   if (!memo) return null;
 
   const imageSrc = isEditing ? editImagePreview : (memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null);
+
+  const matchedMemos = allMemos.filter(m => m.id !== memo.id && m.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
+  const matchedSchedules = schedules.filter(s => s.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
 
   return (
     <div className={`flex flex-col lg:flex-row bg-white overflow-hidden ${isPage ? 'h-full' : 'w-full h-full'}`}>
@@ -454,7 +511,7 @@ export default function MemoDetailView({
           />
         )}
 
-        <div className="text-gray-700 leading-relaxed min-h-[400px]" data-color-mode="light">
+        <div className="text-gray-700 leading-relaxed min-h-[400px] relative" data-color-mode="light" onKeyUp={isEditing ? handleEditorKeyUp : undefined}>
           {isEditing ? (
             <MDEditor
               value={editContent}
@@ -473,6 +530,38 @@ export default function MemoDetailView({
                 color: 'inherit'
               }} 
             />
+          )}
+
+          {/* 에디터 인라인 멘션 팝업 */}
+          {isEditing && mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
+            <div className="absolute z-50 bottom-4 left-4 w-72 max-h-64 overflow-y-auto bg-white border border-gray-100 shadow-2xl rounded-2xl p-2 no-scrollbar">
+              {matchedSchedules.length > 0 && (
+                <div className="mb-2">
+                  <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">일정 결과</div>
+                  {matchedSchedules.map(s => (
+                    <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
+                        <LucideCalendar className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="truncate">{s.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {matchedMemos.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">메모 결과</div>
+                  {matchedMemos.map(m => (
+                    <button key={m.id} onClick={() => insertMention(m, 'memo')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
+                      <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="truncate">{m.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -605,6 +694,46 @@ export default function MemoDetailView({
             </div>
             <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-xs text-gray-500 leading-relaxed font-medium whitespace-pre-wrap min-h-[100px]">
               {loadingInsight ? '분석 중…' : insight?.ocrText ?? '—'}
+            </div>
+          </div>
+        )}
+
+        {/* Tagged Memos and Schedules */}
+        {!isEditing && memo.taggedSchedules && memo.taggedSchedules.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="flex items-center gap-2 text-gray-900 font-bold">
+              <LucideCalendar className="w-5 h-5 text-indigo-500" /> 
+              <span className="text-sm">연결된 일정</span>
+            </h3>
+            <div className="grid grid-cols-1 gap-2">
+              {memo.taggedSchedules.map((sch) => (
+                <div key={sch.id} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                  <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 shrink-0">
+                    <LucideCalendar className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-bold text-gray-800 text-xs truncate flex-1">{sch.title}</h4>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isEditing && memo.taggedMemos && memo.taggedMemos.length > 0 && (
+          <div className="space-y-4">
+            <h3 className="flex items-center gap-2 text-gray-900 font-bold">
+              <FileText className="w-5 h-5 text-indigo-500" /> 
+              <span className="text-sm">연결된 메모</span>
+            </h3>
+            <div className="grid grid-cols-1 gap-2">
+              {memo.taggedMemos.map((m) => (
+                <div key={m.id} onClick={() => router.push(`/memo/${m.id}`)} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm hover:border-indigo-200 cursor-pointer transition-all">
+                  <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <h4 className="font-bold text-gray-800 text-xs truncate flex-1">{m.title}</h4>
+                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                </div>
+              ))}
             </div>
           </div>
         )}
