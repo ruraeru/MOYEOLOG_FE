@@ -79,9 +79,9 @@ function MemoContent() {
   }, [allMemos, sharedMemos]);
 
   const toggleTag = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag) 
+    setSelectedTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
   };
@@ -104,7 +104,7 @@ function MemoContent() {
 
     // Tag filtering (Multi-select AND condition)
     if (selectedTags.length > 0) {
-      filtered = filtered.filter(m => 
+      filtered = filtered.filter(m =>
         selectedTags.every(tag => m.tags?.includes(tag))
       );
     }
@@ -160,7 +160,7 @@ function MemoContent() {
     if (filter.type === 'shared') baseTitle = '공유받은 메모';
     if (filter.type === 'my') baseTitle = '내 메모';
     if (filter.type === 'favorites') baseTitle = '즐겨찾기';
-    
+
     if (selectedTags.length > 0) {
       return `${baseTitle} (#${selectedTags.join(', #')})`;
     }
@@ -188,12 +188,12 @@ function MemoContent() {
             <SectionTitle label="모임별 폴더" />
             <div className="space-y-1">
               {userGroups.map(g => (
-                <SidebarItem 
-                  key={g.id} 
-                  label={g.name} 
-                  active={filter.type === 'group' && filter.id === g.id} 
-                  color={getThemeColors(g.colorTheme).bg} 
-                  onClick={() => setFilter({ type: 'group', id: g.id })} 
+                <SidebarItem
+                  key={g.id}
+                  label={g.name}
+                  active={filter.type === 'group' && filter.id === g.id}
+                  color={getThemeColors(g.colorTheme).bg}
+                  onClick={() => setFilter({ type: 'group', id: g.id })}
                 />
               ))}
             </div>
@@ -211,18 +211,18 @@ function MemoContent() {
 
         <main className="flex-1 flex flex-col overflow-hidden bg-white">
           <Header title={getPageTitle()} loading={loading} onViewChange={setViewMode} currentView={viewMode} />
-          
+
           <div className="flex-1 overflow-y-auto p-8 pt-4 no-scrollbar">
             {loading && allMemos.length === 0 ? <LoadingState /> : memos.length === 0 ? <EmptyState type={filter.type} /> : (
               <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
                 {memos.map(memo => (
-                  <MemoCard 
-                    key={memo.id} 
-                    {...memo} 
-                    viewMode={viewMode} 
-                    onClick={() => router.push(`/memo/${memo.id}`)} 
-                    onToggleFavorite={(e: React.MouseEvent) => handleToggleFavorite(e, memo.id)} 
-                    onTagClick={(e: React.MouseEvent, tag: string) => { e.stopPropagation(); toggleTag(tag); }} 
+                  <MemoCard
+                    key={memo.id}
+                    {...memo}
+                    viewMode={viewMode}
+                    onClick={() => router.push(`/memo/${memo.id}`)}
+                    onToggleFavorite={(e: React.MouseEvent) => handleToggleFavorite(e, memo.id)}
+                    onTagClick={(e: React.MouseEvent, tag: string) => { e.stopPropagation(); toggleTag(tag); }}
                   />
                 ))}
               </div>
@@ -262,13 +262,12 @@ interface SidebarItemProps {
 
 function SidebarItem({ icon: Icon, label, active, color, onClick }: SidebarItemProps) {
   return (
-    <div 
-      onClick={onClick} 
-      className={`flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 group ${
-        active 
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+    <div
+      onClick={onClick}
+      className={`flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 group ${active
+          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
           : 'hover:bg-white text-gray-500 hover:text-indigo-600'
-      }`}
+        }`}
     >
       <div className="flex items-center gap-3">
         {Icon ? (
@@ -290,13 +289,12 @@ interface TagBadgeProps {
 
 function TagBadge({ label, isActive, onClick }: TagBadgeProps) {
   return (
-    <span 
-      onClick={onClick} 
-      className={`text-[10px] font-black px-3 py-1.5 rounded-xl cursor-pointer transition-all duration-300 ${
-        isActive 
-          ? 'bg-indigo-600 text-white shadow-md' 
+    <span
+      onClick={onClick}
+      className={`text-[10px] font-black px-3 py-1.5 rounded-xl cursor-pointer transition-all duration-300 ${isActive
+          ? 'bg-indigo-600 text-white shadow-md'
           : 'bg-white text-gray-400 hover:text-indigo-600 hover:shadow-sm border border-transparent hover:border-indigo-100'
-      }`}
+        }`}
     >
       #{label}
     </span>
@@ -318,23 +316,23 @@ function Header({ title, loading, onViewChange, currentView }: HeaderProps) {
         {loading && <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />}
       </div>
       <div className="flex items-center gap-4 justify-between">
-        <div className="relative flex-1 max-w-2xl group">
-          <input 
-            type="text" 
-            placeholder="메모 제목 또는 내용 검색" 
-            className="w-full bg-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-50 transition-all outline-none shadow-sm group-hover:shadow-md" 
+        <div className="relative flex-1 w-full group">
+          <input
+            type="text"
+            placeholder="메모 제목 또는 내용 검색"
+            className="w-full bg-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-50 transition-all outline-none shadow-sm group-hover:shadow-md"
           />
           <Search className="w-5 h-5 absolute left-4 top-4 text-gray-300 group-hover:text-indigo-400 transition-colors" />
         </div>
         <div className="flex p-1.5 bg-gray-200/50 rounded-2xl">
-          <button 
-            onClick={() => onViewChange('grid')} 
+          <button
+            onClick={() => onViewChange('grid')}
             className={`p-2.5 rounded-xl transition-all ${currentView === 'grid' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
           >
             <Grid className="w-4 h-4" />
           </button>
-          <button 
-            onClick={() => onViewChange('list')} 
+          <button
+            onClick={() => onViewChange('list')}
             className={`p-2.5 rounded-xl transition-all ${currentView === 'list' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
           >
             <List className="w-4 h-4" />
@@ -370,29 +368,27 @@ interface MemoCardProps extends MemoCardView {
 function MemoCard({ title, description, image, tags, category, categoryColor, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
-    <div 
-      onClick={onClick} 
-      className={`bg-white border border-gray-100 transition-all duration-300 group flex overflow-hidden cursor-pointer ${
-        isList 
-          ? 'rounded-2xl p-5 gap-6 hover:border-indigo-200 hover:bg-indigo-50/10' 
+    <div
+      onClick={onClick}
+      className={`bg-white border border-gray-100 transition-all duration-300 group flex overflow-hidden cursor-pointer ${isList
+          ? 'rounded-2xl p-5 gap-6 hover:border-indigo-200 hover:bg-indigo-50/10'
           : 'rounded-3xl flex-col hover:border-indigo-200 hover:shadow-sm'
-      }`}
+        }`}
     >
       {image && (
-        <ImageWithFallback 
-          src={image} 
-          alt={title} 
-          fill 
-          containerClassName={isList ? "w-28 h-28 rounded-xl shrink-0 shadow-sm" : "h-44 w-full bg-gray-50"} 
-          className="object-cover group-hover:scale-105 transition-transform duration-500" 
+        <ImageWithFallback
+          src={image}
+          alt={title}
+          fill
+          containerClassName={isList ? "w-28 h-28 rounded-xl shrink-0 shadow-sm" : "h-44 w-full bg-gray-50"}
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
       )}
       {!isList && image && (
-        <button 
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }} 
-          className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg backdrop-blur-md transition-all ${
-            isFavorite ? 'bg-amber-400 text-white' : 'bg-white/80 text-gray-300 hover:text-indigo-400'
-          }`}
+        <button
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
+          className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg backdrop-blur-md transition-all ${isFavorite ? 'bg-amber-400 text-white' : 'bg-white/80 text-gray-300 hover:text-indigo-400'
+            }`}
         >
           <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
         </button>
@@ -402,8 +398,8 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
           <h4 className="font-bold text-gray-800 text-base truncate group-hover:text-indigo-500 transition-colors tracking-tight">{title}</h4>
           <div className="flex items-center gap-1.5">
             {(isList || !image) && (
-              <button 
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }} 
+              <button
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
                 className={`p-1 rounded-md transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-200 hover:text-indigo-400 hover:bg-indigo-50'}`}
               >
                 <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
@@ -415,9 +411,9 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
         <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2 font-medium">{description}</p>
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span 
-              key={tag} 
-              onClick={(e: React.MouseEvent) => onTagClick(e, tag)} 
+            <span
+              key={tag}
+              onClick={(e: React.MouseEvent) => onTagClick(e, tag)}
               className="text-[10px] text-indigo-400 font-bold bg-indigo-50/50 px-2 py-0.5 rounded-lg hover:bg-indigo-100 transition-colors"
             >
               #{tag}

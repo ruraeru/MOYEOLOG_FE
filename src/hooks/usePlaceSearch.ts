@@ -61,7 +61,7 @@ export function usePlaceSearch() {
     const ps = new kakao.maps.services.Places();
 
     const fetchImage = async (name: string) => {
-      const defaultImage = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop';
+      const defaultImage = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400&h=300&fit=crop';
       try {
         const res = await fetch(`/api/search-image?query=${encodeURIComponent(name)}`);
         const json = await res.json();

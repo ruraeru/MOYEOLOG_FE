@@ -19,15 +19,18 @@ interface ChipProps {
 }
 
 export function Chip({ label, image, icon, onRemove }: ChipProps) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
   return (
-    <div className="bg-indigo-50 text-indigo-700 text-[10px] font-black pl-1.5 pr-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100 shadow-sm">
+    <div className="bg-indigo-50 text-indigo-700 text-[10px] font-black pl-1.5 pr-3 py-1.5 rounded-full flex items-center gap-1.5 border border-indigo-100 shadow-sm relative">
       {image ? (
         <ImageWithFallback 
-          src={image} 
+          src={image.startsWith('/uploads/') ? `${apiUrl}${image}` : image} 
           alt={label} 
           fill 
           containerClassName="w-5 h-5 rounded-full border border-indigo-200 shrink-0" 
           className="object-cover" 
+          unoptimized
         />
       ) : (
         <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center border border-indigo-200 text-indigo-500 shrink-0">
@@ -51,8 +54,10 @@ interface MentionListProps {
 }
 
 export function MentionList({ items, onSelect, isMemo }: MentionListProps) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
   return (
-    <div className="absolute z-30 bottom-full mb-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-2 max-h-48 overflow-y-auto">
+    <div className="absolute z-30 bottom-full mb-2 w-full bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden py-2 max-h-48 overflow-y-auto no-scrollbar">
       {items.map((m) => (
         <button
           key={m.id}
@@ -66,7 +71,14 @@ export function MentionList({ items, onSelect, isMemo }: MentionListProps) {
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-gray-200 relative shrink-0 overflow-hidden">
                 {m.profileImage ? (
-                  <ImageWithFallback src={m.profileImage} alt={m.nickname || ''} fill className="object-cover" />
+                  <ImageWithFallback 
+                    src={m.profileImage.startsWith('/uploads/') ? `${apiUrl}${m.profileImage}` : m.profileImage} 
+                    alt={m.nickname || ''} 
+                    fill 
+                    containerClassName="w-full h-full"
+                    className="object-cover" 
+                    unoptimized
+                  />
                 ) : (
                   <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-[10px] text-indigo-600 font-bold">
                     {(m.nickname || '')[0]}

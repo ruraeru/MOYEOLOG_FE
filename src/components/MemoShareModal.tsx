@@ -22,6 +22,8 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: M
   const [isSharing, setIsSharing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
   useEffect(() => {
     if (isOpen && session) {
       setLoading(true);
@@ -104,7 +106,14 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: M
                   <div className="flex items-center gap-3">
                     <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
                       {friend.profileImage ? (
-                        <ImageWithFallback src={friend.profileImage} alt={friend.nickname} fill className="object-cover" />
+                        <ImageWithFallback 
+                          src={friend.profileImage.startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
+                          alt={friend.nickname} 
+                          fill 
+                          containerClassName="w-full h-full"
+                          className="object-cover" 
+                          unoptimized
+                        />
                       ) : (
                         <span className="text-sm font-black text-indigo-200">{friend.nickname[0]}</span>
                       )}

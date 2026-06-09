@@ -30,6 +30,8 @@ export default function GroupInviteModal({
   const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
   const fetchFriends = useCallback(async () => {
     try {
       setLoading(true);
@@ -136,7 +138,14 @@ export default function GroupInviteModal({
                   >
                     <div className="w-10 h-10 rounded-full relative overflow-hidden shrink-0 border border-gray-100">
                       {friend.profileImage ? (
-                        <ImageWithFallback src={friend.profileImage} alt={friend.nickname} fill className="object-cover" />
+                        <ImageWithFallback 
+                          src={friend.profileImage.startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
+                          alt={friend.nickname} 
+                          fill 
+                          containerClassName="w-full h-full"
+                          className="object-cover" 
+                          unoptimized
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 font-bold text-sm">
                           {friend.nickname.substring(0, 1)}

@@ -264,18 +264,16 @@ function Section({ label, icon, children }: { label: string, icon?: React.ReactN
 }
 
 function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name: string, image: string, rating: string, category: string, distance: string, y: string, x: string, desc: string }, onClick: () => void }) {
-  const [imgSrc, setImgSrc] = useState(rec.image);
-  
   return (
     <div onClick={onClick} className="flex-shrink-0 w-44 bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer group">
       <div className="relative h-24 w-full bg-gray-100">
         <ImageWithFallback 
-          src={imgSrc} 
+          src={rec.image} 
           alt={rec.name} 
           fill 
+          containerClassName="w-full h-full"
           className="object-cover group-hover:scale-110 transition-transform duration-500" 
           unoptimized 
-          onError={() => setImgSrc('https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=200&h=140&fit=crop')}
         />
         <div className="absolute top-1.5 right-1.5 z-10 bg-white/90 text-gray-800 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5"><Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" /> {rec.rating}</div>
       </div>

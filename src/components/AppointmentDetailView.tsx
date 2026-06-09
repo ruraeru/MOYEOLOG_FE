@@ -49,6 +49,8 @@ export default function AppointmentDetailView({
   const [locationDetail, setLocationDetail] = useState<LocationDetail | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
   // 일정 정보 로드 (scheduleId만 주어졌을 경우)
   useEffect(() => {
     if (initialSchedule) {
@@ -289,6 +291,7 @@ export default function AppointmentDetailView({
                         fill
                         containerClassName="w-full h-full"
                         className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                        unoptimized
                       />
                     </div>
                   )}
@@ -374,7 +377,14 @@ export default function AppointmentDetailView({
                 <div key={p.id} className="flex items-center gap-2 pl-2 pr-3 py-2 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-indigo-200 transition-colors cursor-default">
                   <div className="w-7 h-7 rounded-xl bg-indigo-50 flex items-center justify-center overflow-hidden border border-indigo-100 shrink-0">
                     {p.profileImage ? (
-                      <ImageWithFallback src={p.profileImage} alt={p.nickname} fill containerClassName="w-full h-full" className="object-cover" />
+                      <ImageWithFallback 
+                        src={p.profileImage.startsWith('/uploads/') ? `${apiUrl}${p.profileImage}` : p.profileImage} 
+                        alt={p.nickname} 
+                        fill 
+                        containerClassName="w-full h-full" 
+                        className="object-cover" 
+                        unoptimized
+                      />
                     ) : (
                       <span className="text-[10px] font-black text-indigo-500">{p.nickname[0]}</span>
                     )}
