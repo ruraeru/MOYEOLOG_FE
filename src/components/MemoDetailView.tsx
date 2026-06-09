@@ -372,9 +372,9 @@ export default function MemoDetailView({
   const matchedSchedules = schedules.filter(s => s.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
 
   return (
-    <div className={`flex flex-col lg:flex-row bg-white overflow-hidden ${isPage ? 'h-full' : 'w-full h-full'}`}>
+    <div className={`flex flex-col lg:flex-row bg-white overflow-hidden ${isPage ? 'h-[calc(100vh-64px)]' : 'h-[90vh] w-full'}`}>
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col p-6 lg:p-10 overflow-y-auto no-scrollbar border-r border-gray-100">
+      <div className="flex-1 flex flex-col p-6 lg:p-10 overflow-y-auto no-scrollbar border-r border-gray-100 pb-24">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3 flex-wrap flex-1">
             {isPage && !isEditing && (
