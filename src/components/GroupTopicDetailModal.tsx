@@ -230,13 +230,15 @@ export default function GroupTopicDetailModal({
           {/* Header */}
           <div className="px-10 py-8 border-b border-gray-50 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full relative border-2 border-gray-100 flex items-center justify-center overflow-hidden">
+              <div className="w-12 h-12 rounded-full relative border-2 border-gray-100 overflow-hidden shrink-0">
                 {topic.authorProfileImage ? (
                   <ImageWithFallback 
                     src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
                     alt={topic.authorNickname} 
                     fill 
+                    containerClassName="w-full h-full"
                     className="object-cover" 
+                    unoptimized
                   />
                 ) : (
                   <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-bold">
@@ -294,8 +296,9 @@ export default function GroupTopicDetailModal({
                 alt={topic.title} 
                 width={1200}
                 height={600}
-                containerClassName="w-full max-h-[500px] min-h-[200px] rounded-3xl shadow-xl border border-gray-100 bg-gray-50" 
+                containerClassName="w-full max-h-[500px] min-h-[200px] rounded-3xl shadow-xl border border-gray-100 bg-gray-50 overflow-hidden" 
                 className="w-full h-auto object-contain" 
+                unoptimized
               />
             )}
 
@@ -369,7 +372,7 @@ export default function GroupTopicDetailModal({
             <div className="flex-1 overflow-y-auto no-scrollbar px-8 space-y-6 pb-24">
               {comments.length > 0 ? comments.map((comment) => (
                 <div key={comment.id} className="flex gap-4 group/comment">
-                  <div className="w-10 h-10 rounded-2xl relative shrink-0 border border-gray-100 shadow-sm flex items-center justify-center overflow-hidden">
+                  <div className="w-10 h-10 rounded-2xl relative shrink-0 border border-gray-100 shadow-sm overflow-hidden">
                     {comment.authorProfileImage ? (
                       <ImageWithFallback 
                         src={comment.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${comment.authorProfileImage}` : comment.authorProfileImage} 
@@ -377,6 +380,7 @@ export default function GroupTopicDetailModal({
                         fill 
                         containerClassName="w-full h-full"
                         className="object-cover" 
+                        unoptimized
                       />
                     ) : (
                       <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-bold">
