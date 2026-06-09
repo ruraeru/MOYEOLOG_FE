@@ -104,10 +104,10 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: M
                   className={`flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all ${selectedFriendIds.includes(friend.userId) ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-100 bg-gray-50 flex items-center justify-center shrink-0">
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-100 bg-gray-50 shrink-0">
                       {friend.profileImage ? (
                         <ImageWithFallback 
-                          src={friend.profileImage.startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
+                          src={String(friend.profileImage).startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
                           alt={friend.nickname} 
                           fill 
                           containerClassName="w-full h-full"
@@ -115,7 +115,9 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: M
                           unoptimized
                         />
                       ) : (
-                        <span className="text-sm font-black text-indigo-200">{friend.nickname[0]}</span>
+                        <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                          {friend.nickname.substring(0, 1)}
+                        </div>
                       )}
                     </div>
                     <div className="min-w-0">
