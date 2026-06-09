@@ -375,6 +375,7 @@ export default function GroupTopicDetailModal({
                         src={comment.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${comment.authorProfileImage}` : comment.authorProfileImage} 
                         alt={comment.authorNickname} 
                         fill 
+                        containerClassName="w-full h-full"
                         className="object-cover" 
                       />
                     ) : (

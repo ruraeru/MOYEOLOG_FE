@@ -44,6 +44,7 @@ export default function ImageWithFallback({
             setHasError(true);
             if (onError) (onError as (event: React.SyntheticEvent<HTMLImageElement, Event>) => void)(e);
           }}
+          referrerPolicy="no-referrer"
         />
       )}
     </div>

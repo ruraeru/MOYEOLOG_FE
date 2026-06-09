@@ -66,6 +66,8 @@ export default function FriendsPage() {
     }
   };
 
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
   return (
     <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
       <Navbar />
@@ -113,11 +115,13 @@ export default function FriendsPage() {
                           <div className="relative w-12 h-12 rounded-2xl border border-gray-50 shadow-inner bg-gray-50 flex items-center justify-center overflow-hidden">
                             {req.profileImage ? (
                               <ImageWithFallback 
-                                src={req.profileImage} 
+                                src={String(req.profileImage).startsWith('/uploads/') ? `${apiUrl}${req.profileImage}` : req.profileImage} 
                                 alt={req.nickname} 
                                 fill 
                                 sizes="48px"
+                                containerClassName="w-full h-full"
                                 className="object-cover" 
+                                unoptimized
                               />
                             ) : (
                               <span className="text-lg font-black text-indigo-300">{req.nickname[0]}</span>
@@ -170,15 +174,16 @@ export default function FriendsPage() {
                         </button>
 
                         <div className="relative mb-5">
-                          <div className="w-24 h-24 rounded-[2rem] border-4 border-white shadow-xl bg-gray-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 overflow-hidden">
+                          <div className="w-24 h-24 rounded-[2rem] border-4 border-white shadow-xl bg-gray-50 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 overflow-hidden relative">
                             {friend.profileImage ? (
                               <ImageWithFallback 
-                                src={friend.profileImage} 
+                                src={String(friend.profileImage).startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
                                 alt={friend.nickname} 
                                 fill 
                                 sizes="96px"
                                 containerClassName="w-full h-full"
                                 className="object-cover" 
+                                unoptimized
                               />
                             ) : (
                               <span className="text-3xl font-black text-indigo-200">{friend.nickname[0]}</span>
