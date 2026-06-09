@@ -151,8 +151,12 @@ function LandingCard({ icon, label, description, onClick }: { icon: React.ReactN
 }
 
 function ActivityCard({ activity, onClick }: { activity: GroupActivityResponse, onClick: () => void }) {
+  const { data: session } = useSession();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   
+  const userName = session?.user?.name || activity.authorNickname;
+  const userImage = session?.user?.image;
+
   const typeConfig = {
     MEMO: { label: 'Memo', icon: <FileText className="w-6 h-6" />, color: 'bg-indigo-50 text-indigo-400', badge: 'bg-indigo-100 text-indigo-600' },
     TOPIC: { label: 'Topic', icon: <Sparkles className="w-6 h-6" />, color: 'bg-emerald-50 text-emerald-400', badge: 'bg-emerald-100 text-emerald-600' },
@@ -194,19 +198,20 @@ function ActivityCard({ activity, onClick }: { activity: GroupActivityResponse, 
         </p>
         <div className="pt-3.5 flex items-center gap-2.5 border-t border-gray-50 mt-1">
           <div className="w-6 h-6 rounded-full relative border border-white shadow-sm shrink-0 overflow-hidden">
-            {activity.authorProfileImage ? (
+            {userImage ? (
               <ImageWithFallback 
-                src={activity.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${activity.authorProfileImage}` : activity.authorProfileImage} 
-                alt="" 
+                src={userImage} 
+                alt={userName} 
                 fill 
                 containerClassName="w-full h-full"
-                className="object-cover" 
+                className="object-cover"
+                unoptimized
               />
             ) : (
-              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[9px] text-gray-400 font-black">{activity.authorNickname[0]}</div>
+              <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[9px] text-gray-400 font-black">{userName[0]}</div>
             )}
           </div>
-          <span className="text-[10px] text-gray-400 font-bold tracking-tight">{activity.authorNickname}</span>
+          <span className="text-[10px] text-gray-400 font-bold tracking-tight">{userName}</span>
           <ChevronRight className="w-3.5 h-3.5 text-gray-200 ml-auto group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
         </div>
       </div>

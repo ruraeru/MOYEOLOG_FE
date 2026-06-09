@@ -366,6 +366,7 @@ interface MemoCardProps extends MemoCardView {
 }
 
 function MemoCard({ title, description, image, tags, category, categoryColor, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
+  const { data: session } = useSession();
   const isList = viewMode === 'list';
   return (
     <div
@@ -422,14 +423,29 @@ function MemoCard({ title, description, image, tags, category, categoryColor, da
         </div>
         <div className="flex items-center justify-between mt-auto pt-3.5 border-t border-gray-50">
           <div className="flex items-center gap-3">
+            <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-400 text-[8px] font-black overflow-hidden relative shrink-0">
+              {session?.user?.image ? (
+                <ImageWithFallback 
+                  src={session.user.image} 
+                  alt={session.user.name || '나'} 
+                  fill 
+                  containerClassName="w-full h-full"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                (session?.user?.name || '나')[0]
+              )}
+            </div>
+            <span className="text-[10px] text-gray-500 font-black tracking-tight">{session?.user?.name || '나'}</span>
             {category && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 ml-2 border-l border-gray-100 pl-2">
                 <div className={`w-1.5 h-1.5 rounded-full ${categoryColor || 'bg-gray-300'}`} />
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{category}</span>
               </div>
             )}
-            <span className="text-[10px] text-gray-300 font-bold uppercase">{date}</span>
           </div>
+          <span className="text-[10px] text-gray-300 font-bold uppercase">{date}</span>
         </div>
       </div>
     </div>

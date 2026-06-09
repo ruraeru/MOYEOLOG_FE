@@ -269,6 +269,10 @@ export default function HomePage() {
 }
 
 function MemoCard({ title, description, author, date, tags, onClick }: { title: string, description: string, author: string, date: string, tags: string[], onClick: () => void }) {
+  const { data: session } = useSession();
+  const userImage = session?.user?.image;
+  const userName = session?.user?.name || author;
+
   return (
     <div onClick={onClick} className="bg-white border border-gray-100 p-5 rounded-2xl hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer group">
       <div className="flex items-start justify-between mb-1.5">
@@ -278,8 +282,21 @@ function MemoCard({ title, description, author, date, tags, onClick }: { title: 
       <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3.5 font-medium">{description}</p>
       <div className="flex items-center justify-between pt-3 border-t border-gray-50">
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-400 text-[8px] font-black">{author[0]}</div>
-          <span className="text-[10px] text-gray-400 font-semibold">{author}</span>
+          <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-400 text-[8px] font-black overflow-hidden relative">
+            {userImage ? (
+              <ImageWithFallback 
+                src={userImage} 
+                alt={userName} 
+                fill 
+                containerClassName="w-full h-full"
+                className="object-cover"
+                unoptimized
+              />
+            ) : (
+              userName[0]
+            )}
+          </div>
+          <span className="text-[10px] text-gray-400 font-semibold">{userName}</span>
         </div>
         <span className="text-[10px] text-gray-300 font-bold uppercase">{date}</span>
       </div>

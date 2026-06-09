@@ -238,14 +238,16 @@ export default function GroupDetailPage() {
         <div className="px-10 pt-10">
           <div className={`w-full rounded-[2.5rem] ${bannerBg} p-12 lg:p-16 relative overflow-hidden`}>
             {groupBg && (
-              <ImageWithFallback 
-                src={groupBg} 
-                alt="Background" 
-                fill 
-                containerClassName="absolute inset-0 z-0" 
-                className="object-cover opacity-10 grayscale" 
-                unoptimized 
-              />
+              <div className="absolute inset-0 z-0">
+                <ImageWithFallback 
+                  src={groupBg} 
+                  alt="Background" 
+                  fill 
+                  containerClassName="w-full h-full" 
+                  className="object-cover opacity-30" 
+                  unoptimized 
+                />
+              </div>
             )}
             
             <div className="relative z-10 max-w-7xl mx-auto flex flex-col gap-8">
@@ -256,8 +258,9 @@ export default function GroupDetailPage() {
                       src={groupProfile} 
                       alt={group.name} 
                       fill 
-                      containerClassName="w-24 h-24 rounded-[2rem] shadow-sm relative shrink-0 border-4 border-white" 
+                      containerClassName="w-24 h-24 rounded-[2rem] shadow-sm relative shrink-0 border-4 border-white overflow-hidden" 
                       className="object-cover" 
+                      unoptimized
                     />
                   ) : (
                     <div className="w-24 h-24 rounded-[2rem] bg-white flex items-center justify-center text-4xl font-black shadow-sm shrink-0 border-4 border-white">

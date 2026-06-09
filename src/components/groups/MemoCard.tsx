@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { stripMarkdown } from '@/lib/utils';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { type MemoResponse } from '@/lib/memo-api';
+import { useSession } from 'next-auth/react';
 
 interface MemoCardProps {
   memo: MemoResponse;
@@ -14,10 +15,14 @@ interface MemoCardProps {
 }
 
 export function MemoCard({ memo, viewMode, onClick }: MemoCardProps) {
+  const { data: session } = useSession();
   const isList = viewMode === 'list';
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
   
+  const userName = session?.user?.name || '나';
+  const userImage = session?.user?.image;
+
   return (
     <div 
       onClick={onClick} 
@@ -55,10 +60,21 @@ export function MemoCard({ memo, viewMode, onClick }: MemoCardProps) {
         </div>
         <div className="flex items-center justify-between pt-5 border-t border-gray-50 mt-2">
           <div className="flex items-center gap-3">
-             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 flex items-center justify-center text-indigo-500 text-[9px] font-black shadow-inner">
-               {memo.authorNickname[0]}
+             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 flex items-center justify-center text-indigo-500 text-[9px] font-black shadow-inner overflow-hidden relative">
+               {userImage ? (
+                 <ImageWithFallback 
+                   src={userImage} 
+                   alt={userName} 
+                   fill 
+                   containerClassName="w-full h-full"
+                   className="object-cover"
+                   unoptimized
+                 />
+               ) : (
+                 userName[0]
+               )}
              </div>
-             <span className="text-[11px] text-gray-500 font-black tracking-tight">{memo.authorNickname}</span>
+             <span className="text-[11px] text-gray-500 font-black tracking-tight">{userName}</span>
           </div>
           <span className="text-[11px] text-gray-300 font-black">{format(new Date(memo.createdAt), 'yyyy.MM.dd')}</span>
         </div>
