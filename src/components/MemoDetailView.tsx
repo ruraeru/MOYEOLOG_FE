@@ -54,9 +54,9 @@ function formatDateTime(iso: string) {
   });
 }
 
-function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: { 
-  src: string; 
-  alt: string; 
+function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
+  src: string;
+  alt: string;
   isEditing?: boolean;
   onImageSelect?: (file: File) => void;
   onImageRemove?: () => void;
@@ -123,13 +123,13 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
     );
   }
   return (
-    <ImageWithFallback 
-      src={src} 
-      alt={alt} 
-      fill 
-      sizes="(max-width: 768px) 100vw, 50vw" 
-      containerClassName="w-full h-48 mb-6 rounded-2xl" 
-      className="object-cover" 
+    <ImageWithFallback
+      src={src}
+      alt={alt}
+      fill
+      sizes="(max-width: 768px) 100vw, 50vw"
+      containerClassName="w-full h-full mb-6 rounded-2xl"
+      className="object-contain"
     />
   );
 }
@@ -150,7 +150,7 @@ export default function MemoDetailView({
   const [loadingMemo, setLoadingMemo] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Editing states
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
@@ -240,7 +240,7 @@ export default function MemoDetailView({
         taggedMemoIds,
         taggedScheduleIds
       }, session);
-      
+
       await fetchMemoDetail();
       setIsEditing(false);
       setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
@@ -386,7 +386,7 @@ export default function MemoDetailView({
                 <ChevronLeft className="w-6 h-6" />
               </button>
             )}
-            
+
             {isEditing ? (
               <input
                 type="text"
@@ -491,10 +491,10 @@ export default function MemoDetailView({
         )}
 
         {imageSrc && (
-          <MemoImage 
-            src={imageSrc} 
-            alt={memo.title} 
-            isEditing={isEditing} 
+          <MemoImage
+            src={imageSrc}
+            alt={memo.title}
+            isEditing={isEditing}
             onImageSelect={handleImageSelect}
             onImageRemove={() => {
               setEditImagePreview(null);
@@ -503,10 +503,10 @@ export default function MemoDetailView({
           />
         )}
         {!imageSrc && isEditing && (
-          <MemoImage 
-            src={""} 
-            alt={""} 
-            isEditing={isEditing} 
+          <MemoImage
+            src={""}
+            alt={""}
+            isEditing={isEditing}
             onImageSelect={handleImageSelect}
           />
         )}
@@ -521,14 +521,14 @@ export default function MemoDetailView({
               style={{ borderRadius: '1.5rem', border: '1px solid #F3F4F6' }}
             />
           ) : (
-            <EdMarkdown 
-              source={memo.content} 
-              style={{ 
-                backgroundColor: 'transparent', 
-                fontSize: '1.125rem', 
+            <EdMarkdown
+              source={memo.content}
+              style={{
+                backgroundColor: 'transparent',
+                fontSize: '1.125rem',
                 fontWeight: 500,
                 color: 'inherit'
-              }} 
+              }}
             />
           )}
 
@@ -622,11 +622,10 @@ export default function MemoDetailView({
                           key={kw}
                           onClick={() => !isAdded && addTag(kw)}
                           disabled={isAdded}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
-                            isAdded 
-                              ? 'bg-gray-100 text-gray-300 cursor-default' 
-                              : 'bg-blue-50 text-blue-500 hover:bg-blue-100'
-                          }`}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${isAdded
+                            ? 'bg-gray-100 text-gray-300 cursor-default'
+                            : 'bg-blue-50 text-blue-500 hover:bg-blue-100'
+                            }`}
                         >
                           {kw}
                         </button>
@@ -656,7 +655,7 @@ export default function MemoDetailView({
             <TagIcon className="w-5 h-5 text-blue-500" />
             <span>태그</span>
           </div>
-          
+
           <div className="flex flex-wrap gap-2">
             {currentTags.map((tag) => (
               <span
@@ -664,7 +663,7 @@ export default function MemoDetailView({
                 className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 group/tag"
               >
                 #{tag}
-                <button 
+                <button
                   onClick={() => removeTag(tag)}
                   className="text-gray-300 hover:text-red-500 transition-colors"
                 >
@@ -672,7 +671,7 @@ export default function MemoDetailView({
                 </button>
               </span>
             ))}
-            
+
             <div className="relative">
               <input
                 type="text"
@@ -702,7 +701,7 @@ export default function MemoDetailView({
         {!isEditing && memo.taggedSchedules && memo.taggedSchedules.length > 0 && (
           <div className="space-y-4">
             <h3 className="flex items-center gap-2 text-gray-900 font-bold">
-              <LucideCalendar className="w-5 h-5 text-indigo-500" /> 
+              <LucideCalendar className="w-5 h-5 text-indigo-500" />
               <span className="text-sm">연결된 일정</span>
             </h3>
             <div className="grid grid-cols-1 gap-2">
@@ -721,7 +720,7 @@ export default function MemoDetailView({
         {!isEditing && memo.taggedMemos && memo.taggedMemos.length > 0 && (
           <div className="space-y-4">
             <h3 className="flex items-center gap-2 text-gray-900 font-bold">
-              <FileText className="w-5 h-5 text-indigo-500" /> 
+              <FileText className="w-5 h-5 text-indigo-500" />
               <span className="text-sm">연결된 메모</span>
             </h3>
             <div className="grid grid-cols-1 gap-2">
@@ -739,7 +738,7 @@ export default function MemoDetailView({
         )}
       </div>
 
-      <MemoShareModal 
+      <MemoShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         memoId={memo.id}
