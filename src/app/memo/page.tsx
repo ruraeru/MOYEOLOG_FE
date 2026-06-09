@@ -92,14 +92,15 @@ function MemoContent() {
     // Category filtering
     if (filter.type === 'favorites') {
       filtered = combinedUniqueMemos.filter(m => m.isFavorite);
+    } else if (filter.type === 'shared') {
+      filtered = sharedMemos;
+    } else if (filter.type === 'my') {
+      filtered = allMemos.filter(m => !m.groupId);
+    } else if (filter.type === 'group' && filter.id) {
+      filtered = combinedUniqueMemos.filter(m => m.groupId === filter.id);
     } else {
-      const source = filter.type === 'shared' ? sharedMemos : allMemos;
-      filtered = source;
-      if (filter.type === 'group' && filter.id) {
-        filtered = source.filter(m => m.groupId === filter.id);
-      } else if (filter.type === 'my') {
-        filtered = source.filter(m => !m.groupId);
-      }
+      // 'all' filter or default
+      filtered = combinedUniqueMemos;
     }
 
     // Tag filtering (Multi-select AND condition)
