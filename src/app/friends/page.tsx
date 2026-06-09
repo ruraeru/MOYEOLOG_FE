@@ -177,6 +177,7 @@ export default function FriendsPage() {
                                 alt={friend.nickname} 
                                 fill 
                                 sizes="96px"
+                                containerClassName="w-full h-full"
                                 className="object-cover" 
                               />
                             ) : (
