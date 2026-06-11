@@ -54,6 +54,9 @@ export function useKakaoMap(containerRef: React.RefObject<HTMLDivElement | null>
     let retryCount = 0;
     const checkAndInit = () => {
       const kakao = (window as any).kakao;
+      if (!kakao) {
+         console.error('Kakao Map Script not found. This usually means Kakao API rejected the key or domain.');
+      }
       if (containerRef.current && kakao?.maps) {
         initMap();
       } else if (retryCount < KAKAO_MAP_CONFIG.MAX_RETRIES) {

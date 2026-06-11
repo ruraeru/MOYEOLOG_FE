@@ -24,7 +24,7 @@ import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import MemoShareModal from './MemoShareModal';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { fileToDataUrl } from '@/lib/utils';
+import { fileToDataUrl, convertToWebP } from '@/lib/utils';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
@@ -254,8 +254,9 @@ export default function MemoDetailView({
 
   const handleImageSelect = async (file: File) => {
     try {
-      setEditImageFile(file);
-      const dataUrl = await fileToDataUrl(file);
+      const webpFile = await convertToWebP(file);
+      setEditImageFile(webpFile);
+      const dataUrl = await fileToDataUrl(webpFile);
       setEditImagePreview(dataUrl);
     } catch (e) {
       console.error(e);

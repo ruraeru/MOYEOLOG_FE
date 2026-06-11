@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getSession } from 'next-auth/react';
+import { Session } from 'next-auth';
 
 const isBrowser = typeof window !== 'undefined';
 const API_BASE_URL = isBrowser 
@@ -14,21 +14,15 @@ export const axiosInstance = axios.create({
   timeout: 60000,
 });
 
-// Request Interceptor: Add Authorization Token
-axiosInstance.interceptors.request.use(async (config) => {
-  const session = await getSession();
-  
+/**
+ * 세션 객체를 받아 인증 헤더를 반환하는 유틸리티입니다.
+ */
+export const getAuthHeaders = (session: Session | null) => {
   if (session?.user?.accessToken) {
-    config.headers.Authorization = `Bearer ${session.user.accessToken}`;
+    return { Authorization: `Bearer ${session.user.accessToken}` };
   }
-
-  // URL Transformation for Proxy (Client Side only)
-  if (isBrowser && config.url?.startsWith('/api/')) {
-    config.url = config.url.replace('/api/', '/api-proxy/');
-  }
-
-  return config;
-});
+  return {};
+};
 
 // Response Interceptor: Error Handling
 axiosInstance.interceptors.response.use(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import ImageWithFallback from './ImageWithFallback';
 import {
   X,
@@ -15,6 +15,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -60,12 +61,8 @@ export default function GroupTopicDetailModal({
   onMemoClick,
 }: GroupTopicDetailModalProps) {
   const { data: session } = useSession();
-  const [data, setData] = useState<TopicDetailResponse | null>(null);
+  const queryClient = useQueryClient();
   const [commentInput, setCommentInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingInsight, setLoadingInsight] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isCommenting, setIsCommenting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Mention states
@@ -75,6 +72,66 @@ export default function GroupTopicDetailModal({
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+  // 1. 토픽 상세 조회 Query (5초마다 자동 갱신)
+  const { data: topicDetail, isLoading: loading, refetch } = useQuery({
+    queryKey: ['topic', topicId],
+    queryFn: () => groupTopicApi.getById(topicId!, session),
+    enabled: !!topicId && !!session && isOpen,
+    refetchInterval: 5000, // 5초마다 자동 확인
+  });
+
+  // 2. 댓글 작성 Mutation
+  const createCommentMutation = useMutation({
+    mutationFn: (content: string) => groupTopicApi.createComment(topicId!, content, session),
+    onSuccess: () => {
+      setCommentInput('');
+      queryClient.invalidateQueries({ queryKey: ['topic', topicId] });
+      onDelete?.(); // 댓글 수 업데이트를 위해 부모 리스트 갱신 호출
+    },
+    onError: (error) => {
+      console.error('Failed to create comment:', error);
+      alert('댓글 작성에 실패했습니다.');
+    }
+  });
+
+  // 3. 댓글 삭제 Mutation
+  const deleteCommentMutation = useMutation({
+    mutationFn: (commentId: string) => groupTopicApi.deleteComment(commentId, session),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['topic', topicId] });
+      onDelete?.(); // 댓글 수 업데이트를 위해 부모 리스트 갱신 호출
+    },
+    onError: (error) => {
+      console.error('Failed to delete comment:', error);
+      alert('댓글 삭제에 실패했습니다.');
+    }
+  });
+
+  // 4. AI 분석 Mutation
+  const analyzeMutation = useMutation({
+    mutationFn: () => groupTopicApi.analyze(topicId!, session),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['topic', topicId] });
+    },
+    onError: (error) => {
+      console.error('Failed to analyze topic:', error);
+      alert('AI 분석에 실패했습니다.');
+    }
+  });
+
+  // 5. 토픽 삭제 Mutation
+  const deleteTopicMutation = useMutation({
+    mutationFn: () => groupTopicApi.delete(topicId!, session),
+    onSuccess: () => {
+      onDelete?.();
+      onClose();
+    },
+    onError: (error) => {
+      console.error('Failed to delete topic:', error);
+      alert('토픽 삭제에 실패했습니다.');
+    }
+  });
+
   const { 
     showParticipantMentions, setShowParticipantMentions, filteredParticipants,
     handleInputChange
@@ -82,9 +139,35 @@ export default function GroupTopicDetailModal({
     allMemos, 
     friends, 
     userGroups, 
-    selectedGroupId: data?.topic.groupId || undefined, 
+    selectedGroupId: topicDetail?.topic.groupId || undefined, 
     currentUserId: session?.user?.id 
   });
+
+  useEffect(() => {
+    if (isOpen && session) {
+      memoApi.getAll(session).then(setAllMemos).catch(console.error);
+      friendApi.getFriends(session).then(setFriends).catch(console.error);
+      groupApi.getAll(session).then(setUserGroups).catch(console.error);
+    }
+  }, [isOpen, session]);
+
+  const handleAnalyze = () => analyzeMutation.mutate();
+
+  const handleTopicDelete = () => {
+    if (!confirm('정말로 이 토픽을 삭제하시겠습니까?')) return;
+    deleteTopicMutation.mutate();
+  };
+
+  const handleCommentSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentInput.trim()) return;
+    createCommentMutation.mutate(commentInput);
+  };
+
+  const handleCommentDelete = (commentId: string) => {
+    if (!confirm('댓글을 삭제하시겠습니까?')) return;
+    deleteCommentMutation.mutate(commentId);
+  };
 
   const markdownComponents = {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -112,91 +195,9 @@ export default function GroupTopicDetailModal({
     }
   };
 
-  const fetchDetail = useCallback(async () => {
-    if (!topicId || !session) return;
-    setLoading(true);
-    try {
-      const res = await groupTopicApi.getById(topicId, session);
-      setData(res);
-    } catch (error) {
-      console.error('Failed to fetch topic detail:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [topicId, session]);
-
-  useEffect(() => {
-    if (isOpen && topicId) {
-      fetchDetail();
-      if (session) {
-        memoApi.getAll(session).then(setAllMemos).catch(console.error);
-        friendApi.getFriends(session).then(setFriends).catch(console.error);
-        groupApi.getAll(session).then(setUserGroups).catch(console.error);
-      }
-    } else {
-      setData(null);
-    }
-  }, [isOpen, topicId, fetchDetail, session]);
-
-  const handleAnalyze = async () => {
-    if (!topicId || !session) return;
-    setLoadingInsight(true);
-    try {
-      const insight = await groupTopicApi.analyze(topicId, session);
-      setData(prev => prev ? { ...prev, insight } : null);
-    } catch (error) {
-      console.error('Failed to analyze topic:', error);
-      alert('AI 분석에 실패했습니다.');
-    } finally {
-      setLoadingInsight(false);
-    }
-  };
-
-  const handleTopicDelete = async () => {
-    if (!topicId || !session || !confirm('정말로 이 토픽을 삭제하시겠습니까?')) return;
-    setIsDeleting(true);
-    try {
-      await groupTopicApi.delete(topicId, session);
-      onDelete?.();
-      onClose();
-    } catch (error) {
-      console.error('Failed to delete topic:', error);
-      alert('토픽 삭제에 실패했습니다.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const handleCommentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!topicId || !session || !commentInput.trim()) return;
-    setIsCommenting(true);
-    try {
-      const newComment = await groupTopicApi.createComment(topicId, commentInput, session);
-      setData(prev => prev ? { ...prev, comments: [...prev.comments, newComment] } : null);
-      setCommentInput('');
-    } catch (error) {
-      console.error('Failed to create comment:', error);
-      alert('댓글 작성에 실패했습니다.');
-    } finally {
-      setIsCommenting(false);
-    }
-  };
-
-  const handleCommentDelete = async (commentId: string) => {
-    if (!session || !confirm('댓글을 삭제하시겠습니까?')) return;
-    try {
-      await groupTopicApi.deleteComment(commentId, session);
-      setData(prev => prev ? { ...prev, comments: prev.comments.filter(c => c.id !== commentId) } : null);
-    } catch (error) {
-      console.error('Failed to delete comment:', error);
-      alert('댓글 삭제에 실패했습니다.');
-    }
-  };
-
   if (!isOpen) return null;
 
-  if (loading && !data) {
+  if (loading && !topicDetail) {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
         <div className="bg-white rounded-3xl p-10 flex items-center gap-3">
@@ -207,10 +208,13 @@ export default function GroupTopicDetailModal({
     );
   }
 
-  if (!data) return null;
+  if (!topicDetail) return null;
 
-  const { topic, comments, insight } = data;
+  const { topic, comments, insight } = topicDetail;
   const isAuthor = session?.user?.id === topic.authorId;
+  const isDeleting = deleteTopicMutation.isPending;
+  const isCommenting = createCommentMutation.isPending;
+  const loadingInsight = analyzeMutation.isPending;
 
   return (
     <div

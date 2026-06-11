@@ -21,6 +21,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { convertToWebP } from '@/lib/utils';
 
 // Form Validation Schema
 const profileSchema = z.object({
@@ -119,13 +120,14 @@ export default function SettingsPage() {
     }
   });
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImageFile(file);
+      const webpFile = await convertToWebP(file);
+      setImageFile(webpFile);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(webpFile);
     }
   };
 

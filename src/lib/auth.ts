@@ -31,7 +31,8 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account, profile, trigger, session }) {
-      const apiUrl = process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080';
+      const internalApiUrl = process.env.BACKEND_INTERNAL_URL || 'http://app:8080';
+      const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://moyeolog.kro.kr';
 
       // 1. 세션 업데이트 요청 시 (trigger === "update")
       if (trigger === "update" && session) {
@@ -68,7 +69,7 @@ export const authOptions: NextAuthOptions = {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-          const response = await fetch(`${apiUrl}/api/auth/sync`, {
+          const response = await fetch(`${internalApiUrl}/api/auth/sync`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -82,28 +83,64 @@ export const authOptions: NextAuthOptions = {
           if (response.ok) {
             const data = await response.json();
             token.accessToken = data.accessToken;
+            token.refreshToken = data.refreshToken;
             token.userId = data.user.id;
             token.kakaoId = data.user.kakaoId;
             token.customId = data.user.customId;
             
+            // 토큰 만료 시간 계산 (현재 시간 + 백엔드 설정값)
+            // 기본적으로 JWT decode 해서 exp 값을 쓰는게 좋지만, 일단 24시간으로 설정
+            token.accessTokenExpires = Date.now() + 24 * 60 * 60 * 1000;
+            
             // 백엔드 DB의 정보를 최우선으로 토큰에 저장 (수동 수정된 정보 유지)
             token.name = data.user.nickname;
             const finalImage = data.user.profileImage;
-            token.picture = finalImage ? (finalImage.startsWith('/uploads/') ? `${apiUrl}${finalImage}` : finalImage) : null;
+            token.picture = finalImage ? (finalImage.startsWith('/uploads/') ? `${publicApiUrl}${finalImage}` : finalImage) : null;
           }
         } catch (error) {
           console.error('Backend sync error:', error);
         }
         console.log('--- Auth Sync End ---');
+        return token;
       }
-      return token;
+
+      // 3. 토큰 만료 전이면 기존 토큰 반환
+      if (Date.now() < (token.accessTokenExpires as number)) {
+        return token;
+      }
+
+      // 4. 토큰 만료 시 Refresh Token을 사용하여 갱신 시도
+      console.log('--- Access Token Expired, Refreshing... ---');
+      try {
+        const response = await fetch(`${internalApiUrl}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: token.refreshToken }),
+        });
+
+        const refreshedTokens = await response.json();
+
+        if (!response.ok) throw refreshedTokens;
+
+        return {
+          ...token,
+          accessToken: refreshedTokens.accessToken,
+          accessTokenExpires: Date.now() + 24 * 60 * 60 * 1000,
+          refreshToken: refreshedTokens.refreshToken ?? token.refreshToken, // 새 RT가 오면 교체, 아니면 기존 것 유지
+        };
+      } catch (error) {
+        console.error('Error refreshing access token', error);
+        return { ...token, error: 'RefreshAccessTokenError' };
+      }
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = (token.userId as string) || (token.sub ?? '');
-        session.user.accessToken = token.accessToken;
-        session.user.kakaoId = token.kakaoId;
+        session.user.accessToken = token.accessToken as string;
+        session.user.refreshToken = token.refreshToken as string;
+        session.user.kakaoId = token.kakaoId as string;
         session.user.customId = token.customId as string;
+        session.user.error = token.error as string;
         
         // 토큰의 최신 정보를 세션에 반영
         session.user.name = token.name;

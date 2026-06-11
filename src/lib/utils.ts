@@ -42,6 +42,80 @@ export async function fileToDataUrl(file: File): Promise<string> {
 }
 
 /**
+ * 이미지를 WEBP 포맷으로 변환하고 압축하며 리사이징합니다.
+ * maxWidth, maxHeight를 초과하는 경우 비율을 유지하며 크기를 조절합니다.
+ * 변환에 실패하거나 SVG/GIF인 경우 원본 파일을 반환합니다.
+ */
+export async function convertToWebP(
+  file: File, 
+  quality: number = 0.8, 
+  maxWidth: number = 1200, 
+  maxHeight: number = 1200
+): Promise<File> {
+  // SVG나 GIF(애니메이션)는 변환을 건너뜁니다.
+  if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        // 리사이징 비율 계산
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.floor(width * ratio);
+          height = Math.floor(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        // 이미지 그리기 (리사이징 적용)
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const fileName = file.name.replace(/\.[^/.]+$/, "") + ".webp";
+              const newFile = new File([blob], fileName, {
+                type: 'image/webp',
+                lastModified: Date.now(),
+              });
+              
+              // 이미 WEBP인 경우 변환/리사이징된 결과가 더 크다면 원본 반환
+              if (newFile.size > file.size && file.type === 'image/webp' && img.width <= maxWidth && img.height <= maxHeight) {
+                resolve(file);
+              } else {
+                resolve(newFile);
+              }
+            } else {
+              resolve(file);
+            }
+          },
+          'image/webp',
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * 마크다운 문법을 제거하고 순수 텍스트만 추출합니다.
  */
 export const stripMarkdown = (markdown: string): string => {

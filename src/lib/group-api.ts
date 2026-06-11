@@ -1,5 +1,6 @@
 import { Session } from 'next-auth';
-import { fetchWithAuth, type MemoResponse } from './memo-api';
+import { axiosInstance, getAuthHeaders } from './axios';
+import { type MemoResponse } from './memo-api';
 import { type ScheduleResponse } from './schedule-api';
 
 export interface GroupResponse {
@@ -44,37 +45,38 @@ export interface GroupActivityResponse {
 
 export const groupApi = {
   async getAll(session: Session | null): Promise<GroupResponse[]> {
-    const response = await fetchWithAuth('/api/groups', {}, session);
-    if (!response.ok) throw new Error('Failed to fetch groups');
-    return response.json();
+    const response = await axiosInstance.get<GroupResponse[]>('/api/groups', {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async getById(id: string, session: Session | null): Promise<GroupResponse> {
-    const response = await fetchWithAuth(`/api/groups/${id}`, {}, session);
-    if (!response.ok) throw new Error('Failed to fetch group');
-    return response.json();
+    const response = await axiosInstance.get<GroupResponse>(`/api/groups/${id}`, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async getGroupMemos(id: string, session: Session | null): Promise<MemoResponse[]> {
-    const response = await fetchWithAuth(`/api/groups/${id}/memos`, {}, session);
-    if (!response.ok) throw new Error('Failed to fetch group memos');
-    return response.json();
+    const response = await axiosInstance.get<MemoResponse[]>(`/api/groups/${id}/memos`, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async getGroupSchedules(id: string, session: Session | null): Promise<ScheduleResponse[]> {
-    const response = await fetchWithAuth(`/api/groups/${id}/schedules`, {}, session);
-    if (!response.ok) throw new Error('Failed to fetch group schedules');
-    return response.json();
+    const response = await axiosInstance.get<ScheduleResponse[]>(`/api/groups/${id}/schedules`, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async create(data: { name: string; description: string; colorTheme: string }, session: Session | null): Promise<GroupResponse> {
-    const response = await fetchWithAuth('/api/groups', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, session);
-
-    if (!response.ok) throw new Error('Failed to create group');
-    return response.json();
+    const response = await axiosInstance.post<GroupResponse>('/api/groups', data, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async update(id: string, data: { 
@@ -94,71 +96,69 @@ export const groupApi = {
     if (data.image) formData.append('image', data.image);
     if (data.bgImage) formData.append('bgImage', data.bgImage);
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const response = await fetch(`${apiUrl}/api/groups/${id}`, {
-      method: 'PUT',
+    const response = await axiosInstance.put<GroupResponse>(`/api/groups/${id}`, formData, {
       headers: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        'Authorization': `Bearer ${(session as any)?.user?.accessToken}`,
+        ...getAuthHeaders(session),
+        'Content-Type': 'multipart/form-data',
       },
-      body: formData,
     });
 
-    if (!response.ok) throw new Error('Failed to update group');
-    return response.json();
+    return response.data;
   },
 
   async inviteMembers(groupId: string, emails: string[], session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/groups/${groupId}/invitations`, {
-      method: 'POST',
-      body: JSON.stringify({ emails }),
-    }, session);
-    if (!response.ok) throw new Error('Failed to invite members');
+    await axiosInstance.post(`/api/groups/${groupId}/invitations`, { emails }, {
+      headers: getAuthHeaders(session),
+    });
   },
 
   async getMyInvitations(session: Session | null): Promise<GroupInvitationResponse[]> {
-    const response = await fetchWithAuth('/api/groups/invitations', {}, session);
-    if (!response.ok) throw new Error('Failed to fetch invitations');
-    return response.json();
+    const response = await axiosInstance.get<GroupInvitationResponse[]>('/api/groups/invitations', {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async acceptInvitation(invitationId: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/groups/invitations/${invitationId}/accept`, {
-      method: 'POST',
-    }, session);
-    if (!response.ok) throw new Error('Failed to accept invitation');
+    await axiosInstance.post(`/api/groups/invitations/${invitationId}/accept`, {}, {
+      headers: getAuthHeaders(session),
+    });
   },
 
   async rejectInvitation(invitationId: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/groups/invitations/${invitationId}/reject`, {
-      method: 'POST',
-    }, session);
-    if (!response.ok) throw new Error('Failed to reject invitation');
+    await axiosInstance.post(`/api/groups/invitations/${invitationId}/reject`, {}, {
+      headers: getAuthHeaders(session),
+    });
   },
 
   async joinByCode(code: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/groups/join?code=${code}`, {
-      method: 'POST',
-    }, session);
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || '가입에 실패했습니다. 코드를 확인해주세요.');
+    try {
+      await axiosInstance.post(`/api/groups/join?code=${code}`, {}, {
+        headers: getAuthHeaders(session),
+      });
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      const message = err.response?.data?.message || '가입에 실패했습니다. 코드를 확인해주세요.';
+      throw new Error(message);
     }
   },
 
   async kickMember(groupId: string, memberId: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/groups/${groupId}/members/${memberId}`, {
-      method: 'DELETE',
-    }, session);
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || '멤버 내보내기에 실패했습니다.');
+    try {
+      await axiosInstance.delete(`/api/groups/${groupId}/members/${memberId}`, {
+        headers: getAuthHeaders(session),
+      });
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      const message = err.response?.data?.message || '멤버 내보내기에 실패했습니다.';
+      throw new Error(message);
     }
   },
 
   async getActivities(session: Session | null): Promise<GroupActivityResponse[]> {
-    const response = await fetchWithAuth('/api/groups/activities', {}, session);
-    if (!response.ok) throw new Error('Failed to fetch group activities');
-    return response.json();
+    const response = await axiosInstance.get<GroupActivityResponse[]>('/api/groups/activities', {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   }
 };

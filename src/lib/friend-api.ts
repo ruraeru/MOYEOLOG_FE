@@ -1,5 +1,5 @@
 import { Session } from 'next-auth';
-import { fetchWithAuth } from './memo-api';
+import { axiosInstance, getAuthHeaders } from './axios';
 
 export interface FriendResponse {
   id: string; // 관계 ID
@@ -13,39 +13,34 @@ export interface FriendResponse {
 
 export const friendApi = {
   async getFriends(session: Session | null): Promise<FriendResponse[]> {
-    const response = await fetchWithAuth('/api/friends', {}, session);
-    if (!response.ok) throw new Error('Failed to fetch friends');
-    return response.json();
+    const response = await axiosInstance.get<FriendResponse[]>('/api/friends', {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async getRequests(session: Session | null): Promise<FriendResponse[]> {
-    const response = await fetchWithAuth('/api/friends/requests', {}, session);
-    if (!response.ok) throw new Error('Failed to fetch friend requests');
-    return response.json();
+    const response = await axiosInstance.get<FriendResponse[]>('/api/friends/requests', {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async sendRequest(customId: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth('/api/friends/request', {
-      method: 'POST',
-      body: JSON.stringify({ customId }),
-    }, session);
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || 'Failed to send friend request');
-    }
+    await axiosInstance.post('/api/friends/request', { customId }, {
+      headers: getAuthHeaders(session),
+    });
   },
 
   async acceptRequest(requestId: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/friends/accept/${requestId}`, {
-      method: 'PUT',
-    }, session);
-    if (!response.ok) throw new Error('Failed to accept friend request');
+    await axiosInstance.put(`/api/friends/accept/${requestId}`, {}, {
+      headers: getAuthHeaders(session),
+    });
   },
 
   async deleteFriendship(id: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/friends/${id}`, {
-      method: 'DELETE',
-    }, session);
-    if (!response.ok) throw new Error('Failed to delete friendship');
+    await axiosInstance.delete(`/api/friends/${id}`, {
+      headers: getAuthHeaders(session),
+    });
   }
 };

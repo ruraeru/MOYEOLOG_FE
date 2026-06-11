@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Loader2, Check, Camera, Image as ImageIcon, Users } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { convertToWebP } from '@/lib/utils';
 
 interface GroupEditModalProps {
   isOpen: boolean;
@@ -55,23 +56,25 @@ export default function GroupEditModal({
     }
   }, [isOpen, group, apiUrl]);
 
-  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setProfileFile(file);
+      const webpFile = await convertToWebP(file);
+      setProfileFile(webpFile);
       const reader = new FileReader();
       reader.onloadend = () => setProfilePreview(reader.result as string);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(webpFile);
     }
   };
 
-  const handleBgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBgChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setBgFile(file);
+      const webpFile = await convertToWebP(file);
+      setBgFile(webpFile);
       const reader = new FileReader();
       reader.onloadend = () => setBgPreview(reader.result as string);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(webpFile);
     }
   };
 

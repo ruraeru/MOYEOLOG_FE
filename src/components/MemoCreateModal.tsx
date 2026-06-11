@@ -14,7 +14,7 @@ import {
   Calendar,
   FileText
 } from 'lucide-react';
-import { fileToDataUrl } from '@/lib/utils';
+import { fileToDataUrl, convertToWebP } from '@/lib/utils';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
@@ -95,8 +95,9 @@ export default function MemoCreateModal({
 
   const handleImageSelect = async (file: File) => {
     try {
-      setImageFile(file);
-      const dataUrl = await fileToDataUrl(file);
+      const webpFile = await convertToWebP(file);
+      setImageFile(webpFile);
+      const dataUrl = await fileToDataUrl(webpFile);
       setImagePreview(dataUrl);
       setError(null);
     } catch (e) {

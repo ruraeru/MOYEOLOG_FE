@@ -11,7 +11,7 @@ import {
   Users,
   FileText
 } from 'lucide-react';
-import { getFileUrl, fileToDataUrl } from '@/lib/utils';
+import { getFileUrl, fileToDataUrl, convertToWebP } from '@/lib/utils';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -105,7 +105,8 @@ export default function GroupTopicCreateModal({
 
   const handleImageSelect = async (file: File) => {
     try {
-      const dataUrl = await fileToDataUrl(file);
+      const webpFile = await convertToWebP(file);
+      const dataUrl = await fileToDataUrl(webpFile);
       setImagePreview(dataUrl);
       setError(null);
     } catch (e) {

@@ -1,5 +1,5 @@
 import { Session } from 'next-auth';
-import { fetchWithAuth } from './memo-api';
+import { axiosInstance, getAuthHeaders } from './axios';
 import type { 
   TopicResponse, 
   TopicCommentResponse, 
@@ -9,72 +9,63 @@ import type {
 
 export const groupTopicApi = {
   async getByGroup(groupId: string, session: Session | null): Promise<TopicResponse[]> {
-    const response = await fetchWithAuth(`/api/groups/${groupId}/topics`, {}, session);
-    if (!response.ok) throw new Error('Failed to fetch group topics');
-    return response.json();
+    const response = await axiosInstance.get<TopicResponse[]>(`/api/groups/${groupId}/topics`, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async create(groupId: string, data: { title: string; content: string; imageUrl?: string }, session: Session | null): Promise<TopicResponse> {
-    const response = await fetchWithAuth(`/api/groups/${groupId}/topics`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }, session);
-    if (!response.ok) throw new Error('Failed to create topic');
-    return response.json();
+    const response = await axiosInstance.post<TopicResponse>(`/api/groups/${groupId}/topics`, data, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async getById(topicId: string, session: Session | null): Promise<TopicDetailResponse> {
-    const response = await fetchWithAuth(`/api/topics/${topicId}`, {}, session);
-    if (!response.ok) throw new Error('Failed to fetch topic details');
-    return response.json();
+    const response = await axiosInstance.get<TopicDetailResponse>(`/api/topics/${topicId}`, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async update(topicId: string, data: { title: string; content: string; imageUrl?: string }, session: Session | null): Promise<TopicResponse> {
-    const response = await fetchWithAuth(`/api/topics/${topicId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }, session);
-    if (!response.ok) throw new Error('Failed to update topic');
-    return response.json();
+    const response = await axiosInstance.put<TopicResponse>(`/api/topics/${topicId}`, data, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async delete(topicId: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/topics/${topicId}`, {
-      method: 'DELETE',
-    }, session);
-    if (!response.ok) throw new Error('Failed to delete topic');
+    await axiosInstance.delete(`/api/topics/${topicId}`, {
+      headers: getAuthHeaders(session),
+    });
   },
 
   async createComment(topicId: string, content: string, session: Session | null): Promise<TopicCommentResponse> {
-    const response = await fetchWithAuth(`/api/topics/${topicId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    }, session);
-    if (!response.ok) throw new Error('Failed to create comment');
-    return response.json();
+    const response = await axiosInstance.post<TopicCommentResponse>(`/api/topics/${topicId}/comments`, { content }, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async updateComment(commentId: string, content: string, session: Session | null): Promise<TopicCommentResponse> {
-    const response = await fetchWithAuth(`/api/topics/comments/${commentId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ content }),
-    }, session);
-    if (!response.ok) throw new Error('Failed to update comment');
-    return response.json();
+    const response = await axiosInstance.put<TopicCommentResponse>(`/api/topics/comments/${commentId}`, { content }, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   },
 
   async deleteComment(commentId: string, session: Session | null): Promise<void> {
-    const response = await fetchWithAuth(`/api/topics/comments/${commentId}`, {
-      method: 'DELETE',
-    }, session);
-    if (!response.ok) throw new Error('Failed to delete comment');
+    await axiosInstance.delete(`/api/topics/comments/${commentId}`, {
+      headers: getAuthHeaders(session),
+    });
   },
 
   async analyze(topicId: string, session: Session | null): Promise<TopicInsightResponse> {
-    const response = await fetchWithAuth(`/api/topics/${topicId}/analyze`, {
-      method: 'POST',
-    }, session);
-    if (!response.ok) throw new Error('Failed to analyze topic');
-    return response.json();
+    const response = await axiosInstance.post<TopicInsightResponse>(`/api/topics/${topicId}/analyze`, {}, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
   }
 };
