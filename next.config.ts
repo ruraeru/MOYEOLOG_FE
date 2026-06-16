@@ -9,6 +9,14 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "moyeolog.kro.kr",
+      },
+      {
+        protocol: "https",
+        hostname: "*.kakao.com",
+      },
+      {
+        protocol: "http",
         hostname: "*.kakao.com",
       },
       {
@@ -16,7 +24,15 @@ const nextConfig: NextConfig = {
         hostname: "*.daumcdn.net",
       },
       {
+        protocol: "http",
+        hostname: "*.daumcdn.net",
+      },
+      {
         protocol: "https",
+        hostname: "*.kakaocdn.net",
+      },
+      {
+        protocol: "http",
         hostname: "*.kakaocdn.net",
       },
       {
