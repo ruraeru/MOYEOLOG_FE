@@ -6,15 +6,22 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
   images: {
-    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**",
+        hostname: "*.kakao.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.daumcdn.net",
+      },
+      {
+        protocol: "https",
+        hostname: "*.kakaocdn.net",
       },
       {
         protocol: "http",
-        hostname: "**",
+        hostname: "localhost",
       },
     ],
   },
