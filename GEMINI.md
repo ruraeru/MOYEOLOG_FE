@@ -107,6 +107,12 @@ Gemini CLI must automatically verify the following before ANY commit or code gen
 
 ### 📊 Completed Work History
 
+- **2026-06-16 (배포 환경 최적화 및 모니터링 구축):**
+  - **보안 및 리소스 최적화**: MySQL 외부 포트 차단 및 루프백(`127.0.0.1`) 격리. JVM 힙 메모리 최적화(`JAVA_TOOL_OPTIONS`)로 OOM 방지. Nginx 프록시 버퍼 튜닝 및 gzip MIME 타입 확장.
+  - **Next.js 최적화**: `unoptimized: true` 해제 및 이미지 최적화 활성화. 이미지 캐시 영구화를 위해 `fe_image_cache` 도커 볼륨 마운트. Nginx 레벨에서 `/_next/static/` 정적 번들 자원 1년 장기 브라우저 캐싱 적용. `remotePatterns` 화이트리스트 정교화(카카오/자사 도메인 추가).
+  - **통합 모니터링 구축**: Prometheus, Grafana, cAdvisor, Node Exporter 연동 완료 (포트 3000). 실시간 컨테이너 로그 조회 및 보안 인증이 연동된 Dozzle 뷰어 도입 (포트 8888).
+  - **헬스체크 및 자가 복구**: 컨테이너 루프백 연결 이슈(Alpine IPv6 오류) 해결을 위해 헬스체크 주소를 `127.0.0.1`로 변경하여 자가 치유(Self-healing) 인프라 구축 완료.
+  - **부하 테스트**: k6 시나리오 스크립트(`load-test.js`) 작성 및 카카오 API 쿼리 파라미터 누락 버그 수정.
 - **2026-06-01 (Part 2):**
   - **Group Topics:** Implemented full-stack support for topics within groups.
   - **@Mentions:** Added ability to mention group members and memos in topic content and comments.
