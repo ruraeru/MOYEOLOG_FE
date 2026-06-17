@@ -134,6 +134,8 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
   );
 }
 
+import { useAlert } from '@/hooks/useAlert';
+
 export default function MemoDetailView({
   memoId,
   onDelete,
@@ -142,6 +144,7 @@ export default function MemoDetailView({
 }: MemoDetailViewProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const { confirm, toast } = useAlert();
   const [memo, setMemo] = useState<MemoResponse | null>(null);
   const [insight, setInsight] = useState<MemoInsight | null>(null);
   const [currentTags, setCurrentTags] = useState<string[]>([]);
@@ -217,6 +220,17 @@ export default function MemoDetailView({
     }
     setEditImageFile(null);
     setIsEditing(true);
+
+    // 편집 모드 시작 시 멘션 데이터 최신 갱신
+    if (session) {
+      Promise.all([
+        memoApi.getAll(session),
+        scheduleApi.getAll(session)
+      ]).then(([memosData, schedulesData]) => {
+        setAllMemos(memosData);
+        setSchedules(schedulesData);
+      }).catch(console.error);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -246,7 +260,7 @@ export default function MemoDetailView({
       setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
     } catch (error) {
       console.error('Failed to save memo:', error);
-      alert('저장에 실패했습니다.');
+      toast.error('저장에 실패했습니다.');
     } finally {
       setIsSaving(false);
     }
@@ -260,7 +274,7 @@ export default function MemoDetailView({
       setEditImagePreview(dataUrl);
     } catch (e) {
       console.error(e);
-      alert('이미지 처리에 실패했습니다.');
+      toast.error('이미지 처리에 실패했습니다.');
     }
   };
 
@@ -272,7 +286,7 @@ export default function MemoDetailView({
       setInsight(res);
     } catch (error) {
       console.error('Failed to analyze memo:', error);
-      alert('AI 분석에 실패했습니다.');
+      toast.error('AI 분석에 실패했습니다.');
     } finally {
       setLoadingInsight(false);
     }
@@ -285,7 +299,7 @@ export default function MemoDetailView({
       setCurrentTags(newTags);
     } catch (error) {
       console.error('Failed to sync tags:', error);
-      alert('태그 저장에 실패했습니다.');
+      toast.error('태그 저장에 실패했습니다.');
     }
   };
 
@@ -303,7 +317,7 @@ export default function MemoDetailView({
   };
 
   const handleDelete = async () => {
-    if (!confirm('정말로 이 메모를 삭제하시겠습니까?')) return;
+    if (!(await confirm('정말로 이 메모를 삭제하시겠습니까?'))) return;
     setIsDeleting(true);
     try {
       await memoApi.delete(memoId, session);
@@ -315,7 +329,7 @@ export default function MemoDetailView({
       }
     } catch (error) {
       console.error('Failed to delete memo:', error);
-      alert('메모 삭제에 실패했습니다.');
+      toast.error('메모 삭제에 실패했습니다.');
     } finally {
       setIsDeleting(false);
     }

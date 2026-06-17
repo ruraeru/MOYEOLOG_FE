@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 export interface KakaoPlace {
   place_name: string;
@@ -31,10 +31,22 @@ export function usePlaceSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, []);
 
   const searchPlaces = useCallback((keyword: string) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
     if (!keyword.trim()) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
 
@@ -42,15 +54,18 @@ export function usePlaceSearch() {
     if (!kakao?.maps?.services) return;
 
     setIsSearching(true);
-    const ps = new kakao.maps.services.Places();
-    ps.keywordSearch(keyword, (data: KakaoPlace[], status: string) => {
-      if (status === kakao.maps.services.Status.OK) {
-        setSearchResults(data);
-      } else {
-        setSearchResults([]);
-      }
-      setIsSearching(false);
-    });
+
+    searchTimeoutRef.current = setTimeout(() => {
+      const ps = new kakao.maps.services.Places();
+      ps.keywordSearch(keyword, (data: KakaoPlace[], status: string) => {
+        if (status === kakao.maps.services.Status.OK) {
+          setSearchResults(data);
+        } else {
+          setSearchResults([]);
+        }
+        setIsSearching(false);
+      });
+    }, 300);
   }, []);
 
   const fetchRecommendations = useCallback(async (lat: number, lng: number) => {

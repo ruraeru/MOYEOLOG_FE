@@ -34,8 +34,11 @@ interface AppointmentModalProps {
   initialSchedule?: ScheduleResponse | null;
 }
 
+import { useAlert } from '@/hooks/useAlert';
+
 export default function AppointmentModal({ isOpen, onClose, initialDate, onSuccess, initialSchedule }: AppointmentModalProps) {
   const { data: session } = useSession();
+  const { toast } = useAlert();
   const mapContainer = useRef<HTMLDivElement>(null);
 
   // ─── States ──────────────────────────────────────────────────────
@@ -120,7 +123,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   }, [updatePosition, fetchRecommendations, clearSearchResults]);
 
   const handleSave = async () => {
-    if (!title.trim()) return alert('제목을 입력해주세요.');
+    if (!title.trim()) return toast.warning('제목을 입력해주세요.');
     setIsSaving(true);
     try {
       const start = new Date(`${date}T${time || '00:00'}`);
@@ -137,7 +140,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       onClose();
     } catch (err) {
       console.error(err);
-      alert('일정 저장에 실패했습니다.');
+      toast.error('일정 저장에 실패했습니다.');
     } finally {
       setIsSaving(false);
     }
@@ -273,7 +276,6 @@ function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name
           fill 
           containerClassName="w-full h-full"
           className="object-cover group-hover:scale-110 transition-transform duration-500" 
-          unoptimized 
         />
         <div className="absolute top-1.5 right-1.5 z-10 bg-white/90 text-gray-800 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5"><Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" /> {rec.rating}</div>
       </div>
