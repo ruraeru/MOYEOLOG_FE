@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import React, { useState, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
@@ -33,47 +34,36 @@ export default function HomePage() {
   const { data: session } = useSession();
   const userId = session?.user?.id;
 
-  const [recentMemos, setRecentMemos] = useState<MemoResponse[]>([]);
-  const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
-  const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  
-  const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const { data: memoData, isLoading: memosLoading } = useQuery({
+    queryKey: ['memos'],
+    queryFn: () => memoApi.getAll(session!),
+    enabled: !!session
+  });
 
-  const isMounted = useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
-  );
+  const { data: scheduleData, isLoading: schedulesLoading } = useQuery({
+    queryKey: ['schedules'],
+    queryFn: () => scheduleApi.getAll(session!),
+    enabled: !!session
+  });
 
-  const fetchData = useCallback(async () => {
-    if (!session) return;
-    try {
-      setLoading(true);
-      const [memoData, scheduleData, groupData] = await Promise.all([
-        memoApi.getAll(session),
-        scheduleApi.getAll(session),
-        groupApi.getAll(session)
-      ]);
-      setRecentMemos(memoData.slice(0, 5));
-      setSchedules(scheduleData);
-      setUserGroups(groupData);
-    } catch (error) {
-      console.error('Failed to fetch home data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [session]);
+  const { data: groupData, isLoading: groupsLoading } = useQuery({
+    queryKey: ['groups'],
+    queryFn: () => groupApi.getAll(session!),
+    enabled: !!session
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const recentMemos = memoData ? memoData.slice(0, 5) : [];
+  const schedules = scheduleData || [];
+  const userGroups = groupData || [];
+  const loading = memosLoading || schedulesLoading || groupsLoading;
+
+  const refreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ['memos'] });
+    queryClient.invalidateQueries({ queryKey: ['schedules'] });
+    queryClient.invalidateQueries({ queryKey: ['groups'] });
+  };
 
   const handleOpenCreateModal = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'));
@@ -244,7 +234,7 @@ export default function HomePage() {
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setSelectedSchedule(null); }}
         initialDate={selectedDate}
-        onSuccess={fetchData}
+        onSuccess={refreshData}
         initialSchedule={selectedSchedule}
       />
 
@@ -261,7 +251,7 @@ export default function HomePage() {
         isOpen={isDetailModalOpen}
         onClose={() => { setIsDetailModalOpen(false); setSelectedSchedule(null); }}
         schedule={selectedSchedule}
-        onSuccess={fetchData}
+        onSuccess={refreshData}
         onEdit={handleEdit}
       />
     </div>

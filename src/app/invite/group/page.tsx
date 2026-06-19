@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { groupApi } from '@/lib/group-api';
 import { Loader2, Users, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useAlert } from '@/hooks/useAlert';
 
 function GroupInviteContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { toast } = useAlert();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -20,7 +22,7 @@ function GroupInviteContent() {
     if (status === 'loading') return;
     
     if (status === 'unauthenticated') {
-      alert('로그인이 필요한 서비스입니다.');
+      toast.warning('로그인이 필요한 서비스입니다.');
       router.push(`/?callbackUrl=/invite/group?code=${code}`);
       return;
     }

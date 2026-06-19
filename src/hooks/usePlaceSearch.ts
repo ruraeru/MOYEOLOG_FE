@@ -32,9 +32,11 @@ export function usePlaceSearch() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [isRecommending, setIsRecommending] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMounted = useRef(true);
 
   useEffect(() => {
     return () => {
+      isMounted.current = false;
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, []);
@@ -58,6 +60,7 @@ export function usePlaceSearch() {
     searchTimeoutRef.current = setTimeout(() => {
       const ps = new kakao.maps.services.Places();
       ps.keywordSearch(keyword, (data: KakaoPlace[], status: string) => {
+        if (!isMounted.current) return;
         if (status === kakao.maps.services.Status.OK) {
           setSearchResults(data);
         } else {
@@ -108,11 +111,13 @@ export function usePlaceSearch() {
     };
 
     ps.categorySearch('FD6', async (data: any, status: any) => {
+      if (!isMounted.current) return;
       if (status === kakao.maps.services.Status.OK) {
         setRecommendations(await processResults(data));
         setIsRecommending(false);
       } else {
         ps.categorySearch('CE7', async (cafeData: any, cafeStatus: any) => {
+          if (!isMounted.current) return;
           if (cafeStatus === kakao.maps.services.Status.OK) {
             setRecommendations(await processResults(cafeData));
           } else {

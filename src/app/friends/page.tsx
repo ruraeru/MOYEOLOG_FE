@@ -8,8 +8,11 @@ import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import FriendSearchModal from '@/components/FriendSearchModal';
 
+import { useAlert } from '@/hooks/useAlert';
+
 export default function FriendsPage() {
   const { data: session } = useSession();
+  const { confirm, toast } = useAlert();
   const [friends, setFriends] = useState<FriendResponse[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,20 +43,22 @@ export default function FriendsPage() {
     try {
       await friendApi.acceptRequest(requestId, session);
       fetchFriendsData();
+      toast.success('친구 요청을 수락했습니다.');
     } catch (error) {
       console.error('Failed to accept request:', error);
-      alert('요청 수락에 실패했습니다.');
+      toast.error('요청 수락에 실패했습니다.');
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`${name}님을 친구 목록에서 삭제하시겠습니까?`)) return;
+    if (!(await confirm(`${name}님을 친구 목록에서 삭제하시겠습니까?`))) return;
     try {
       await friendApi.deleteFriendship(id, session);
       fetchFriendsData();
+      toast.success('친구 목록에서 삭제했습니다.');
     } catch (error) {
       console.error('Failed to delete friendship:', error);
-      alert('친구 삭제에 실패했습니다.');
+      toast.error('친구 삭제에 실패했습니다.');
     }
   };
 

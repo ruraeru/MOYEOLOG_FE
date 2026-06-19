@@ -8,8 +8,11 @@ import { groupApi, type GroupInvitationResponse } from '@/lib/group-api';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
+import { useAlert } from '@/hooks/useAlert';
+
 export default function NotificationsPage() {
   const { data: session } = useSession();
+  const { toast } = useAlert();
   const [filter, setFilter] = useState<'all' | 'invitations'>('all');
   const [invitations, setInvitations] = useState<GroupInvitationResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -35,10 +38,10 @@ export default function NotificationsPage() {
     try {
       await groupApi.acceptInvitation(id, session);
       setInvitations(prev => prev.filter(i => i.id !== id));
-      alert('모임 초대를 수락했습니다!');
+      toast.success('모임 초대를 수락했습니다!');
     } catch (error) {
       console.error('Accept error:', error);
-      alert('수락에 실패했습니다.');
+      toast.error('수락에 실패했습니다.');
     }
   };
 
@@ -46,10 +49,10 @@ export default function NotificationsPage() {
     try {
       await groupApi.rejectInvitation(id, session);
       setInvitations(prev => prev.filter(i => i.id !== id));
-      alert('모임 초대를 거절했습니다.');
+      toast.success('모임 초대를 거절했습니다.');
     } catch (error) {
       console.error('Reject error:', error);
-      alert('거절에 실패했습니다.');
+      toast.error('거절에 실패했습니다.');
     }
   };
 

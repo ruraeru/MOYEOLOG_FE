@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
@@ -49,9 +50,26 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const [memo, setMemo] = useState(''); 
   const [isSaving, setIsSaving] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
-  const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
-  const [friends, setFriends] = useState<FriendResponse[]>([]);
+  const queryClient = useQueryClient();
+
+  // ─── React Query Data Synchronization ──────────────────────────────
+  const { data: userGroups = [] } = useQuery({
+    queryKey: ['groups'],
+    queryFn: () => groupApi.getAll(session!),
+    enabled: !!session && isOpen
+  });
+
+  const { data: allMemos = [] } = useQuery({
+    queryKey: ['memos'],
+    queryFn: () => memoApi.getAll(session!),
+    enabled: !!session && isOpen
+  });
+
+  const { data: friends = [] } = useQuery({
+    queryKey: ['friends'],
+    queryFn: () => friendApi.getFriends(session!),
+    enabled: !!session && isOpen
+  });
 
   // Selection states
   const [participants, setParticipants] = useState<Array<{ id?: string, nickname: string, profileImage?: string }>>([]);
@@ -69,21 +87,6 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     showParticipantMentions, setShowParticipantMentions, filteredParticipants,
     handleInputChange
   } = useMentions({ allMemos, friends, userGroups, selectedGroupId, currentUserId: session?.user?.id });
-
-  // ─── Data Synchronization ─────────────────────────────────────────
-  useEffect(() => {
-    if (isOpen && session) {
-      Promise.all([
-        groupApi.getAll(session),
-        memoApi.getAll(session),
-        friendApi.getFriends(session)
-      ]).then(([groups, memos, friendData]) => {
-        setUserGroups(groups);
-        setAllMemos(memos);
-        setFriends(friendData);
-      }).catch(console.error);
-    }
-  }, [isOpen, session]);
 
   useEffect(() => {
     if (isOpen && initialDate) setDate(initialDate);
@@ -136,6 +139,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       };
       if (initialSchedule) await scheduleApi.update(initialSchedule.id, payload, session);
       else await scheduleApi.create(payload, session);
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -149,8 +153,8 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-hidden" onClick={onClose}>
-      <div className="bg-white rounded-[2rem] w-full max-w-xl flex flex-col shadow-2xl overflow-hidden max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm p-0 md:p-4 overflow-hidden" onClick={onClose}>
+      <div className="bg-white text-gray-800 rounded-t-[2rem] md:rounded-[2rem] w-full max-w-xl flex flex-col shadow-2xl overflow-hidden max-h-[90vh] animate-slide-up md:animate-none" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">

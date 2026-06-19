@@ -43,10 +43,13 @@ import { GroupModals } from '@/components/groups/GroupModals';
 
 type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 
+import { useAlert } from '@/hooks/useAlert';
+
 export default function GroupDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
+  const { confirm, toast } = useAlert();
   const groupId = params?.id as string;
 
   const [group, setGroup] = useState<GroupResponse | null>(null);
@@ -162,13 +165,14 @@ export default function GroupDetailPage() {
 
   const handleKickMember = async (memberId: string) => {
     if (!session || !group) return;
-    if (!confirm('정말로 이 멤버를 내보내시겠습니까?')) return;
+    if (!(await confirm('정말로 이 멤버를 내보내시겠습니까?'))) return;
     try {
       await groupApi.kickMember(group.id, memberId, session);
       fetchGroupData();
+      toast.success('멤버를 내보냈습니다.');
     } catch (error) {
       console.error('Failed to kick member:', error);
-      alert('멤버 내보내기에 실패했습니다.');
+      toast.error('멤버 내보내기에 실패했습니다.');
     }
   };
 

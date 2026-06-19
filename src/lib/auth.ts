@@ -43,7 +43,6 @@ export const authOptions: NextAuthOptions = {
 
       // 2. 초기 로그인 시
       if (account && profile && user) {
-        console.log('--- Auth Sync Start ---');
         
         const kakaoProfile = profile as unknown as KakaoProfile;
         
@@ -100,7 +99,6 @@ export const authOptions: NextAuthOptions = {
         } catch (error) {
           console.error('Backend sync error:', error);
         }
-        console.log('--- Auth Sync End ---');
         return token;
       }
 
@@ -110,7 +108,6 @@ export const authOptions: NextAuthOptions = {
       }
 
       // 4. 토큰 만료 시 Refresh Token을 사용하여 갱신 시도
-      console.log('--- Access Token Expired, Refreshing... ---');
       try {
         const response = await fetch(`${internalApiUrl}/api/auth/refresh`, {
           method: 'POST',

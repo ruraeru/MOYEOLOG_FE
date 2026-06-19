@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { memoApi } from '@/lib/memo-api';
 import ImageWithFallback from './ImageWithFallback';
+import { useAlert } from '@/hooks/useAlert';
 
 interface MemoShareModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface MemoShareModalProps {
 
 export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: MemoShareModalProps) {
   const { data: session } = useSession();
+  const { toast } = useAlert();
   const [friends, setFriends] = useState<FriendResponse[]>([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,11 +48,11 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: M
     setIsSharing(true);
     try {
       await memoApi.share(memoId, selectedFriendIds, session);
-      alert('메모를 공유했습니다!');
+      toast.success('메모를 공유했습니다!');
       onClose();
     } catch (error) {
       console.error('Failed to share memo:', error);
-      alert('공유에 실패했습니다.');
+      toast.error('공유에 실패했습니다.');
     } finally {
       setIsSharing(false);
     }

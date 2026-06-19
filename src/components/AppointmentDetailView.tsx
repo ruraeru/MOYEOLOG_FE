@@ -29,6 +29,8 @@ interface AppointmentDetailViewProps {
   isPage?: boolean;
 }
 
+import { useAlert } from '@/hooks/useAlert';
+
 export default function AppointmentDetailView({
   scheduleId,
   initialSchedule,
@@ -39,6 +41,7 @@ export default function AppointmentDetailView({
 }: AppointmentDetailViewProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const { confirm, toast } = useAlert();
   
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(initialSchedule || null);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
@@ -150,7 +153,7 @@ export default function AppointmentDetailView({
   }
 
   const handleDelete = async () => {
-    if (!confirm('정말로 이 일정을 삭제하시겠습니까?')) return;
+    if (!(await confirm('정말로 이 일정을 삭제하시겠습니까?'))) return;
 
     setIsDeleting(true);
     try {
@@ -163,7 +166,7 @@ export default function AppointmentDetailView({
       }
     } catch (error) {
       console.error('Failed to delete schedule:', error);
-      alert('일정 삭제에 실패했습니다.');
+      toast.error('일정 삭제에 실패했습니다.');
     } finally {
       setIsDeleting(false);
     }

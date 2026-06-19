@@ -52,6 +52,8 @@ function formatDateTime(iso: string) {
   });
 }
 
+import { useAlert } from '@/hooks/useAlert';
+
 export default function GroupTopicDetailModal({
   isOpen,
   onClose,
@@ -61,6 +63,7 @@ export default function GroupTopicDetailModal({
   onMemoClick,
 }: GroupTopicDetailModalProps) {
   const { data: session } = useSession();
+  const { confirm, alert, toast } = useAlert();
   const queryClient = useQueryClient();
   const [commentInput, setCommentInput] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -90,7 +93,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to create comment:', error);
-      alert('댓글 작성에 실패했습니다.');
+      toast.error('댓글 작성에 실패했습니다.');
     }
   });
 
@@ -103,7 +106,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to delete comment:', error);
-      alert('댓글 삭제에 실패했습니다.');
+      toast.error('댓글 삭제에 실패했습니다.');
     }
   });
 
@@ -115,7 +118,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to analyze topic:', error);
-      alert('AI 분석에 실패했습니다.');
+      toast.error('AI 분석에 실패했습니다.');
     }
   });
 
@@ -128,7 +131,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to delete topic:', error);
-      alert('토픽 삭제에 실패했습니다.');
+      toast.error('토픽 삭제에 실패했습니다.');
     }
   });
 
@@ -153,8 +156,8 @@ export default function GroupTopicDetailModal({
 
   const handleAnalyze = () => analyzeMutation.mutate();
 
-  const handleTopicDelete = () => {
-    if (!confirm('정말로 이 토픽을 삭제하시겠습니까?')) return;
+  const handleTopicDelete = async () => {
+    if (!(await confirm('정말로 이 토픽을 삭제하시겠습니까?'))) return;
     deleteTopicMutation.mutate();
   };
 
@@ -164,8 +167,8 @@ export default function GroupTopicDetailModal({
     createCommentMutation.mutate(commentInput);
   };
 
-  const handleCommentDelete = (commentId: string) => {
-    if (!confirm('댓글을 삭제하시겠습니까?')) return;
+  const handleCommentDelete = async (commentId: string) => {
+    if (!(await confirm('댓글을 삭제하시겠습니까?'))) return;
     deleteCommentMutation.mutate(commentId);
   };
 
@@ -183,7 +186,7 @@ export default function GroupTopicDetailModal({
               e.preventDefault();
               const id = props.href?.split('/').pop();
               if (isMemo && id) onMemoClick?.(id);
-              if (isProfile) alert('프로필 기능 준비 중입니다.');
+              if (isProfile) toast.info('프로필 기능 준비 중입니다.');
             }}
             className="text-indigo-600 font-black hover:underline cursor-pointer"
           >

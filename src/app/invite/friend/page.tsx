@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { friendApi } from '@/lib/friend-api';
 import { Loader2, UserPlus, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useAlert } from '@/hooks/useAlert';
 
 function FriendInviteContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { toast } = useAlert();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -20,7 +22,7 @@ function FriendInviteContent() {
     if (status === 'loading') return;
     
     if (status === 'unauthenticated') {
-      alert('로그인이 필요한 서비스입니다.');
+      toast.warning('로그인이 필요한 서비스입니다.');
       router.push(`/?callbackUrl=/invite/friend?code=${code}`);
       return;
     }
