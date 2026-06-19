@@ -85,7 +85,7 @@ export function usePlaceSearch() {
         const json = await res.json();
         if (json.imageUrl) {
           // 프록시 서버를 경유하여 403 에러 우회 (Referer 문제 해결)
-          return `/api/proxy-image?url=${encodeURIComponent(json.imageUrl)}`;
+          return `${window.location.origin}/api/proxy-image?url=${encodeURIComponent(json.imageUrl)}`;
         }
         return defaultImage;
       } catch {

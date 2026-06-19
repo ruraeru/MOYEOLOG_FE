@@ -100,7 +100,7 @@ export default function AppointmentDetailView({
                 const res = await fetch(`/api/search-image?query=${encodeURIComponent(place.place_name)}`);
                 const json = await res.json();
                 if (json.imageUrl) {
-                  imageUrl = `/api/proxy-image?url=${encodeURIComponent(json.imageUrl)}`;
+                  imageUrl = `${window.location.origin}/api/proxy-image?url=${encodeURIComponent(json.imageUrl)}`;
                 } else {
                   imageUrl = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400&h=300&fit=crop';
                 }
