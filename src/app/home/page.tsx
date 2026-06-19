@@ -65,6 +65,20 @@ export default function HomePage() {
     queryClient.invalidateQueries({ queryKey: ['groups'] });
   };
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
+  const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
+  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
   const handleOpenCreateModal = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'));
     setSelectedSchedule(null);
