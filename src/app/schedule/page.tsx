@@ -127,31 +127,31 @@ export default function SchedulePage() {
   }, [currentDate]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
       <div className="flex-1 flex overflow-hidden">
         
         {/* Sidebar */}
-        <aside className="w-[300px] bg-white border-r border-gray-100 flex flex-col p-8 gap-10 overflow-y-auto no-scrollbar hidden lg:flex relative z-10">
+        <aside className="w-[300px] bg-surface border-r border-line flex-col p-6 gap-8 overflow-y-auto no-scrollbar hidden lg:flex relative z-10">
           
           {/* Mini Calendar (Quick Date Selection) */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 text-gray-900 font-black text-xs uppercase tracking-widest px-1">
-              <CalendarIcon className="w-4 h-4 text-indigo-500" />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-base font-semibold text-ink">
+              <CalendarIcon size={16} strokeWidth={1.5} className="text-ink-3" />
               <span>빠른 날짜 선택</span>
             </div>
             
-            <div className="bg-gray-50/50 rounded-3xl border border-gray-100 p-5 shadow-inner">
-              <div className="flex items-center justify-between mb-5 px-1">
-                <span className="text-xs font-black text-gray-800">{format(currentDate, 'yyyy년 M월')}</span>
+            <div className="rounded-2xl border border-line bg-surface p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-ink tabular-nums">{format(currentDate, 'yyyy년 M월')}</span>
                 <div className="flex gap-1">
-                  <button onClick={prevMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-xl text-gray-400 transition-all"><ChevronLeft className="w-4 h-4" /></button>
-                  <button onClick={nextMonth} className="p-1.5 hover:bg-white hover:shadow-sm rounded-xl text-gray-400 transition-all"><ChevronRight className="w-4 h-4" /></button>
+                  <button onClick={prevMonth} className="btn-ghost size-8 p-0 text-ink-3"><ChevronLeft size={16} strokeWidth={1.5} /></button>
+                  <button onClick={nextMonth} className="btn-ghost size-8 p-0 text-ink-3"><ChevronRight size={16} strokeWidth={1.5} /></button>
                 </div>
               </div>
-              <div className="grid grid-cols-7 gap-y-3 text-center">
+              <div className="grid grid-cols-7 gap-y-1 text-center">
                 {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
-                  <span key={d} className={`text-[9px] font-black uppercase tracking-tighter ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-indigo-500' : 'text-gray-300'}`}>{d}</span>
+                  <span key={d} className={`text-xs pb-1 ${i === 0 ? 'text-negative' : 'text-ink-3'}`}>{d}</span>
                 ))}
                 {monthDays.map((day, i) => {
                   const hasSchedule = filteredSchedules.some(s => isSameDay(parseISO(s.startTime), day));
@@ -163,14 +163,14 @@ export default function SchedulePage() {
                         setCurrentDate(day);
                         handleOpenListModal(day);
                       }}
-                      className={`text-[10px] font-black w-7 h-7 flex flex-col items-center justify-center mx-auto rounded-xl transition-all duration-300 relative
-                        ${!isSameMonth(day, currentDate) ? 'text-gray-200' : 'text-gray-700'} 
-                        ${isTodayDay ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-110' : 'hover:bg-white hover:shadow-sm hover:scale-110'}
-                        ${isSameDay(day, currentDate) && !isTodayDay ? 'ring-2 ring-indigo-100 bg-white' : ''}`}
+                      className={`text-xs tabular-nums size-8 flex flex-col items-center justify-center mx-auto rounded-lg transition-colors duration-150 ease-out relative
+                        ${!isSameMonth(day, currentDate) ? 'text-ink-3 opacity-50' : 'text-ink'} 
+                        ${isTodayDay ? 'bg-accent text-white' : 'hover:bg-raised'}
+                        ${isSameDay(day, currentDate) && !isTodayDay ? 'bg-raised' : ''}`}
                     >
                       {format(day, 'd')}
                       {hasSchedule && (
-                        <span className={`w-1 h-1 rounded-full absolute bottom-1 ${isTodayDay ? 'bg-white' : 'bg-indigo-500'}`} />
+                        <span className={`size-1 rounded-full absolute bottom-1 ${isTodayDay ? 'bg-white' : 'bg-accent'}`} />
                       )}
                     </button>
                   );
@@ -180,95 +180,93 @@ export default function SchedulePage() {
           </div>
 
           {/* Schedule Filter */}
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">일정 필터</h3>
-            <div className="space-y-1.5">
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-ink">일정 필터</h3>
+            <div className="space-y-1">
               <FilterItem label="전체 일정" isActive={activeFilter.type === 'all'} onClick={() => setActiveFilter({ type: 'all' })} />
               <FilterItem label="내 일정" isActive={activeFilter.type === 'my'} onClick={() => setActiveFilter({ type: 'my' })} />
             </div>
           </div>
 
           {/* Participating Groups */}
-          <div className="space-y-4">
-            <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">참여 그룹</h3>
-            <div className="space-y-1.5">
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-ink">참여 그룹</h3>
+            <div className="space-y-1">
               {userGroups.length > 0 ? userGroups.map((group) => (
                 <GroupFilterItem 
                   key={group.id} 
                   isActive={activeFilter.type === 'group' && activeFilter.id === group.id}
                   onClick={() => setActiveFilter({ type: 'group', id: group.id })}
-                  color={getThemeColors(group.colorTheme).bg} 
+                  color={getThemeColors(group.colorTheme).dot} 
                   name={group.name} 
                   count={schedules.filter(s => s.groupId === group.id).length} 
                 />
               )) : (
-                <p className="text-[10px] text-gray-400 font-bold px-1">참여 중인 모임이 없습니다.</p>
+                <p className="text-sm text-ink-3">참여 중인 모임이 없어요</p>
               )}
             </div>
           </div>
         </aside>
 
         {/* Main Calendar Section */}
-        <main className="flex-1 flex flex-col bg-white overflow-hidden relative">
-          {/* Toolbar (Glassmorphism) */}
-          <div className="h-24 border-b border-gray-100 flex items-center justify-between px-10 shrink-0 sticky top-0 bg-white/80 backdrop-blur-xl z-20">
-            <div className="flex items-center gap-10">
-              <button onClick={goToToday} className="px-8 py-3 bg-white border border-gray-100 rounded-2xl text-xs font-black hover:bg-gray-50 transition-all shadow-sm active:scale-95 uppercase tracking-widest">Today</button>
-              <div className="flex items-center gap-6">
-                <button onClick={prevMonth} className="p-2.5 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all active:scale-90"><ChevronLeft className="w-6 h-6" /></button>
-                <h2 className="text-3xl font-black tracking-tighter text-gray-900 w-56 text-center">{format(currentDate, 'yyyy년 M월')}</h2>
-                <button onClick={nextMonth} className="p-2.5 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all active:scale-90"><ChevronRight className="w-6 h-6" /></button>
+        <main className="flex-1 flex flex-col bg-surface overflow-hidden relative">
+          {/* Toolbar */}
+          <div className="h-16 border-b border-line flex items-center justify-between px-6 shrink-0 sticky top-0 bg-surface z-20">
+            <div className="flex items-center gap-4">
+              <button onClick={goToToday} className="btn-secondary h-9">오늘</button>
+              <div className="flex items-center gap-2">
+                <button onClick={prevMonth} className="btn-ghost size-9 p-0 text-ink-2"><ChevronLeft size={18} strokeWidth={1.5} /></button>
+                <h2 className="text-2xl font-semibold text-ink tabular-nums w-40 text-center">{format(currentDate, 'yyyy년 M월')}</h2>
+                <button onClick={nextMonth} className="btn-ghost size-9 p-0 text-ink-2"><ChevronRight size={18} strokeWidth={1.5} /></button>
               </div>
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
               <div className="relative hidden xl:block">
                 <input 
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="일정 검색..." 
-                  className="w-80 bg-gray-50/50 border-0 rounded-[1.25rem] pl-12 pr-4 py-3.5 text-sm font-bold focus:bg-white focus:ring-4 focus:ring-indigo-50 transition-all outline-none shadow-inner" 
+                  placeholder="일정 검색" 
+                  className="form-input w-72 pl-10 pr-9" 
                 />
-                <Search className="w-5 h-5 absolute left-4 top-3.5 text-gray-300" />
+                <Search size={16} strokeWidth={1.5} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
                 {searchQuery && (
                   <button 
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 transition-colors duration-150 ease-out"
                   >
-                    <X className="w-4 h-4" />
+                    <X size={16} strokeWidth={1.5} />
                   </button>
                 )}
               </div>
               <ViewSelector currentView={view} onViewChange={setView} />
               <button 
                 onClick={() => { setSelectedSchedule(null); setIsModalOpen(true); }} 
-                className="bg-indigo-600 text-white p-4 rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-90 hover:rotate-90"
+                className="btn-primary size-10 p-0"
               >
-                <Plus className="w-6 h-6" />
+                <Plus size={18} strokeWidth={1.5} />
               </button>
             </div>
           </div>
 
           {/* Calendar View Container */}
-          <div className="flex-1 overflow-hidden flex flex-col bg-[#F8F9FB]/30">
+          <div className="flex-1 overflow-hidden flex flex-col bg-surface">
             {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-4">
-                <div className="w-16 h-16 bg-white rounded-3xl shadow-xl flex items-center justify-center animate-bounce">
-                  <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                </div>
-                <p className="font-black text-gray-400 text-xs uppercase tracking-widest">일정을 동기화 중입니다...</p>
+              <div className="flex-1 flex flex-col items-center justify-center gap-3">
+                <Loader2 size={20} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                <p className="text-sm text-ink-3">일정을 불러오는 중이에요</p>
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-7 border-b border-gray-100 shrink-0 bg-white/50 backdrop-blur-md">
+                <div className="grid grid-cols-7 border-b border-line shrink-0">
                   {['일', '월', '화', '수', '목', '금', '토'].map((day, i) => (
-                    <div key={day} className={`py-6 text-center text-[10px] font-black uppercase tracking-widest ${i === 0 ? 'text-rose-500' : i === 6 ? 'text-indigo-500' : 'text-gray-300'}`}>{day}</div>
+                    <div key={day} className={`py-3 text-center text-xs ${i === 0 ? 'text-negative' : 'text-ink-3'}`}>{day}</div>
                   ))}
                 </div>
 
                 <div className="flex-1 overflow-hidden">
-                  <div className="grid grid-cols-7 h-full">
+                  <div className="grid grid-cols-7 h-full" style={{ gridAutoRows: '1fr' }}>
                     {monthDays.map((day, i) => (
                       <CalendarDay 
                         key={i} 
@@ -314,14 +312,14 @@ function FilterItem({ label, isActive, onClick }: FilterItemProps) {
   return (
     <div 
       onClick={onClick} 
-      className={`flex items-center justify-between group cursor-pointer p-3 rounded-2xl transition-all duration-300 border-0 ${
+      className={`flex items-center justify-between cursor-pointer px-3 h-10 rounded-[10px] transition-colors duration-150 ease-out ${
         isActive 
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-[1.02]' 
-          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+          ? 'bg-accent-soft text-accent' 
+          : 'text-ink-2 hover:bg-raised'
       }`}
     >
-      <span className="text-sm font-black tracking-tight">{label}</span>
-      {isActive && <CheckCircle2 className="w-4 h-4 text-white" />}
+      <span className="text-sm font-medium">{label}</span>
+      {isActive && <CheckCircle2 size={16} strokeWidth={1.5} />}
     </div>
   );
 }
@@ -338,19 +336,17 @@ function GroupFilterItem({ color, name, count, isActive, onClick }: GroupFilterI
   return (
     <div 
       onClick={onClick} 
-      className={`flex items-center justify-between group cursor-pointer p-3 rounded-2xl transition-all duration-300 border-0 ${
+      className={`flex items-center justify-between cursor-pointer px-3 h-10 rounded-[10px] transition-colors duration-150 ease-out ${
         isActive 
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 scale-[1.02]' 
-          : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+          ? 'bg-accent-soft text-accent' 
+          : 'text-ink-2 hover:bg-raised'
       }`}
     >
-      <div className="flex items-center gap-3">
-        <div className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-white' : color} shadow-sm transition-colors`} />
-        <span className="text-sm font-black tracking-tight">{name}</span>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`size-2 rounded-full shrink-0 ${color}`} />
+        <span className="text-sm font-medium truncate">{name}</span>
       </div>
-      <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg transition-colors ${
-        isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600'
-      }`}>
+      <span className="text-xs tabular-nums text-ink-3">
         {count}
       </span>
     </div>
@@ -364,18 +360,18 @@ interface ViewSelectorProps {
 
 function ViewSelector({ currentView, onViewChange }: ViewSelectorProps) {
   return (
-    <div className="flex p-1.5 bg-gray-100/50 backdrop-blur-md rounded-2xl shadow-inner border border-gray-100/50">
+    <div className="flex bg-raised rounded-[10px] p-1">
       {(['month', 'week', 'list'] as const).map(v => (
         <button 
           key={v} 
           onClick={() => onViewChange(v)} 
-          className={`px-6 py-2.5 text-[10px] font-black rounded-xl transition-all duration-300 uppercase tracking-widest ${
+          className={`px-3 h-7 text-sm rounded-lg transition-colors duration-150 ease-out ${
             currentView === v 
-              ? 'bg-white shadow-md text-indigo-600 scale-105' 
-              : 'text-gray-400 hover:text-gray-600'
+              ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' 
+              : 'text-ink-2 hover:text-ink'
           }`}
         >
-          {v === 'month' ? 'Month' : v === 'week' ? 'Week' : 'List'}
+          {v === 'month' ? '월' : v === 'week' ? '주' : '목록'}
         </button>
       ))}
     </div>
@@ -391,21 +387,23 @@ interface CalendarDayProps {
   onScheduleClick: (e: React.MouseEvent, schedule: ScheduleResponse) => void;
 }
 
-function CalendarDay({ day, currentDate, schedules, userGroups, onDayClick, onScheduleClick }: CalendarDayProps) {
-  const daySchedules = schedules.filter((s) => isSameDay(parseISO(s.startTime), day));
+function CalendarDay({ day, currentDate, schedules, onDayClick, onScheduleClick }: CalendarDayProps) {
+  const daySchedules = schedules
+    .filter((s) => isSameDay(parseISO(s.startTime), day))
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
   const isCurrMonth = isSameMonth(day, currentDate);
   const isTodayDay = isToday(day);
 
   return (
     <div 
       onClick={() => onDayClick(day)}
-      className={`border-r border-b border-gray-100 p-3 h-full flex flex-col gap-1 transition-all duration-500 hover:bg-white hover:shadow-2xl hover:z-10 hover:scale-[1.01] hover:rounded-2xl relative group cursor-pointer ${!isCurrMonth ? 'bg-gray-50/30 opacity-40' : 'bg-white'}`}
+      className={`border-r border-b border-line p-2 min-h-0 flex flex-col gap-1 transition-colors duration-150 ease-out hover:bg-raised relative group cursor-pointer ${
+        isTodayDay ? 'bg-accent-soft hover:bg-accent-soft' : isCurrMonth ? 'bg-surface' : 'bg-canvas'
+      }`}
     >
-      <div className="flex items-center justify-between mb-1 shrink-0">
-        <span className={`text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-lg transition-all duration-300 ${
-          !isCurrMonth ? 'text-gray-300' : 'text-gray-700'
-        } ${
-          isTodayDay ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-110' : 'group-hover:bg-gray-50 group-hover:text-indigo-600'
+      <div className="flex items-center justify-between shrink-0">
+        <span className={`text-sm tabular-nums size-6 flex items-center justify-center rounded-full ${
+          isTodayDay ? 'bg-accent text-white font-medium' : isCurrMonth ? 'text-ink' : 'text-ink-3 opacity-60'
         }`}>
           {format(day, 'd')}
         </span>
@@ -414,33 +412,29 @@ function CalendarDay({ day, currentDate, schedules, userGroups, onDayClick, onSc
             e.stopPropagation();
             onDayClick(day);
           }} 
-          className="opacity-0 group-hover:opacity-100 transition-all duration-300 bg-indigo-50 text-indigo-600 p-1.5 rounded-lg hover:bg-indigo-600 hover:text-white active:scale-90 shadow-sm"
+          className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out text-ink-3 hover:text-ink hover:bg-surface p-1 rounded-md"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus size={16} strokeWidth={1.5} />
         </button>
       </div>
-      <div className="flex-1 flex flex-col gap-1 overflow-hidden min-h-0">
-        {daySchedules.slice(0, 2).map((s) => {
-          const group = userGroups.find((g) => g.id === s.groupId);
-          const theme = getThemeColors(group?.colorTheme);
-          return (
-            <div 
-              key={s.id} 
-              onClick={(e) => {
-                e.stopPropagation();
-                onScheduleClick(e, s);
-              }} 
-              className="transform transition-all duration-300 hover:scale-105 active:scale-95 shrink-0"
-            >
-              <div className={`${theme.light} ${theme.soft} ${theme.border} border border-opacity-50 px-2.5 py-1 rounded-lg text-[9px] font-black truncate shadow-sm hover:shadow-md transition-all cursor-pointer`}>
-                {s.title}
-              </div>
-            </div>
-          );
-        })}
-        {daySchedules.length > 2 && (
-          <div className="text-[8px] text-gray-400 font-black text-center pt-0.5 animate-pulse shrink-0">
-            + {daySchedules.length - 2} more
+      <div className={`flex-1 flex flex-col gap-0.5 overflow-hidden min-h-0 ${isCurrMonth ? '' : 'opacity-60'}`}>
+        {daySchedules.slice(0, 3).map((s) => (
+          <div 
+            key={s.id} 
+            onClick={(e) => {
+              e.stopPropagation();
+              onScheduleClick(e, s);
+            }} 
+            className="flex items-center gap-1.5 px-1.5 h-6 rounded-md text-xs text-ink hover:bg-surface cursor-pointer transition-colors duration-150 ease-out shrink-0"
+          >
+            <span className="size-1.5 rounded-full bg-accent shrink-0" />
+            <span className="stamp shrink-0">{format(parseISO(s.startTime), 'HH:mm')}</span>
+            <span className="truncate">{s.title}</span>
+          </div>
+        ))}
+        {daySchedules.length > 3 && (
+          <div className="text-xs text-ink-3 tabular-nums px-1.5 shrink-0">
+            +{daySchedules.length - 3}개 더
           </div>
         )}
       </div>

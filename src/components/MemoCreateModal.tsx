@@ -9,7 +9,6 @@ import {
   Users,
   Tag as TagIcon,
   Sparkles,
-  Lightbulb,
   Loader2,
   Calendar,
   FileText
@@ -102,7 +101,7 @@ export default function MemoCreateModal({
       setImagePreview(dataUrl);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '이미지 처리에 실패했습니다.');
+      setError(e instanceof Error ? e.message : '이미지를 처리하지 못했어요');
     }
   };
 
@@ -145,7 +144,7 @@ export default function MemoCreateModal({
 
   const handleSave = async () => {
     if (!title.trim()) {
-      setError('제목을 입력해주세요.');
+      setError('제목을 입력해 주세요');
       return;
     }
 
@@ -171,7 +170,7 @@ export default function MemoCreateModal({
       onSuccess?.();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '저장에 실패했습니다.');
+      setError(e instanceof Error ? e.message : '저장하지 못했어요');
     } finally {
       setIsSaving(false);
     }
@@ -185,36 +184,36 @@ export default function MemoCreateModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 overflow-y-auto"
       onClick={handleClose}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-5xl flex flex-col shadow-2xl overflow-hidden relative"
+        className="bg-surface border border-line rounded-2xl w-full max-w-5xl flex flex-col shadow-float overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-8 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <h2 className="text-xl font-bold text-gray-800">새 메모 작성</h2>
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
+          <h2 className="text-lg font-semibold text-ink">새 메모</h2>
           <button
             onClick={handleClose}
             disabled={isSaving}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 disabled:opacity-50"
+            className="btn-ghost disabled:opacity-50"
           >
-            <X className="w-6 h-6" />
+            <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
         <div className="flex h-[600px]">
-          <div className="flex-1 flex flex-col p-8 border-r border-gray-100 overflow-y-auto no-scrollbar relative">
+          <div className="flex-1 flex flex-col p-6 border-r border-line overflow-y-auto no-scrollbar relative">
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="메모 제목을 입력하세요"
-              className="text-2xl font-bold text-gray-900 placeholder:text-gray-300 border-none outline-none mb-6 w-full"
+              placeholder="제목"
+              className="text-2xl font-semibold text-ink bg-transparent placeholder:text-ink-3 border-none outline-none mb-4 w-full"
             />
 
             <div
-              className="w-full border-2 border-dashed border-gray-100 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-gray-50/30 hover:bg-gray-50 transition-colors cursor-pointer mb-6 group relative overflow-hidden min-h-[120px] shrink-0"
+              className="w-full border border-dashed border-line-strong rounded-2xl p-5 flex flex-col items-center justify-center gap-3 bg-canvas hover:bg-raised transition-colors duration-150 ease-out cursor-pointer mb-4 relative overflow-hidden min-h-[120px] shrink-0"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
@@ -234,18 +233,16 @@ export default function MemoCreateModal({
                 <img
                   src={imagePreview}
                   alt="미리보기"
-                  className="max-h-40 rounded-xl object-contain"
+                  className="max-h-40 rounded-[10px] object-contain"
                 />
               ) : (
                 <>
-                  <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-400 group-hover:text-blue-500 transition-all">
-                    <Upload className="w-6 h-6" />
-                  </div>
+                  <Upload size={18} strokeWidth={1.5} className="text-ink-3" />
                   <div className="text-center">
-                    <p className="text-sm font-bold text-gray-600">
-                      이미지를 드래그하거나 클릭하여 업로드
+                    <p className="text-sm font-medium text-ink">
+                      이미지를 끌어다 놓거나 눌러서 올려요
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-1">PNG, JPG, GIF (최대 10MB)</p>
+                    <p className="text-xs text-ink-3 mt-1">PNG, JPG, GIF (최대 10MB)</p>
                   </div>
                 </>
               )}
@@ -256,7 +253,7 @@ export default function MemoCreateModal({
                     e.stopPropagation();
                     setImagePreview(null);
                   }}
-                  className="absolute top-3 right-3 text-xs font-bold text-red-500 bg-white px-2 py-1 rounded-lg shadow-sm"
+                  className="absolute top-3 right-3 text-xs text-negative bg-surface border border-line px-2 py-1 rounded-lg"
                 >
                   제거
                 </button>
@@ -270,23 +267,21 @@ export default function MemoCreateModal({
                 onChange={(val) => setContent(val || '')}
                 preview="live"
                 height="100%"
-                style={{ borderRadius: '1rem', border: '1px solid #F3F4F6' }}
+                style={{ borderRadius: '0.75rem', border: '1px solid var(--color-line)' }}
                 textareaProps={{
-                  placeholder: '내용을 입력하세요 (@를 입력하여 일정이나 메모를 바로 태그할 수 있습니다)...'
+                  placeholder: '내용을 써 보세요. @를 누르면 일정이나 메모를 연결할 수 있어요'
                 }}
               />
-              
+
               {/* 에디터 인라인 멘션 팝업 */}
               {mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
-                <div className="absolute z-50 bottom-4 left-4 w-72 max-h-64 overflow-y-auto bg-white border border-gray-100 shadow-2xl rounded-2xl p-2 no-scrollbar">
+                <div className="absolute z-50 bottom-4 left-4 w-72 max-h-64 overflow-y-auto bg-surface border border-line shadow-float rounded-2xl p-2 no-scrollbar">
                   {matchedSchedules.length > 0 && (
                     <div className="mb-2">
-                      <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">일정 결과</div>
+                      <div className="text-xs text-ink-3 px-2 py-1">일정</div>
                       {matchedSchedules.map(s => (
-                        <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
-                          <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
-                            <Calendar className="w-3.5 h-3.5" />
-                          </div>
+                        <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="w-full text-left px-3 py-2 hover:bg-raised rounded-lg text-sm text-ink flex items-center gap-2 transition-colors duration-150 ease-out">
+                          <Calendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
                           <span className="truncate">{s.title}</span>
                         </button>
                       ))}
@@ -294,12 +289,10 @@ export default function MemoCreateModal({
                   )}
                   {matchedMemos.length > 0 && (
                     <div>
-                      <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">메모 결과</div>
+                      <div className="text-xs text-ink-3 px-2 py-1">메모</div>
                       {matchedMemos.map(m => (
-                        <button key={m.id} onClick={() => insertMention(m, 'memo')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
-                          <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
-                            <FileText className="w-3.5 h-3.5" />
-                          </div>
+                        <button key={m.id} onClick={() => insertMention(m, 'memo')} className="w-full text-left px-3 py-2 hover:bg-raised rounded-lg text-sm text-ink flex items-center gap-2 transition-colors duration-150 ease-out">
+                          <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
                           <span className="truncate">{m.title}</span>
                         </button>
                       ))}
@@ -310,23 +303,23 @@ export default function MemoCreateModal({
             </div>
           </div>
 
-          <div className="w-[340px] bg-gray-50/30 p-8 flex flex-col gap-8 shrink-0 overflow-y-auto no-scrollbar">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <Users className="w-4 h-4" />
-                <span>공유할 그룹 선택</span>
+          <div className="w-[340px] bg-canvas p-6 flex flex-col gap-6 shrink-0 overflow-y-auto no-scrollbar">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                <Users size={16} strokeWidth={1.5} className="text-ink-3" />
+                <span>공유할 모임</span>
               </div>
               <input
                 type="text"
                 disabled
-                placeholder="서버 연동 후 사용 가능"
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs text-gray-400 shadow-sm"
+                placeholder="아직 쓸 수 없어요"
+                className="form-input w-full text-xs"
               />
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <TagIcon className="w-4 h-4" />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                <TagIcon size={16} strokeWidth={1.5} className="text-ink-3" />
                 <span>태그</span>
               </div>
               <div className="flex gap-2">
@@ -341,12 +334,12 @@ export default function MemoCreateModal({
                     }
                   }}
                   placeholder="태그 입력"
-                  className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-indigo-400 shadow-sm transition-colors"
+                  className="form-input flex-1 min-w-0"
                 />
                 <button
                   type="button"
                   onClick={addTag}
-                  className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 shrink-0 shadow-sm"
+                  className="btn-secondary shrink-0"
                 >
                   추가
                 </button>
@@ -356,58 +349,49 @@ export default function MemoCreateModal({
                   {tags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg flex items-center gap-1 cursor-pointer hover:bg-indigo-100 transition-colors"
+                      className="text-xs text-ink-2 bg-raised rounded-md px-2 py-0.5 flex items-center gap-1 cursor-pointer hover:text-ink transition-colors duration-150 ease-out"
                       onClick={() => setTags(tags.filter(t => t !== tag))}
                     >
-                      {tag} <X className="w-3 h-3 opacity-50" />
+                      {tag} <X size={12} strokeWidth={1.5} className="text-ink-3" />
                     </span>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <Sparkles className="w-4 h-4 text-blue-500" />
-                <span>AI 스마트 기능</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                <Sparkles size={16} strokeWidth={1.5} className="text-ink-3" />
+                <span>자동 정리</span>
               </div>
-              <p className="text-[10px] text-gray-400 font-medium leading-relaxed bg-white p-3 rounded-xl border border-gray-100">
-                저장 시 첨부된 이미지의 텍스트를 추출하고 자동으로 핵심 키워드를 추천합니다.
+              <p className="text-xs text-ink-2 leading-relaxed">
+                저장하면 첨부한 이미지의 글자를 읽고 핵심 키워드를 추천해요
               </p>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-yellow-500">
-                <Lightbulb className="w-3.5 h-3.5" />
-                <span>에디터 활용 팁</span>
-              </div>
-              <ul className="text-[10px] text-gray-500 space-y-2.5 leading-relaxed font-medium bg-yellow-50/50 p-4 rounded-xl border border-yellow-100/50">
-                <li className="flex gap-1.5">
-                  <span className="text-yellow-500">•</span>
-                  에디터 본문에 <strong className="text-gray-700">@</strong>를 입력하여 일정이나 다른 메모를 즉시 멘션할 수 있습니다.
-                </li>
-                <li className="flex gap-1.5">
-                  <span className="text-yellow-500">•</span>
-                  멘션된 항목들은 저장 시 자동으로 일정 및 메모 정보와 양방향 연결됩니다.
-                </li>
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-ink">쓰는 방법</div>
+              <ul className="text-xs text-ink-2 space-y-2 leading-relaxed">
+                <li>본문에 <span className="text-ink">@</span>를 입력하면 일정이나 다른 메모를 바로 연결할 수 있어요</li>
+                <li>연결한 항목은 저장할 때 서로 이어져요</li>
               </ul>
             </div>
           </div>
         </div>
 
-        {error && <p className="px-8 pb-2 text-sm font-medium text-red-500">{error}</p>}
+        {error && <p className="px-6 pb-2 text-sm text-negative">{error}</p>}
 
-        <div className="border-t border-gray-100 p-6 px-8 bg-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-6 text-gray-400">
-            <Bold className="w-5 h-5" />
-            <Italic className="w-5 h-5" />
+        <div className="border-t border-line px-6 py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-4 text-ink-3">
+            <Bold size={16} strokeWidth={1.5} />
+            <Italic size={16} strokeWidth={1.5} />
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={handleClose}
               disabled={isSaving}
-              className="px-6 py-2.5 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              className="btn-secondary disabled:opacity-50"
             >
               취소
             </button>
@@ -415,10 +399,10 @@ export default function MemoCreateModal({
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 disabled:opacity-70 flex items-center gap-2 shadow-sm transition-colors"
+              className="btn-primary disabled:opacity-70 flex items-center gap-2"
             >
-              {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {isSaving ? '저장 중…' : '메모 저장'}
+              {isSaving && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
+              {isSaving ? '저장 중…' : '저장'}
             </button>
           </div>
         </div>

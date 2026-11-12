@@ -32,18 +32,15 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex h-16 w-full items-center justify-between px-6 lg:px-10">
+    <nav className="sticky top-0 z-50 w-full border-b border-line bg-surface">
+      <div className="mx-auto flex h-14 w-full items-center justify-between px-4 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center gap-8">
-          <Link href="/home" className="flex items-center gap-2.5 shrink-0 group">
-            <div className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors duration-300">
-              <Calendar className="w-5 h-5 text-indigo-500" />
+          <Link href="/home" className="flex items-center gap-2 shrink-0">
+            <div className="size-8 rounded-lg bg-accent flex items-center justify-center">
+              <Calendar size={16} strokeWidth={1.5} className="text-white" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-extrabold text-gray-800 tracking-tight leading-none">모여로그</span>
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Moyeolog</span>
-            </div>
+            <span className="text-base font-semibold text-ink">모여로그</span>
           </Link>
         </div>
 
@@ -55,12 +52,12 @@ export default function Navbar() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
-                  ? 'bg-indigo-50 text-indigo-600'
-                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                className={`flex h-9 items-center gap-2 px-3 rounded-lg text-sm transition-colors duration-150 ${isActive
+                  ? 'bg-raised text-ink font-medium'
+                  : 'text-ink-2 hover:text-ink hover:bg-raised'
                   }`}
               >
-                <item.icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+                <item.icon size={16} strokeWidth={1.5} className={isActive ? 'text-accent' : 'text-ink-3'} />
                 <span>{item.name}</span>
               </Link>
             );
@@ -68,21 +65,21 @@ export default function Navbar() {
         </div>
 
         {/* Right: User */}
-        <div className="flex items-center gap-5">
-          <Link href="/notifications" className="relative p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all">
-            <Bell className="w-5 h-5" />
+        <div className="flex items-center gap-2">
+          <Link href="/notifications" className="btn-ghost size-9 !px-0">
+            <Bell size={18} strokeWidth={1.5} />
           </Link>
 
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="h-10 w-10 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 hover:border-indigo-100 hover:text-indigo-500 transition-all overflow-hidden"
+            className="size-9 rounded-full bg-raised border border-line flex items-center justify-center text-sm font-medium text-ink-2 hover:border-line-strong transition-colors overflow-hidden"
           >
             {session?.user?.image ? (
               <ImageWithFallback 
                 src={session.user.image} 
                 alt="User" 
-                width={40} 
-                height={40} 
+                width={36} 
+                height={36} 
                 containerClassName="w-full h-full"
                 className="object-cover" 
               />

@@ -37,8 +37,8 @@ export default function LoginPage() {
 
   if (!isMounted || status === 'loading') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F8F9FB]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+      <main className="flex min-h-screen items-center justify-center bg-canvas">
+        <div className="size-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </main>
     );
   }
@@ -48,31 +48,31 @@ export default function LoginPage() {
   const loginError = getLoginError();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#F8F9FB] p-6">
-      <div className="w-full max-w-md rounded-3xl border border-gray-100 bg-white p-10 shadow-xl">
-        <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#6366F1] shadow-lg shadow-indigo-200">
-            <Calendar className="h-9 w-9 text-white" />
+    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas p-6">
+      <div className="card w-full max-w-sm p-8">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-accent">
+            <Calendar size={24} strokeWidth={1.5} className="text-white" />
           </div>
-          <h1 className="text-3xl font-black text-gray-900">모여로그</h1>
-          <p className="max-w-sm text-sm font-medium leading-relaxed text-gray-500">
-            일정, 메모, 모임을 한곳에서 관리하세요.
+          <h1 className="text-2xl font-semibold text-ink">모여로그</h1>
+          <p className="max-w-sm text-sm leading-relaxed text-ink-2">
+            일정, 메모, 모임을 한곳에서 함께 써요.
             <br />
-            카카오 계정으로 간편하게 시작할 수 있습니다.
+            카카오 계정으로 바로 시작할 수 있어요.
           </p>
         </div>
 
         {loginError && (
-          <p role="alert" className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-center text-sm font-bold text-rose-600">
-            로그인에 실패했습니다. 잠시 후 다시 시도해주세요.
+          <p role="alert" className="mb-4 rounded-[10px] bg-negative-soft px-4 py-3 text-center text-sm text-negative">
+            로그인에 실패했어요. 잠시 후 다시 시도해 주세요.
           </p>
         )}
 
         <button
           onClick={() => signIn('kakao', { callbackUrl: getCallbackPath() })}
-          className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-8 py-4 text-lg font-bold text-[#191919] shadow-md transition-all hover:bg-[#FEE500]/90 hover:scale-[1.02]"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-[10px] bg-[#FEE500] px-6 text-sm font-medium text-[#191919] transition-[background-color,transform] hover:bg-[#FEE500]/90 active:scale-[0.98]"
         >
-          <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M12 3C6.477 3 2 6.48 2 10.8c0 2.8 1.88 5.25 4.72 6.57-.19.7-.7 2.54-.8 2.92-.12.46.16.45.34.33.14-.09 2.24-1.52 3.14-2.13.84.23 1.73.35 2.64.35 5.523 0 10-3.48 10-7.8S17.523 3 12 3z" />
           </svg>
           카카오로 시작하기

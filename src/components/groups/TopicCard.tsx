@@ -3,6 +3,7 @@
 import React from 'react';
 import { MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import { stripMarkdown } from '@/lib/utils';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { type TopicResponse } from '@/types/topic';
@@ -20,10 +21,10 @@ export function TopicCard({ topic, viewMode, onClick }: TopicCardProps) {
   return (
     <div 
       onClick={onClick} 
-      className={`bg-white shadow-sm transition-all duration-500 group flex overflow-hidden cursor-pointer border border-transparent hover:border-indigo-100 ${
+      className={`card transition-colors duration-150 ease-out group flex overflow-hidden cursor-pointer hover:bg-raised ${
         isList 
-          ? 'rounded-[2rem] p-6 gap-8 hover:shadow-lg hover:-translate-x-1' 
-          : 'rounded-[3rem] flex-col hover:shadow-lg hover:-translate-y-2'
+          ? 'p-4 gap-4' 
+          : 'flex-col'
       }`}
     >
       {topic.imageUrl && (
@@ -31,27 +32,27 @@ export function TopicCard({ topic, viewMode, onClick }: TopicCardProps) {
           src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} 
           alt={topic.title} 
           fill 
-          containerClassName={isList ? "w-40 h-40 rounded-2xl shrink-0 shadow-sm" : "h-56 w-full bg-gray-50"} 
-          className="object-cover group-hover:scale-110 transition-transform duration-700" 
+          containerClassName={isList ? "size-28 rounded-lg shrink-0 overflow-hidden" : "h-48 w-full bg-raised"} 
+          className="object-cover" 
           unoptimized 
         />
       )}
-      <div className={isList ? "flex flex-col flex-1 min-w-0 py-2" : "p-8 flex flex-col gap-5 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between">
-          <h4 className="font-black text-gray-900 text-xl truncate group-hover:text-indigo-600 transition-colors tracking-tight">
+      <div className={isList ? "flex flex-col gap-2 flex-1 min-w-0" : "p-5 flex flex-col gap-3 flex-1 min-w-0"}>
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="font-semibold text-ink text-base truncate">
             {topic.title}
           </h4>
-          <div className="flex items-center gap-1.5 text-indigo-500 font-black text-[11px] bg-indigo-50 px-3 py-1 rounded-xl shadow-sm">
-            <MessageSquare className="w-3.5 h-3.5" /> 
+          <div className="flex items-center gap-1 text-ink-3 text-xs tabular-nums shrink-0">
+            <MessageSquare size={16} strokeWidth={1.5} /> 
             {topic.commentCount}
           </div>
         </div>
-        <p className="text-sm text-gray-500 line-clamp-2 leading-relaxed font-bold flex-1">
+        <p className="text-sm text-ink-2 line-clamp-2 leading-relaxed flex-1">
           {stripMarkdown(topic.content)}
         </p>
-        <div className="flex items-center justify-between pt-5 border-t border-gray-50 mt-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-full overflow-hidden relative bg-indigo-50 shadow-inner">
+        <div className="flex items-center justify-between pt-3 border-t border-line mt-auto">
+          <div className="flex items-center gap-2">
+            <div className="size-6 rounded-full overflow-hidden relative bg-accent-soft">
               {topic.authorProfileImage ? (
                 <ImageWithFallback 
                   src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
@@ -61,14 +62,14 @@ export function TopicCard({ topic, viewMode, onClick }: TopicCardProps) {
                   className="object-cover" 
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-[9px] text-indigo-500 font-black">
+                <div className="w-full h-full flex items-center justify-center text-xs text-accent">
                   {topic.authorNickname[0]}
                 </div>
               )}
             </div>
-            <span className="text-[11px] text-gray-500 font-black tracking-tight">{topic.authorNickname}</span>
+            <span className="text-xs text-ink-2">{topic.authorNickname}</span>
           </div>
-          <span className="text-[11px] text-gray-300 font-black">{format(new Date(topic.createdAt), 'yyyy.MM.dd')}</span>
+          <span className="stamp">{format(new Date(topic.createdAt), 'M.d EEE', { locale: ko })}</span>
         </div>
       </div>
     </div>

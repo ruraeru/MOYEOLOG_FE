@@ -6,12 +6,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import {
   Plus,
-  Lock,
   Share2,
   ChevronRight,
   Loader2,
@@ -120,58 +120,48 @@ export default function HomePage() {
               e.stopPropagation();
               handleOpenCreateModal(date);
             }}
-            className="bg-indigo-50 text-indigo-500 p-1 rounded-md hover:bg-indigo-100 cursor-pointer transition-colors"
+            className="bg-raised text-ink-2 p-1 rounded-md hover:bg-line cursor-pointer transition-colors"
           >
-            <Plus className="w-3 h-3" />
+            <Plus size={12} strokeWidth={1.5} />
           </div>
         </div>
-        {daySchedules.slice(0, 2).map(s => {
-          const group = userGroups.find(g => g.id === s.groupId);
-          const themeKey = group?.colorTheme || 'indigo';
-          const pastelColors = {
-            indigo: 'bg-indigo-100 text-indigo-600',
-            blue: 'bg-sky-100 text-sky-600',
-            emerald: 'bg-emerald-100 text-emerald-600',
-            orange: 'bg-orange-100 text-orange-600',
-            rose: 'bg-rose-100 text-rose-600',
-            amber: 'bg-amber-100 text-amber-600'
-          };
-          const colorClass = pastelColors[themeKey as keyof typeof pastelColors] || pastelColors.indigo;
-          return (
-            <div key={s.id} className={`${colorClass} text-[8px] px-1 py-0.5 rounded font-bold truncate`}>
-              {s.title}
-            </div>
-          );
-        })}
+        {daySchedules.slice(0, 2).map(s => (
+          <div key={s.id} className="bg-accent-soft text-accent text-xs px-1.5 py-0.5 rounded-md truncate w-full text-left">
+            {s.title}
+          </div>
+        ))}
         {daySchedules.length > 2 && (
-          <div className="text-[8px] text-gray-400 font-bold text-center">+{daySchedules.length - 2}</div>
+          <div className="text-xs text-ink-3 tabular-nums">+{daySchedules.length - 2}</div>
         )}
       </div>
     );
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white text-gray-900 overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden font-sans">
       <Navbar />
-      <main className="flex-1 w-full flex flex-col lg:grid lg:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] gap-6 p-6 lg:p-8 overflow-y-auto lg:overflow-hidden no-scrollbar">
+      <main className="flex-1 w-full flex flex-col lg:grid lg:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] gap-6 p-4 lg:p-6 overflow-y-auto lg:overflow-hidden no-scrollbar">
 
         {/* Left Section: Memo */}
-        <section className="order-2 lg:order-1 flex flex-col gap-4 overflow-hidden h-full">
-          <div className="flex items-center justify-between shrink-0 px-1">
-            <h2 className="text-xl font-black tracking-tight text-gray-800">최근 메모</h2>
-            <Link href="/memo" className="text-[11px] font-bold text-indigo-400 hover:text-indigo-600 transition-colors">전체보기</Link>
+        <section className="order-2 lg:order-1 flex flex-col gap-3 lg:overflow-hidden lg:h-full">
+          <div className="flex items-center justify-between shrink-0">
+            <h2 className="text-base font-semibold text-ink">최근 메모 <span className="ml-1 text-xs font-normal text-ink-3 tabular-nums">{recentMemos.length}</span></h2>
+            <Link href="/memo" className="text-xs text-ink-3 hover:text-ink transition-colors">전체 보기</Link>
           </div>
 
-          <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar min-h-0">
+          <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar min-h-0">
             {loading ? (
-              <div className="py-20 flex flex-col items-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-300" />
-                <span className="text-xs text-gray-400 font-semibold tracking-tight">불러오는 중...</span>
+              <div className="py-16 flex flex-col items-center gap-3">
+                <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                <span className="text-sm text-ink-3">불러오는 중</span>
               </div>
             ) : recentMemos.length === 0 ? (
-              <div className="bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200 py-16 flex flex-col items-center justify-center gap-3 text-center px-6">
-                <Plus className="w-8 h-8 text-gray-200" />
-                <p className="text-xs text-gray-400 font-semibold leading-relaxed">아직 메모가 없습니다.<br/>새로운 생각을 기록해보세요!</p>
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
+                <div className="size-10 rounded-full bg-raised flex items-center justify-center">
+                  <Plus size={18} strokeWidth={1.5} className="text-ink-3" />
+                </div>
+                <p className="text-sm font-medium text-ink">아직 메모가 없어요</p>
+                <p className="text-sm text-ink-3">새 메모를 쓰면 여기에 모여요</p>
               </div>
             ) : (
               recentMemos.map((memo) => (
@@ -180,7 +170,7 @@ export default function HomePage() {
                   title={memo.title}
                   description={stripMarkdown(memo.content)}
                   author={session?.user?.name || '나'}
-                  date={format(new Date(memo.createdAt), 'yyyy.MM.dd')}
+                  date={format(new Date(memo.createdAt), 'M.d EEE HH:mm', { locale: ko })}
                   tags={memo.tags.map((t) => `#${t}`)}
                   onClick={() => handleMemoClick(memo.id)}
                 />
@@ -190,9 +180,10 @@ export default function HomePage() {
         </section>
 
         {/* Center Section: Calendar */}
-        <section className="order-1 lg:order-2 bg-white rounded-[2.5rem] border border-gray-100 p-6 lg:p-10 shadow-pastel flex flex-col h-fit lg:h-full lg:overflow-hidden relative group">
-          <div className="flex items-center justify-between mb-4 lg:hidden">
-            <h2 className="text-xl font-black tracking-tight text-gray-800">일정 캘린더</h2>
+        <section className="order-1 lg:order-2 card p-5 lg:p-6 flex flex-col h-fit lg:h-full lg:overflow-hidden relative group">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-base font-semibold text-ink">오늘</h2>
+            <span className="stamp">{format(new Date(), 'M.d EEE', { locale: ko })}</span>
           </div>
           {isMounted ? (
             <div className="flex-1 min-h-[440px]">
@@ -208,27 +199,30 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center min-h-[440px]">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
             </div>
           )}
         </section>
 
         {/* Right Section: Groups */}
-        <section className="order-3 lg:order-3 flex flex-col gap-4 h-full overflow-hidden">
-          <div className="flex items-center justify-between shrink-0 px-1">
-            <h2 className="text-xl font-black tracking-tight text-gray-800">내 모임</h2>
-            <Link href="/groups" className="text-[11px] font-bold text-indigo-400 hover:text-indigo-600 transition-colors">전체보기</Link>
+        <section className="order-3 lg:order-3 flex flex-col gap-3 lg:h-full lg:overflow-hidden">
+          <div className="flex items-center justify-between shrink-0">
+            <h2 className="text-base font-semibold text-ink">내 모임 <span className="ml-1 text-xs font-normal text-ink-3 tabular-nums">{userGroups.length}</span></h2>
+            <Link href="/groups" className="text-xs text-ink-3 hover:text-ink transition-colors">전체 보기</Link>
           </div>
-          <div className="flex-1 flex flex-col gap-3 overflow-y-auto pr-1 no-scrollbar min-h-0">
+          <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar min-h-0">
             {loading ? (
-              <div className="py-20 flex flex-col items-center gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-300" />
-                <span className="text-xs text-gray-400 font-semibold tracking-tight">불러오는 중...</span>
+              <div className="py-16 flex flex-col items-center gap-3">
+                <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                <span className="text-sm text-ink-3">불러오는 중</span>
               </div>
             ) : userGroups.length === 0 ? (
-              <div className="bg-gray-50/50 rounded-[2rem] border border-dashed border-gray-200 py-16 flex flex-col items-center justify-center gap-3 text-center px-6">
-                <Users className="w-8 h-8 text-gray-200" />
-                <p className="text-xs text-gray-400 font-semibold leading-relaxed">참여 중인 모임이 없습니다.<br/>친구들을 초대해 모임을 만들어보세요!</p>
+              <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
+                <div className="size-10 rounded-full bg-raised flex items-center justify-center">
+                  <Users size={18} strokeWidth={1.5} className="text-ink-3" />
+                </div>
+                <p className="text-sm font-medium text-ink">참여 중인 모임이 없어요</p>
+                <p className="text-sm text-ink-3">친구를 초대해 모임을 만들어 보세요</p>
               </div>
             ) : (
               userGroups.map((group) => (
@@ -278,20 +272,20 @@ function MemoCard({ title, description, author, date, tags, onClick }: { title: 
   const userName = session?.user?.name || author;
 
   return (
-    <div onClick={onClick} className="bg-white border border-gray-100 p-5 rounded-2xl hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer group">
-      <div className="flex items-start justify-between mb-1.5">
-        <h3 className="font-bold text-gray-800 text-sm line-clamp-1 group-hover:text-indigo-500 transition-colors tracking-tight">{title}</h3>
-        <Share2 className="w-3.5 h-3.5 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+    <div onClick={onClick} className="card px-4 py-3 hover:bg-raised transition-colors cursor-pointer group">
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <h3 className="font-medium text-ink text-sm line-clamp-1">{title}</h3>
+        <Share2 size={16} strokeWidth={1.5} className="text-ink-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
       </div>
-      <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3.5 font-medium">{description}</p>
-      <div className="flex items-center justify-between pt-3 border-t border-gray-50">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-400 text-[8px] font-black overflow-hidden relative">
+      <p className="text-sm text-ink-2 line-clamp-2 leading-relaxed mb-3">{description}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="size-5 rounded-full bg-raised flex items-center justify-center text-ink-2 text-xs overflow-hidden relative shrink-0">
             {userImage ? (
-              <ImageWithFallback 
-                src={userImage} 
-                alt={userName} 
-                fill 
+              <ImageWithFallback
+                src={userImage}
+                alt={userName}
+                fill
                 containerClassName="w-full h-full"
                 className="object-cover"
                 unoptimized
@@ -300,9 +294,9 @@ function MemoCard({ title, description, author, date, tags, onClick }: { title: 
               userName[0]
             )}
           </div>
-          <span className="text-[10px] text-gray-400 font-semibold">{userName}</span>
+          <span className="text-xs text-ink-3 truncate">{userName}</span>
         </div>
-        <span className="text-[10px] text-gray-300 font-bold uppercase">{date}</span>
+        <span className="stamp shrink-0">{date}</span>
       </div>
     </div>
   );
@@ -310,7 +304,7 @@ function MemoCard({ title, description, author, date, tags, onClick }: { title: 
 
 function EventBadge({ color, text }: { color: string, text: string }) {
   return (
-    <div className={`${color} text-[8px] px-1 py-0.5 rounded font-bold truncate`}>
+    <div className={`${color} text-xs px-1.5 py-0.5 rounded-md truncate`}>
       {text}
     </div>
   );
@@ -322,62 +316,52 @@ interface GroupCardProps {
 }
 
 function GroupCard({ group, onClick }: GroupCardProps) {
-  const themeClasses = {
-    indigo: { iconBg: 'bg-indigo-100', text: 'text-indigo-500', memberBg: 'bg-indigo-50', memberText: 'text-indigo-400' },
-    blue: { iconBg: 'bg-sky-100', text: 'text-sky-500', memberBg: 'bg-sky-50', memberText: 'text-sky-400' },
-    emerald: { iconBg: 'bg-emerald-100', text: 'text-emerald-500', memberBg: 'bg-emerald-50', memberText: 'text-emerald-400' },
-    orange: { iconBg: 'bg-orange-100', text: 'text-orange-500', memberBg: 'bg-orange-50', memberText: 'text-orange-400' },
-    rose: { iconBg: 'bg-rose-100', text: 'text-rose-500', memberBg: 'bg-rose-50', memberText: 'text-rose-400' },
-    amber: { iconBg: 'bg-amber-100', text: 'text-amber-500', memberBg: 'bg-amber-50', memberText: 'text-amber-400' }
-  };
-
-  const theme = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
   const initial = group.name.substring(0, 1);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const profileSrc = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
 
   return (
-    <div onClick={onClick} className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-indigo-100 hover:shadow-sm transition-all cursor-pointer group flex items-center gap-4">
+    <div onClick={onClick} className="card px-4 py-3 hover:bg-raised transition-colors cursor-pointer group flex items-center gap-3">
       {profileSrc ? (
-        <ImageWithFallback 
-          src={profileSrc} 
-          alt={group.name} 
-          fill 
-          containerClassName={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm relative`} 
+        <ImageWithFallback
+          src={profileSrc}
+          alt={group.name}
+          fill
+          containerClassName="size-10 bg-raised rounded-[10px] flex items-center justify-center text-ink-2 text-base font-medium shrink-0 relative"
           className="object-cover"
           fallbackIcon={initial}
         />
       ) : (
-        <div className={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm relative overflow-hidden`}>
+        <div className="size-10 bg-raised rounded-[10px] flex items-center justify-center text-ink-2 text-base font-medium shrink-0 relative overflow-hidden">
           {initial}
         </div>
       )}
       <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-bold text-gray-800 truncate group-hover:text-indigo-500 transition-colors tracking-tight">{group.name}</h3>
-        <div className="flex items-center gap-1.5 mt-1.5">
+        <h3 className="text-sm font-medium text-ink truncate">{group.name}</h3>
+        <div className="flex items-center gap-1.5 mt-1">
           <div className="flex -space-x-1.5">
             {group.members.slice(0, 3).map((member) => (
               <div
                 key={member.id}
-                className={`w-5 h-5 rounded-full ${theme.memberBg} ${theme.memberText} border border-white flex items-center justify-center text-[8px] font-bold overflow-hidden shrink-0 shadow-sm relative`}
+                className="size-5 rounded-full bg-raised text-ink-2 border border-surface flex items-center justify-center text-xs overflow-hidden shrink-0 relative"
                 title={member.nickname}
               >
                 {member.profileImage ? (
-                  <ImageWithFallback 
-                    src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage} 
-                    alt={member.nickname} 
-                    fill 
+                  <ImageWithFallback
+                    src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage}
+                    alt={member.nickname}
+                    fill
                     containerClassName="w-full h-full"
-                    className="object-cover" 
+                    className="object-cover"
                   />
                 ) : member.nickname.substring(0, 1)}
               </div>
             ))}
           </div>
-          <span className="text-[10px] text-gray-400 font-semibold ml-1">{group.memberCount} members</span>
+          <span className="text-xs text-ink-3 ml-1 tabular-nums">{group.memberCount}명</span>
         </div>
       </div>
-      <ChevronRight className="w-4 h-4 text-gray-200 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+      <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3" />
     </div>
   );
 }

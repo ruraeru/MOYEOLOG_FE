@@ -15,6 +15,8 @@ import {
   Minimize2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
@@ -43,14 +45,7 @@ interface GroupTopicDetailModalProps {
 }
 
 function formatDateTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return format(new Date(iso), 'M.d EEE HH:mm', { locale: ko });
 }
 
 import { useAlert } from '@/hooks/useAlert';
@@ -94,7 +89,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to create comment:', error);
-      toast.error('댓글 작성에 실패했습니다.');
+      toast.error('댓글을 쓰지 못했어요');
     }
   });
 
@@ -107,7 +102,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to delete comment:', error);
-      toast.error('댓글 삭제에 실패했습니다.');
+      toast.error('댓글을 지우지 못했어요');
     }
   });
 
@@ -119,7 +114,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to analyze topic:', error);
-      toast.error('AI 분석에 실패했습니다.');
+      toast.error('AI 분석에 실패했어요');
     }
   });
 
@@ -132,7 +127,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to delete topic:', error);
-      toast.error('토픽 삭제에 실패했습니다.');
+      toast.error('토픽을 지우지 못했어요');
     }
   });
 
@@ -158,7 +153,7 @@ export default function GroupTopicDetailModal({
   const handleAnalyze = () => analyzeMutation.mutate();
 
   const handleTopicDelete = async () => {
-    if (!(await confirm('정말로 이 토픽을 삭제하시겠습니까?'))) return;
+    if (!(await confirm('이 토픽을 삭제할까요?'))) return;
     deleteTopicMutation.mutate();
   };
 
@@ -169,7 +164,7 @@ export default function GroupTopicDetailModal({
   };
 
   const handleCommentDelete = async (commentId: string) => {
-    if (!(await confirm('댓글을 삭제하시겠습니까?'))) return;
+    if (!(await confirm('이 댓글을 삭제할까요?'))) return;
     deleteCommentMutation.mutate(commentId);
   };
 
@@ -187,15 +182,15 @@ export default function GroupTopicDetailModal({
               e.preventDefault();
               const id = props.href?.split('/').pop();
               if (isMemo && id) onMemoClick?.(id);
-              if (isProfile) toast.info('프로필 기능 준비 중입니다.');
+              if (isProfile) toast.info('프로필은 아직 준비 중이에요');
             }}
-            className="text-indigo-600 font-black hover:underline cursor-pointer"
+            className="text-accent font-medium hover:underline cursor-pointer"
           >
             {props.children}
           </a>
         );
       }
-      return <a {...props} className="text-indigo-600 hover:underline" target="_blank" rel="noopener noreferrer" />;
+      return <a {...props} className="text-accent hover:underline" target="_blank" rel="noopener noreferrer" />;
     }
   };
 
@@ -203,10 +198,10 @@ export default function GroupTopicDetailModal({
 
   if (loading && !topicDetail) {
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-        <div className="bg-white rounded-3xl p-10 flex items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-          <span className="font-bold text-gray-600">토픽을 불러오는 중...</span>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <div className="bg-surface border border-line rounded-2xl shadow-float p-6 flex items-center gap-3">
+          <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+          <span className="text-sm text-ink-2">토픽을 불러오는 중이에요</span>
         </div>
       </div>
     );
@@ -222,23 +217,23 @@ export default function GroupTopicDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className={`bg-white flex shadow-2xl overflow-hidden relative transition-all duration-300 ${
+        className={`bg-surface flex overflow-hidden relative ${
           isFullscreen
             ? 'fixed inset-0 w-screen h-screen rounded-none z-[70]'
-            : 'rounded-[2.5rem] w-full max-w-6xl max-h-[90vh]'
+            : 'rounded-2xl border border-line shadow-float w-full max-w-6xl max-h-[90vh]'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden border-r border-gray-100 bg-white">
+        <div className="flex-1 flex flex-col overflow-hidden border-r border-line bg-surface">
           {/* Header */}
-          <div className="px-10 py-8 border-b border-gray-50 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full relative border-2 border-gray-100 overflow-hidden shrink-0">
+          <div className="px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-full relative overflow-hidden shrink-0">
                 {topic.authorProfileImage ? (
                   <ImageWithFallback 
                     src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
@@ -249,14 +244,14 @@ export default function GroupTopicDetailModal({
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full bg-indigo-50 flex items-center justify-center text-indigo-500 font-bold">
+                  <div className="w-full h-full bg-accent-soft flex items-center justify-center text-accent">
                     {topic.authorNickname[0]}
                   </div>
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-black text-gray-900">{topic.authorNickname}</h3>
-                <p className="text-xs text-gray-400 font-medium">{formatDateTime(topic.createdAt)}</p>
+                <h3 className="text-sm font-medium text-ink">{topic.authorNickname}</h3>
+                <p className="stamp">{formatDateTime(topic.createdAt)}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -264,39 +259,39 @@ export default function GroupTopicDetailModal({
                 <>
                   <button
                     onClick={() => onEdit?.(topic)}
-                    className="p-2.5 hover:bg-gray-100 rounded-2xl transition-colors text-gray-400 hover:text-indigo-600"
+                    className="btn-ghost size-9 !px-0"
                     title="토픽 수정"
                   >
-                    <Pencil className="w-5 h-5" />
+                    <Pencil size={18} strokeWidth={1.5} />
                   </button>
                   <button
                     onClick={handleTopicDelete}
                     disabled={isDeleting}
-                    className="p-2.5 hover:bg-red-50 rounded-2xl transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
+                    className="btn-ghost size-9 !px-0 hover:!text-negative hover:!bg-negative-soft"
                   >
-                    {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                    {isDeleting ? <Loader2 size={18} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={18} strokeWidth={1.5} />}
                   </button>
                 </>
               )}
               <button
                 onClick={() => setIsFullscreen(!isFullscreen)}
-                className="p-2.5 hover:bg-gray-100 rounded-2xl transition-colors text-gray-400"
+                className="btn-ghost size-9 !px-0"
                 title={isFullscreen ? "축소하기" : "전체화면"}
               >
-                {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                {isFullscreen ? <Minimize2 size={18} strokeWidth={1.5} /> : <Maximize2 size={18} strokeWidth={1.5} />}
               </button>
               <button
                 onClick={onClose}
-                className="p-2.5 hover:bg-gray-100 rounded-2xl transition-colors text-gray-400"
+                className="btn-ghost size-9 !px-0"
               >
-                <X className="w-6 h-6" />
+                <X size={18} strokeWidth={1.5} />
               </button>
             </div>
           </div>
 
           {/* Topic Content */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-10 space-y-8">
-            <h2 className="text-4xl font-black text-gray-900 leading-tight tracking-tight">{topic.title}</h2>
+          <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
+            <h2 className="text-2xl font-semibold text-ink">{topic.title}</h2>
             
             {topic.imageUrl && (
               <ImageWithFallback 
@@ -304,21 +299,21 @@ export default function GroupTopicDetailModal({
                 alt={topic.title} 
                 width={1200}
                 height={600}
-                containerClassName="w-full max-h-[500px] min-h-[200px] rounded-3xl shadow-xl border border-gray-100 bg-gray-50 overflow-hidden" 
+                containerClassName="w-full max-h-[500px] min-h-[200px] rounded-xl border border-line bg-raised overflow-hidden" 
                 className="w-full h-auto object-contain" 
                 unoptimized
               />
             )}
 
-            <div className="text-gray-700 leading-relaxed" data-color-mode="light">
+            <div className="text-ink leading-relaxed" data-color-mode="light">
               <EdMarkdown 
                 rehypePlugins={markdownRehypePlugins}
                 source={topic.content} 
                 components={markdownComponents}
                 style={{ 
                   backgroundColor: 'transparent', 
-                  fontSize: '1.25rem', 
-                  fontWeight: 500,
+                  fontSize: '1rem', 
+                  fontWeight: 400,
                   color: 'inherit'
                 }} 
               />
@@ -327,44 +322,44 @@ export default function GroupTopicDetailModal({
         </div>
 
         {/* Right Sidebar - AI Insights & Comments */}
-        <div className="w-[420px] bg-gray-50/50 flex flex-col shrink-0 overflow-hidden relative">
+        <div className="w-96 bg-canvas flex flex-col shrink-0 overflow-hidden relative">
           {/* AI Insights Section */}
-          <div className="p-8 border-b border-gray-100 shrink-0">
-            <div className="flex items-center gap-2 font-black text-gray-800 mb-4">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
+          <div className="p-6 border-b border-line shrink-0">
+            <div className="flex items-center gap-2 text-sm font-semibold text-ink mb-3">
+              <Sparkles size={16} strokeWidth={1.5} className="text-ink-3" />
               <span>AI 스마트 요약</span>
               {insight && !loadingInsight && (
                 <button
                   onClick={handleAnalyze}
-                  className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all ml-1"
+                  className="btn-ghost size-8 !px-0 ml-auto"
                   title="AI 분석 다시하기"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw size={16} strokeWidth={1.5} />
                 </button>
               )}
-              {loadingInsight && <Loader2 className="w-4 h-4 animate-spin text-indigo-500 ml-1" />}
+              {loadingInsight && <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3 ml-auto" />}
             </div>
 
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 min-h-[120px] flex flex-col justify-center">
+            <div className="card p-4 min-h-[120px] flex flex-col justify-center">
               {insight ? (
-                <div className="space-y-4">
-                  <p className="text-sm text-gray-600 leading-relaxed font-bold italic">&quot;{insight.summary}&quot;</p>
+                <div className="space-y-3">
+                  <p className="text-sm text-ink-2 leading-relaxed">&quot;{insight.summary}&quot;</p>
                   {insight.ocrText && (
-                    <div className="pt-4 border-t border-gray-50">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-2">이미지 텍스트 추출</span>
-                      <p className="text-[11px] text-gray-500 line-clamp-3 leading-relaxed">{insight.ocrText}</p>
+                    <div className="pt-3 border-t border-line">
+                      <span className="text-xs text-ink-3 block mb-1">이미지 텍스트 추출</span>
+                      <p className="text-xs text-ink-2 line-clamp-3 leading-relaxed">{insight.ocrText}</p>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-center space-y-4">
-                  <p className="text-xs text-gray-400 font-medium">아직 분석된 내용이 없습니다.</p>
+                <div className="text-center space-y-3">
+                  <p className="text-sm text-ink-3">아직 분석된 내용이 없어요</p>
                   <button
                     onClick={handleAnalyze}
                     disabled={loadingInsight}
-                    className="px-6 py-2.5 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95 disabled:opacity-50"
+                    className="btn-primary"
                   >
-                    AI 분석 시작하기
+                    AI 분석 시작
                   </button>
                 </div>
               )}
@@ -373,15 +368,15 @@ export default function GroupTopicDetailModal({
 
           {/* Comments Section */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-8 py-6 flex items-center gap-2 font-black text-gray-800">
-              <MessageSquare className="w-5 h-5 text-indigo-600" />
-              <span>댓글 <span className="text-indigo-500">{comments.length}</span></span>
+            <div className="px-6 py-4 flex items-center gap-2 text-sm font-semibold text-ink">
+              <MessageSquare size={16} strokeWidth={1.5} className="text-ink-3" />
+              <span>댓글 <span className="text-xs font-normal text-ink-3 tabular-nums">{comments.length}</span></span>
             </div>
 
-            <div className="flex-1 overflow-y-auto no-scrollbar px-8 space-y-6 pb-24">
+            <div className="flex-1 overflow-y-auto no-scrollbar px-6 space-y-4 pb-24">
               {comments.length > 0 ? comments.map((comment) => (
-                <div key={comment.id} className="flex gap-4 group/comment">
-                  <div className="w-10 h-10 rounded-2xl relative shrink-0 border border-gray-100 shadow-sm overflow-hidden">
+                <div key={comment.id} className="flex gap-3 group/comment">
+                  <div className="size-8 rounded-full relative shrink-0 overflow-hidden">
                     {comment.authorProfileImage ? (
                       <ImageWithFallback 
                         src={comment.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${comment.authorProfileImage}` : comment.authorProfileImage} 
@@ -392,27 +387,27 @@ export default function GroupTopicDetailModal({
                         unoptimized
                       />
                     ) : (
-                      <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-bold">
+                      <div className="w-full h-full bg-raised flex items-center justify-center text-ink-2 text-xs">
                         {comment.authorNickname[0]}
                       </div>
                     )}
                   </div>
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-black text-gray-800">{comment.authorNickname}</span>
-                      <div className="flex items-center gap-2 opacity-0 group-hover/comment:opacity-100 transition-opacity">
-                        <span className="text-[10px] text-gray-300 font-medium">{formatDateTime(comment.createdAt)}</span>
+                      <span className="text-sm font-medium text-ink">{comment.authorNickname}</span>
+                      <div className="flex items-center gap-2 opacity-0 group-hover/comment:opacity-100 transition-opacity duration-150 ease-out">
+                        <span className="stamp">{formatDateTime(comment.createdAt)}</span>
                         {session?.user?.id === comment.authorId && (
                           <button 
                             onClick={() => handleCommentDelete(comment.id)}
-                            className="p-1 hover:bg-red-50 text-gray-300 hover:text-red-500 rounded-lg transition-all"
+                            className="btn-ghost size-8 !px-0 hover:!text-negative hover:!bg-negative-soft"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 size={16} strokeWidth={1.5} />
                           </button>
                         )}
                       </div>
                     </div>
-                    <div className="text-sm text-gray-600 leading-relaxed font-medium bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-50" data-color-mode="light">
+                    <div className="text-sm text-ink-2 leading-relaxed bg-surface px-3 py-2 rounded-xl border border-line" data-color-mode="light">
                       <EdMarkdown 
                         rehypePlugins={markdownRehypePlugins}
                         source={comment.content} 
@@ -423,15 +418,18 @@ export default function GroupTopicDetailModal({
                   </div>
                 </div>
               )) : (
-                <div className="py-20 text-center">
-                  <MessageSquare className="w-12 h-12 text-gray-100 mx-auto mb-4" />
-                  <p className="text-xs text-gray-400 font-medium">첫 번째 댓글을 남겨보세요!</p>
+                <div className="py-16 text-center">
+                  <div className="size-10 rounded-full bg-raised flex items-center justify-center mx-auto mb-3">
+                    <MessageSquare size={18} strokeWidth={1.5} className="text-ink-3" />
+                  </div>
+                  <p className="text-sm font-medium text-ink">아직 댓글이 없어요</p>
+                  <p className="text-sm text-ink-3 mt-1">첫 댓글을 남겨 보세요</p>
                 </div>
               )}
             </div>
 
             {/* Comment Input */}
-            <div className="absolute bottom-0 left-0 w-full p-6 bg-gray-50/80 backdrop-blur-md border-t border-gray-100">
+            <div className="absolute bottom-0 left-0 w-full px-6 py-4 bg-canvas border-t border-line">
               <form onSubmit={handleCommentSubmit} className="relative">
                 <input
                   type="text"
@@ -440,8 +438,8 @@ export default function GroupTopicDetailModal({
                     setCommentInput(e.target.value);
                     handleInputChange(e.target.value, 'participant');
                   }}
-                  placeholder="댓글을 입력하세요... (@로 친구 언급)"
-                  className="w-full bg-white border border-gray-200 rounded-2xl pl-6 pr-14 py-4 text-sm font-bold focus:border-indigo-500 outline-none shadow-sm transition-all"
+                  placeholder="댓글 입력 (@로 친구 언급)"
+                  className="form-input pr-12"
                 />
                 
                 {showParticipantMentions && (
@@ -460,9 +458,9 @@ export default function GroupTopicDetailModal({
                 <button
                   type="submit"
                   disabled={isCommenting || !commentInput.trim()}
-                  className="absolute right-2 top-2 p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all active:scale-90 disabled:opacity-50 shadow-md shadow-indigo-100"
+                  className="btn-primary absolute right-1.5 top-1/2 -translate-y-1/2 size-8 !px-0"
                 >
-                  {isCommenting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  {isCommenting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}
                 </button>
               </form>
             </div>

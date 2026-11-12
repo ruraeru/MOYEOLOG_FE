@@ -1,45 +1,71 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
 @import "tailwindcss";
 
+/* 디자인 토큰. 방향: 종이 다이어리와 볼펜 잉크. 표면은 거의 회색, 색은 잉크 남색 하나 */
 :root {
-  --background: #FFFFFF;
-  --foreground: #2D3136;
-  --brand-violet: #A5B4FC; /* Soft Pastel Lavender */
-  --brand-violet-dark: #818CF8;
-  --pastel-gray: #F3F4F6;
-  --soft-border: #E5E7EB;
+  --canvas: #f8f7f5;     /* 페이지 배경 */
+  --surface: #ffffff;    /* 카드, 모달 */
+  --raised: #f2f1ee;     /* 입력칸, 활성 행, 호버 */
+  --ink: #1c1b19;        /* 본문 */
+  --ink-2: #57534e;      /* 보조 */
+  --ink-3: #78736c;      /* 메타, 아이콘 */
+  --line: rgb(28 27 25 / 0.09);
+  --line-strong: rgb(28 27 25 / 0.16);
+  --accent: #2f4fb5;
+  --accent-hover: #26419a;
+  --accent-soft: #eef1fa;
+  --positive: #16a34a;
+  --negative: #dc2626;
+  --negative-soft: #fdf0f0;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--brand-violet);
-  --color-primary-dark: var(--brand-violet-dark);
-  --color-pastel-gray: var(--pastel-gray);
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-  --shadow-pastel: 0 4px 20px -1px rgba(0, 0, 0, 0.03), 0 2px 8px -1px rgba(0, 0, 0, 0.02);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #1A1C1E;
-    --foreground: #F9FAFB;
-    --brand-violet: #818CF8;
-    --brand-violet-dark: #6366F1;
-    --pastel-gray: #2D3136;
-    --soft-border: #374151;
-  }
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-background: var(--canvas);
+  --color-foreground: var(--ink);
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --shadow-float: 0 8px 24px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+  --ease-out: var(--ease);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: "Pretendard Variable", Pretendard, sans-serif;
-  letter-spacing: -0.02em;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* React Calendar Pastel Custom Styles */
+/* 키보드 포커스는 보여야 한다 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 시그니처: 날짜·시각 스탬프 (예: 11.18 수 19:00) */
+.stamp {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-3);
+}
+
+/* React Calendar */
 .react-calendar {
   width: 100% !important;
   height: 100% !important;
@@ -48,55 +74,107 @@ body {
   background: transparent !important;
 }
 
+.react-calendar__navigation button {
+  border-radius: 8px;
+  color: var(--ink);
+  font-weight: 500;
+  transition: background-color 150ms var(--ease);
+}
+
+.react-calendar__navigation button:enabled:hover {
+  background-color: var(--raised) !important;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+  text-transform: none;
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+}
+
 .react-calendar__tile {
-  background: white !important;
-  min-height: 110px !important;
-  padding: 0.75rem !important;
+  background: var(--surface) !important;
+  min-height: 112px !important;
+  padding: 8px !important;
   border-radius: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: flex-start !important;
   justify-content: flex-start !important;
-  transition: all 0.2s ease-in-out;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  transition: background-color 150ms var(--ease);
 }
 
 .react-calendar__tile:enabled:hover {
-  background-color: #F9FAFB !important;
+  background-color: var(--raised) !important;
 }
 
-.react-calendar__tile--now {
-  background: #EEF2FF !important;
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: var(--ink-3) !important;
+  opacity: 0.6;
+}
+
+/* 기본 CSS 는 주말 전체를 빨갛게 칠한다. 일정 화면처럼 일요일만 */
+.react-calendar .react-calendar__month-view__days__day--weekend {
+  color: var(--ink);
+}
+
+@media (max-width: 639px) {
+  .react-calendar .react-calendar__tile {
+    min-height: 64px !important;
+    padding: 4px !important;
+  }
+}
+
+.react-calendar .react-calendar__month-view__days > :nth-child(7n + 1):not(.react-calendar__month-view__days__day--neighboringMonth) {
+  color: var(--negative);
+}
+
+/* 오늘은 선택돼 있어도 오늘로 보이게 (--active 보다 뒤에 와야 함) */
+.react-calendar__tile--now,
+.react-calendar__tile--now.react-calendar__tile--active,
+.react-calendar__tile--now.react-calendar__tile--active:enabled:focus {
+  background: var(--accent-soft) !important;
+  box-shadow: none;
 }
 
 .react-calendar__tile--now abbr {
-  color: #818CF8 !important;
-  font-weight: 800 !important;
+  color: var(--accent) !important;
+  font-weight: 600 !important;
 }
 
-.react-calendar__navigation button:enabled:hover {
-  background-color: #F3F4F6 !important;
-  border-radius: 1rem !important;
+.react-calendar__tile--active,
+.react-calendar__tile--active:enabled:focus {
+  background: var(--raised) !important;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 @layer components {
   .form-input {
-    @apply w-full bg-gray-50 border border-gray-100 rounded-2xl px-5 py-3.5 text-sm text-gray-800 focus:bg-white focus:border-indigo-200 focus:ring-4 focus:ring-indigo-50/50 transition-all outline-none font-semibold;
+    @apply w-full rounded-[10px] border border-line bg-raised px-3 py-2.5 text-sm text-ink placeholder:text-ink-3 outline-none transition-colors focus:border-accent focus:bg-surface;
     color-scheme: light;
   }
 
   .btn-primary {
-    @apply px-6 py-3 bg-indigo-400 text-white rounded-2xl text-sm font-bold hover:bg-indigo-500 shadow-sm transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2;
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[10px] bg-accent px-4 text-sm font-medium text-white transition-[background-color,transform] hover:bg-accent-hover active:scale-[0.98] disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply px-6 py-3 bg-white border border-gray-100 text-gray-500 rounded-2xl text-sm font-bold hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50;
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-[10px] border border-line bg-surface px-4 text-sm font-medium text-ink transition-[background-color,transform] hover:bg-raised active:scale-[0.98] disabled:opacity-50;
   }
-}
 
-/* Universal Clean Reset */
-*:focus, *:active, *:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
+  .btn-ghost {
+    @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:opacity-50;
+  }
+
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -143,14 +221,14 @@ body {
 }
 
 .animate-slide-down {
-  animation: slide-down 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-down 0.25s var(--ease) forwards;
 }
 
 .animate-slide-up {
-  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-up 0.3s var(--ease) forwards;
 }
 
 .animate-scale-in {
-  animation: scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: scale-in 0.2s var(--ease) forwards;
 }
 

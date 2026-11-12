@@ -11,10 +11,10 @@ export default function ScheduleDetailPage() {
   if (!id) return null;
 
   return (
-    <div className="flex flex-col h-screen bg-[#F8F9FB]">
+    <div className="flex flex-col h-screen bg-canvas">
       <Navbar />
       <main className="flex-1 overflow-hidden relative">
-        <div className="h-full max-w-7xl mx-auto bg-white shadow-sm overflow-hidden flex flex-col">
+        <div className="h-full max-w-7xl mx-auto bg-surface border-x border-line overflow-hidden flex flex-col">
           <AppointmentDetailView scheduleId={id} isPage={true} />
         </div>
       </main>

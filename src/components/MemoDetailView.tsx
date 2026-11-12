@@ -20,6 +20,8 @@ import {
   FileText,
   ChevronRight
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import { useSession } from 'next-auth/react';
 import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
@@ -46,15 +48,7 @@ interface MemoDetailViewProps {
 }
 
 function formatDateTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  return format(new Date(iso), 'M.d EEE HH:mm', { locale: ko });
 }
 
 function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
@@ -69,7 +63,7 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
   if (isEditing) {
     return (
       <div
-        className="w-full border-2 border-dashed border-gray-100 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 bg-gray-50/30 hover:bg-gray-50 transition-colors cursor-pointer mb-6 group relative overflow-hidden min-h-[120px]"
+        className="w-full border border-dashed border-line-strong rounded-2xl p-5 flex flex-col items-center justify-center gap-3 bg-canvas hover:bg-raised transition-colors duration-150 ease-out cursor-pointer mb-4 relative overflow-hidden min-h-[120px]"
         onClick={() => fileInputRef.current?.click()}
       >
         <input
@@ -87,16 +81,14 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
           <img
             src={src}
             alt="미리보기"
-            className="max-h-40 rounded-xl object-contain"
+            className="max-h-40 rounded-[10px] object-contain"
           />
         ) : (
           <>
-            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-400 group-hover:text-blue-500 transition-all">
-              <Upload className="w-6 h-6" />
-            </div>
+            <Upload size={18} strokeWidth={1.5} className="text-ink-3" />
             <div className="text-center">
-              <p className="text-sm font-bold text-gray-600">
-                새 이미지를 드래그하거나 클릭하여 교체
+              <p className="text-sm font-medium text-ink">
+                새 이미지를 끌어다 놓거나 눌러서 바꿔요
               </p>
             </div>
           </>
@@ -108,7 +100,7 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
               e.stopPropagation();
               onImageRemove?.();
             }}
-            className="absolute top-3 right-3 text-xs font-bold text-red-500 bg-white px-2 py-1 rounded-lg shadow-sm hover:bg-red-50 transition-colors"
+            className="absolute top-3 right-3 text-xs text-negative bg-surface border border-line px-2 py-1 rounded-lg hover:bg-negative-soft transition-colors duration-150 ease-out"
           >
             제거
           </button>
@@ -122,7 +114,7 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
   if (src.startsWith('data:')) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={alt} className="w-full max-h-48 object-cover rounded-2xl mb-6" />
+      <img src={src} alt={alt} className="w-full max-h-48 object-cover rounded-2xl mb-4" />
     );
   }
   return (
@@ -131,7 +123,7 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
       alt={alt}
       fill
       sizes="(max-width: 768px) 100vw, 50vw"
-      containerClassName="w-full h-full mb-6 rounded-2xl"
+      containerClassName="w-full h-full mb-4 rounded-2xl"
       className="object-contain"
     />
   );
@@ -263,7 +255,7 @@ export default function MemoDetailView({
       setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
     } catch (error) {
       console.error('Failed to save memo:', error);
-      toast.error('저장에 실패했습니다.');
+      toast.error('저장하지 못했어요');
     } finally {
       setIsSaving(false);
     }
@@ -277,7 +269,7 @@ export default function MemoDetailView({
       setEditImagePreview(dataUrl);
     } catch (e) {
       console.error(e);
-      toast.error('이미지 처리에 실패했습니다.');
+      toast.error('이미지를 처리하지 못했어요');
     }
   };
 
@@ -289,7 +281,7 @@ export default function MemoDetailView({
       setInsight(res);
     } catch (error) {
       console.error('Failed to analyze memo:', error);
-      toast.error('AI 분석에 실패했습니다.');
+      toast.error('분석하지 못했어요');
     } finally {
       setLoadingInsight(false);
     }
@@ -302,7 +294,7 @@ export default function MemoDetailView({
       setCurrentTags(newTags);
     } catch (error) {
       console.error('Failed to sync tags:', error);
-      toast.error('태그 저장에 실패했습니다.');
+      toast.error('태그를 저장하지 못했어요');
     }
   };
 
@@ -320,7 +312,7 @@ export default function MemoDetailView({
   };
 
   const handleDelete = async () => {
-    if (!(await confirm('정말로 이 메모를 삭제하시겠습니까?'))) return;
+    if (!(await confirm('이 메모를 삭제할까요?'))) return;
     setIsDeleting(true);
     try {
       await memoApi.delete(memoId, session);
@@ -332,7 +324,7 @@ export default function MemoDetailView({
       }
     } catch (error) {
       console.error('Failed to delete memo:', error);
-      toast.error('메모 삭제에 실패했습니다.');
+      toast.error('메모를 삭제하지 못했어요');
     } finally {
       setIsDeleting(false);
     }
@@ -373,10 +365,10 @@ export default function MemoDetailView({
 
   if (loadingMemo) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-white p-4">
+      <div className="flex-1 flex items-center justify-center bg-surface p-4">
         <div className="flex items-center gap-3">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-          <span className="font-bold text-gray-600">메모를 불러오는 중...</span>
+          <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+          <span className="text-sm text-ink-3">메모를 불러오고 있어요</span>
         </div>
       </div>
     );
@@ -390,18 +382,18 @@ export default function MemoDetailView({
   const matchedSchedules = schedules.filter(s => s.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
 
   return (
-    <div className={`flex flex-col lg:flex-row bg-white overflow-hidden ${isPage ? 'h-[calc(100vh-64px)]' : 'h-[90vh] w-full'}`}>
+    <div className={`flex flex-col lg:flex-row bg-surface overflow-hidden ${isPage ? 'h-[calc(100vh-64px)]' : 'h-[90vh] w-full'}`}>
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col p-6 lg:p-10 overflow-y-auto no-scrollbar border-r border-gray-100 pb-24">
-        <div className="flex items-center justify-between mb-8">
+      <div className="flex-1 flex flex-col p-6 lg:p-8 overflow-y-auto no-scrollbar border-r border-line pb-24">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3 flex-wrap flex-1">
             {isPage && !isEditing && (
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 mr-2"
+                className="btn-ghost mr-2"
                 title="뒤로가기"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft size={18} strokeWidth={1.5} />
               </button>
             )}
 
@@ -410,11 +402,11 @@ export default function MemoDetailView({
                 type="text"
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
-                placeholder="제목을 입력하세요"
-                className="text-2xl lg:text-3xl font-black text-gray-900 border-none outline-none flex-1 bg-gray-50 px-4 py-2 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all"
+                placeholder="제목"
+                className="form-input text-2xl font-semibold flex-1"
               />
             ) : (
-              <h2 className="text-2xl lg:text-3xl font-black text-gray-900">{memo.title}</h2>
+              <h2 className="text-2xl font-semibold text-ink">{memo.title}</h2>
             )}
 
             <div className="flex items-center gap-1 ml-auto">
@@ -424,16 +416,16 @@ export default function MemoDetailView({
                     type="button"
                     onClick={handleSaveEdit}
                     disabled={isSaving}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all disabled:opacity-50"
+                    className="btn-primary flex items-center gap-2 disabled:opacity-50"
                   >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    {isSaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Check size={16} strokeWidth={1.5} />}
                     저장
                   </button>
                   <button
                     type="button"
                     onClick={handleCancelEdit}
                     disabled={isSaving}
-                    className="px-4 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-200 transition-all disabled:opacity-50"
+                    className="btn-secondary disabled:opacity-50"
                   >
                     취소
                   </button>
@@ -443,37 +435,37 @@ export default function MemoDetailView({
                   <button
                     type="button"
                     onClick={handleToggleFavorite}
-                    className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${memo.isFavorite ? 'text-amber-400' : 'text-gray-300'}`}
+                    className={`btn-ghost ${memo.isFavorite ? 'text-accent' : 'text-ink-3'}`}
                     title="즐겨찾기"
                   >
-                    <Star className={`w-5 h-5 ${memo.isFavorite ? 'fill-amber-400' : ''}`} />
+                    <Star size={18} strokeWidth={1.5} className={memo.isFavorite ? 'fill-current' : ''} />
                   </button>
                   <button
                     type="button"
                     onClick={handleStartEdit}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+                    className="btn-ghost text-ink-3"
                     title="메모 수정"
                   >
-                    <Pencil className="w-5 h-5" />
+                    <Pencil size={18} strokeWidth={1.5} />
                   </button>
                   {session?.user?.id === memo.authorId && (
                     <>
                       <button
                         type="button"
                         onClick={() => setIsShareModalOpen(true)}
-                        className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+                        className="btn-ghost text-ink-3"
                         title="공유하기"
                       >
-                        <Share2 className="w-5 h-5" />
+                        <Share2 size={18} strokeWidth={1.5} />
                       </button>
                       <button
                         type="button"
                         onClick={handleDelete}
                         disabled={isDeleting}
-                        className="p-2 hover:bg-red-50 rounded-full transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
+                        className="btn-ghost text-ink-3 hover:text-negative hover:bg-negative-soft disabled:opacity-50"
                         title="삭제하기"
                       >
-                        {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                        {isDeleting ? <Loader2 size={18} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={18} strokeWidth={1.5} />}
                       </button>
                     </>
                   )}
@@ -485,26 +477,26 @@ export default function MemoDetailView({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 lg:hidden ml-4"
+              className="btn-ghost text-ink-3 lg:hidden ml-4"
             >
-              <X className="w-6 h-6" />
+              <X size={18} strokeWidth={1.5} />
             </button>
           )}
         </div>
 
         {!isEditing && (
-          <div className="space-y-1 mb-6 text-xs text-gray-400 font-medium">
+          <div className="space-y-1 mb-6 text-sm text-ink-3">
             <div className="flex items-center gap-2">
-              <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-bold">작성자</span>
-              <span className="text-gray-600 font-black">{memo.authorNickname}</span>
+              <span>작성자</span>
+              <span className="text-ink-2">{memo.authorNickname}</span>
             </div>
             {memo.lastModifierNickname && (
               <div className="flex items-center gap-2">
-                <span className="bg-gray-50 px-2 py-0.5 rounded text-gray-400 font-bold">마지막 수정</span>
-                <span className="text-gray-500 font-bold">{memo.lastModifierNickname}</span>
+                <span>마지막 수정</span>
+                <span className="text-ink-2">{memo.lastModifierNickname}</span>
               </div>
             )}
-            <p className="pt-1">{formatDateTime(memo.createdAt)} 작성</p>
+            <p className="pt-1"><span className="stamp">{formatDateTime(memo.createdAt)}</span> 작성</p>
           </div>
         )}
 
@@ -529,7 +521,7 @@ export default function MemoDetailView({
           />
         )}
 
-        <div className="text-gray-700 leading-relaxed min-h-[400px] relative" data-color-mode="light" onKeyUp={isEditing ? handleEditorKeyUp : undefined}>
+        <div className="text-ink leading-relaxed min-h-[400px] relative" data-color-mode="light" onKeyUp={isEditing ? handleEditorKeyUp : undefined}>
           {isEditing ? (
             <MDEditor
               previewOptions={{ rehypePlugins: markdownRehypePlugins }}
@@ -537,7 +529,7 @@ export default function MemoDetailView({
               onChange={(val) => setEditContent(val || '')}
               preview="live"
               height="100%"
-              style={{ borderRadius: '1.5rem', border: '1px solid #F3F4F6' }}
+              style={{ borderRadius: '0.75rem', border: '1px solid var(--color-line)' }}
             />
           ) : (
             <EdMarkdown
@@ -545,8 +537,8 @@ export default function MemoDetailView({
               source={memo.content}
               style={{
                 backgroundColor: 'transparent',
-                fontSize: '1.125rem',
-                fontWeight: 500,
+                fontSize: '1rem',
+                fontWeight: 400,
                 color: 'inherit'
               }}
             />
@@ -554,15 +546,13 @@ export default function MemoDetailView({
 
           {/* 에디터 인라인 멘션 팝업 */}
           {isEditing && mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
-            <div className="absolute z-50 bottom-4 left-4 w-72 max-h-64 overflow-y-auto bg-white border border-gray-100 shadow-2xl rounded-2xl p-2 no-scrollbar">
+            <div className="absolute z-50 bottom-4 left-4 w-72 max-h-64 overflow-y-auto bg-surface border border-line shadow-float rounded-2xl p-2 no-scrollbar">
               {matchedSchedules.length > 0 && (
                 <div className="mb-2">
-                  <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">일정 결과</div>
+                  <div className="text-xs text-ink-3 px-2 py-1">일정</div>
                   {matchedSchedules.map(s => (
-                    <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
-                      <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
-                        <LucideCalendar className="w-3.5 h-3.5" />
-                      </div>
+                    <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="w-full text-left px-3 py-2 hover:bg-raised rounded-lg text-sm text-ink flex items-center gap-2 transition-colors duration-150 ease-out">
+                      <LucideCalendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
                       <span className="truncate">{s.title}</span>
                     </button>
                   ))}
@@ -570,12 +560,10 @@ export default function MemoDetailView({
               )}
               {matchedMemos.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-bold text-gray-400 px-2 py-1 uppercase tracking-wider">메모 결과</div>
+                  <div className="text-xs text-ink-3 px-2 py-1">메모</div>
                   {matchedMemos.map(m => (
-                    <button key={m.id} onClick={() => insertMention(m, 'memo')} className="w-full text-left px-3 py-2.5 hover:bg-indigo-50 rounded-xl text-sm font-bold text-gray-700 flex items-center gap-2.5 transition-colors">
-                      <div className="w-6 h-6 bg-indigo-100 rounded-md flex items-center justify-center shrink-0 text-indigo-500">
-                        <FileText className="w-3.5 h-3.5" />
-                      </div>
+                    <button key={m.id} onClick={() => insertMention(m, 'memo')} className="w-full text-left px-3 py-2 hover:bg-raised rounded-lg text-sm text-ink flex items-center gap-2 transition-colors duration-150 ease-out">
+                      <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
                       <span className="truncate">{m.title}</span>
                     </button>
                   ))}
@@ -587,52 +575,52 @@ export default function MemoDetailView({
       </div>
 
       {/* Sidebar - AI Insights & Tags */}
-      <div className="w-full lg:w-[360px] bg-gray-50/50 p-6 lg:p-8 overflow-y-auto no-scrollbar flex flex-col gap-8 shrink-0 relative">
+      <div className="w-full lg:w-[360px] bg-canvas p-6 overflow-y-auto no-scrollbar flex flex-col gap-6 shrink-0 relative">
         {!isPage && !isEditing && (
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-8 right-8 p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hidden lg:block"
+            className="absolute top-6 right-6 btn-ghost text-ink-3 hidden lg:block"
           >
-            <X className="w-6 h-6" />
+            <X size={18} strokeWidth={1.5} />
           </button>
         )}
 
-        <div className="space-y-4 pt-4 lg:pt-0">
-          <div className="flex items-center gap-2 text-gray-900 font-bold">
-            <Sparkles className="w-5 h-5 text-blue-500" />
-            <span>AI 인사이트</span>
+        <div className="space-y-3 pt-4 lg:pt-0">
+          <div className="flex items-center gap-2 text-ink font-semibold">
+            <Sparkles size={16} strokeWidth={1.5} className="text-ink-3" />
+            <span className="text-base">AI 인사이트</span>
             {insight && !loadingInsight && !isEditing && (
               <button
                 onClick={handleAnalyze}
-                className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all ml-1"
-                title="AI 분석 다시하기"
+                className="p-1 text-ink-3 hover:text-ink hover:bg-raised rounded-md transition-colors duration-150 ease-out ml-1"
+                title="다시 분석"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
+                <RefreshCw size={16} strokeWidth={1.5} />
               </button>
             )}
-            {loadingInsight && <Loader2 className="w-4 h-4 animate-spin text-indigo-500 ml-1" />}
+            {loadingInsight && <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3 ml-1" />}
           </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
+          <div className="card p-5 space-y-4">
             {loadingInsight ? (
               <div className="flex flex-col items-center justify-center py-4 gap-2">
-                <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-                <p className="text-[10px] text-gray-400 font-bold">AI가 분석 중입니다...</p>
+                <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                <p className="text-xs text-ink-3">분석하고 있어요</p>
               </div>
             ) : insight ? (
               <>
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded uppercase">
+                  <span className="text-xs text-ink-3">
                     요약
                   </span>
-                  <p className="text-xs text-gray-600 leading-relaxed font-medium">{insight.summary}</p>
+                  <p className="text-sm text-ink-2 leading-relaxed">{insight.summary}</p>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase">AI 추천 태그</span>
-                    <span className="text-[8px] text-gray-300 font-medium">클릭하여 추가</span>
+                    <span className="text-xs text-ink-3">추천 태그</span>
+                    <span className="text-xs text-ink-3">눌러서 추가</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {(insight.keywords ?? []).map((kw) => {
@@ -642,9 +630,9 @@ export default function MemoDetailView({
                           key={kw}
                           onClick={() => !isAdded && addTag(kw)}
                           disabled={isAdded}
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${isAdded
-                            ? 'bg-gray-100 text-gray-300 cursor-default'
-                            : 'bg-blue-50 text-blue-500 hover:bg-blue-100'
+                          className={`text-xs px-2 py-0.5 rounded-md transition-colors duration-150 ease-out ${isAdded
+                            ? 'bg-raised text-ink-3 cursor-default'
+                            : 'bg-accent-soft text-accent hover:bg-raised'
                             }`}
                         >
                           {kw}
@@ -656,13 +644,13 @@ export default function MemoDetailView({
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-4 gap-3 text-center">
-                <p className="text-xs text-gray-400 font-medium">분석 결과가 아직 없습니다.</p>
+                <p className="text-sm text-ink-3">아직 분석 결과가 없어요</p>
                 {!isEditing && (
                   <button
                     onClick={handleAnalyze}
-                    className="px-4 py-2 bg-indigo-600 text-white text-[10px] font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                    className="btn-primary"
                   >
-                    AI 분석 시작하기
+                    분석 시작
                   </button>
                 )}
               </div>
@@ -670,24 +658,24 @@ export default function MemoDetailView({
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-gray-900 font-bold">
-            <TagIcon className="w-5 h-5 text-blue-500" />
-            <span>태그</span>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-ink font-semibold">
+            <TagIcon size={16} strokeWidth={1.5} className="text-ink-3" />
+            <span className="text-base">태그</span>
           </div>
 
           <div className="flex flex-wrap gap-2">
             {currentTags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs font-bold text-gray-500 bg-white border border-gray-200 px-3 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 group/tag"
+                className="text-xs text-ink-2 bg-raised rounded-md px-2 py-0.5 flex items-center gap-1.5 group/tag"
               >
                 #{tag}
                 <button
                   onClick={() => removeTag(tag)}
-                  className="text-gray-300 hover:text-red-500 transition-colors"
+                  className="text-ink-3 hover:text-negative transition-colors duration-150 ease-out"
                 >
-                  <X className="w-3 h-3" />
+                  <X size={12} strokeWidth={1.5} />
                 </button>
               </span>
             ))}
@@ -698,20 +686,20 @@ export default function MemoDetailView({
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addTag(tagInput)}
-                placeholder="태그 추가..."
-                className="text-xs font-bold text-gray-400 bg-gray-50 border border-transparent px-3 py-1.5 rounded-xl w-24 focus:w-32 focus:bg-white focus:border-blue-200 transition-all outline-none"
+                placeholder="태그 추가"
+                className="form-input text-xs w-28 h-7 px-2"
               />
             </div>
           </div>
         </div>
 
         {!isEditing && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-gray-900 font-bold">
-              <MessageSquare className="w-5 h-5 text-blue-500" />
-              <span className="text-sm">OCR 인식 텍스트</span>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-ink font-semibold">
+              <MessageSquare size={16} strokeWidth={1.5} className="text-ink-3" />
+              <span className="text-base">이미지에서 읽은 글자</span>
             </div>
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm text-xs text-gray-500 leading-relaxed font-medium whitespace-pre-wrap min-h-[100px]">
+            <div className="card p-4 text-sm text-ink-2 leading-relaxed whitespace-pre-wrap min-h-[100px]">
               {loadingInsight ? '분석 중…' : insight?.ocrText ?? '—'}
             </div>
           </div>
@@ -719,18 +707,16 @@ export default function MemoDetailView({
 
         {/* Tagged Memos and Schedules */}
         {!isEditing && memo.taggedSchedules && memo.taggedSchedules.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="flex items-center gap-2 text-gray-900 font-bold">
-              <LucideCalendar className="w-5 h-5 text-indigo-500" />
-              <span className="text-sm">연결된 일정</span>
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-2 text-ink font-semibold">
+              <LucideCalendar size={16} strokeWidth={1.5} className="text-ink-3" />
+              <span className="text-base">연결된 일정</span>
             </h3>
             <div className="grid grid-cols-1 gap-2">
               {memo.taggedSchedules.map((sch) => (
-                <div key={sch.id} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                  <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 shrink-0">
-                    <LucideCalendar className="w-4 h-4" />
-                  </div>
-                  <h4 className="font-bold text-gray-800 text-xs truncate flex-1">{sch.title}</h4>
+                <div key={sch.id} className="card flex items-center gap-3 px-4 py-3">
+                  <LucideCalendar size={16} strokeWidth={1.5} className="text-ink-3 shrink-0" />
+                  <h4 className="text-sm text-ink truncate flex-1">{sch.title}</h4>
                 </div>
               ))}
             </div>
@@ -738,19 +724,17 @@ export default function MemoDetailView({
         )}
 
         {!isEditing && memo.taggedMemos && memo.taggedMemos.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="flex items-center gap-2 text-gray-900 font-bold">
-              <FileText className="w-5 h-5 text-indigo-500" />
-              <span className="text-sm">연결된 메모</span>
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-2 text-ink font-semibold">
+              <FileText size={16} strokeWidth={1.5} className="text-ink-3" />
+              <span className="text-base">연결된 메모</span>
             </h3>
             <div className="grid grid-cols-1 gap-2">
               {memo.taggedMemos.map((m) => (
-                <div key={m.id} onClick={() => router.push(`/memo/${m.id}`)} className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm hover:border-indigo-200 cursor-pointer transition-all">
-                  <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-500 shrink-0">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <h4 className="font-bold text-gray-800 text-xs truncate flex-1">{m.title}</h4>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
+                <div key={m.id} onClick={() => router.push(`/memo/${m.id}`)} className="card flex items-center gap-3 px-4 py-3 hover:border-line-strong cursor-pointer transition-colors duration-150 ease-out">
+                  <FileText size={16} strokeWidth={1.5} className="text-ink-3 shrink-0" />
+                  <h4 className="text-sm text-ink truncate flex-1">{m.title}</h4>
+                  <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3" />
                 </div>
               ))}
             </div>

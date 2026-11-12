@@ -159,77 +159,74 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center bg-black/40 backdrop-blur-sm p-0 md:p-4 overflow-hidden" onClick={onClose}>
-      <div className="bg-white text-gray-800 rounded-t-[2rem] md:rounded-[2rem] w-full max-w-xl flex flex-col shadow-2xl overflow-hidden max-h-[90vh] animate-slide-up md:animate-none" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center bg-black/40 p-0 md:p-4 overflow-hidden" onClick={onClose}>
+      <div className="bg-surface text-ink rounded-t-2xl md:rounded-2xl border border-line w-full max-w-xl flex flex-col shadow-float overflow-hidden max-h-[90vh] animate-slide-up md:animate-none" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg"><Calendar className="w-5 h-5" /></div>
-            <h2 className="text-xl font-black text-gray-900 tracking-tight">{initialSchedule ? '일정 수정하기' : '일정 만들기'}</h2>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"><X className="w-6 h-6" /></button>
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
+          <h2 className="text-lg font-semibold text-ink">{initialSchedule ? '일정 수정' : '새 일정'}</h2>
+          <button onClick={onClose} className="btn-ghost"><X size={18} strokeWidth={1.5} /></button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-10">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-6 space-y-6">
           <Section label="일정 제목">
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="어떤 약속인가요?" className="form-input text-base" />
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="어떤 약속인가요" className="form-input text-base" />
           </Section>
 
           <div className="grid grid-cols-2 gap-4">
-            <Section label="날짜" icon={<Calendar className="w-3.5 h-3.5" />}>
+            <Section label="날짜" icon={<Calendar size={16} strokeWidth={1.5} />}>
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="form-input" />
             </Section>
-            <Section label="시간" icon={<Clock className="w-3.5 h-3.5" />}>
+            <Section label="시간" icon={<Clock size={16} strokeWidth={1.5} />}>
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="form-input" />
             </Section>
           </div>
 
-          <Section label="모임 선택" icon={<Users className="w-3.5 h-3.5" />}>
+          <Section label="모임 선택" icon={<Users size={16} strokeWidth={1.5} />}>
             <div className="relative">
               <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)} className="form-input appearance-none">
                 <option value="">모임을 선택하세요 (개인 일정)</option>
                 {userGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
-              <ChevronRight className="w-4 h-4 text-gray-400 absolute right-6 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+              <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
             </div>
           </Section>
 
           {/* Location Picker */}
-          <Section label="장소 지정" icon={<MapPin className="w-3.5 h-3.5 text-rose-500" />}>
+          <Section label="장소 지정" icon={<MapPin size={16} strokeWidth={1.5} />}>
             <div className="relative">
-              <input type="text" value={location} onChange={(e) => { setLocation(e.target.value); searchPlaces(e.target.value); }} placeholder="장소를 검색해보세요" className="form-input pr-14" />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 className="w-5 h-5 text-indigo-500 animate-spin" /> : <Search className="w-5 h-5 text-gray-400" />}</div>
+              <input type="text" value={location} onChange={(e) => { setLocation(e.target.value); searchPlaces(e.target.value); }} placeholder="장소를 검색해요" className="form-input pr-10" />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 size={16} strokeWidth={1.5} className="text-ink-3 animate-spin" /> : <Search size={16} strokeWidth={1.5} className="text-ink-3" />}</div>
               {searchResults.length > 0 && (
-                <div className="absolute z-20 w-full top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto">
+                <div className="absolute z-20 w-full top-full mt-2 bg-surface rounded-[10px] shadow-float border border-line overflow-hidden max-h-60 overflow-y-auto">
                   {searchResults.map((r, i) => (
-                    <button key={i} type="button" onClick={() => handleLocationSelect(r)} className="w-full text-left px-5 py-3.5 hover:bg-indigo-50 transition-colors border-b border-gray-50 last:border-0 font-bold text-sm text-gray-800">
-                      {r.place_name}<div className="text-[10px] text-gray-400 font-medium mt-0.5">{r.address_name}</div>
+                    <button key={i} type="button" onClick={() => handleLocationSelect(r)} className="w-full text-left px-4 py-3 hover:bg-raised transition-colors duration-150 ease-out border-b border-line last:border-0 font-medium text-sm text-ink">
+                      {r.place_name}<div className="text-xs text-ink-3 font-normal mt-0.5">{r.address_name}</div>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            <div className="rounded-3xl overflow-hidden border-2 border-gray-100 shadow-inner bg-gray-50 relative mt-4">
+            <div className="rounded-[10px] overflow-hidden border border-line bg-raised relative mt-3">
               <div ref={mapContainer} className="w-full h-[220px]" />
-              {isMapLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center z-10"><Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-2" /><p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">위치 확인 중...</p></div>}
+              {isMapLoading && <div className="absolute inset-0 bg-surface/70 flex flex-col items-center justify-center z-10"><Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin mb-2" /><p className="text-xs text-ink-2">위치를 확인하는 중이에요</p></div>}
             </div>
           </Section>
 
           {/* Recommendations */}
-          <div className="space-y-4">
-            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 px-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /> 주변 핫플레이스 추천</h4>
-            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-2 px-2">
-              {isRecommending ? <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 w-full text-center"><Loader2 className="w-4 h-4 animate-spin text-indigo-500 mx-auto" /></div> : recommendations.map((rec, idx) => (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-ink-2 flex items-center gap-1.5"><Star size={16} strokeWidth={1.5} className="text-ink-3" /> 주변 장소 추천</h4>
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+              {isRecommending ? <div className="p-4 bg-raised rounded-[10px] w-full text-center"><Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3 mx-auto" /></div> : recommendations.map((rec, idx) => (
                 <RecommendationCard key={`${rec.id}-${idx}`} rec={rec} onClick={() => handleLocationSelect(rec)} />
               ))}
             </div>
           </div>
 
           {/* Participants */}
-          <Section label="참여자" icon={<Users className="w-3.5 h-3.5 text-blue-500" />}>
+          <Section label="참여자" icon={<Users size={16} strokeWidth={1.5} />}>
             <div className="relative">
-              <input type="text" value={participantInput} onChange={(e) => { setParticipantInput(e.target.value); handleInputChange(e.target.value, 'participant'); }} placeholder="친구 이름을 입력하거나 @를 눌러보세요" className="form-input" />
+              <input type="text" value={participantInput} onChange={(e) => { setParticipantInput(e.target.value); handleInputChange(e.target.value, 'participant'); }} placeholder="친구 이름을 입력하거나 @를 눌러요" className="form-input" />
               {showParticipantMentions && (
                 <MentionList items={filteredParticipants} onSelect={(m) => { setParticipants([...participants, { id: m.id, nickname: m.nickname || '', profileImage: m.profileImage }]); setShowParticipantMentions(false); setParticipantInput(''); }} />
               )}
@@ -240,25 +237,25 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           </Section>
 
           {/* Memos */}
-          <Section label="관련 메모 언급 (@멘션)" icon={<FileText className="w-3.5 h-3.5" />}>
+          <Section label="관련 메모 언급 (@멘션)" icon={<FileText size={16} strokeWidth={1.5} />}>
             <div className="relative">
-              <input type="text" value={memoMentionInput} onChange={(e) => { setMemoMentionInput(e.target.value); handleInputChange(e.target.value, 'memo'); }} placeholder="메모 제목을 입력하거나 @를 눌러보세요" className="form-input" />
+              <input type="text" value={memoMentionInput} onChange={(e) => { setMemoMentionInput(e.target.value); handleInputChange(e.target.value, 'memo'); }} placeholder="메모 제목을 입력하거나 @를 눌러요" className="form-input" />
               {showMemoMentions && <MentionList items={filteredMemos} onSelect={(m) => { setTaggedMemos([...taggedMemos, allMemos.find(memo => memo.id === m.id)!]); setShowMemoMentions(false); setMemoMentionInput(''); }} isMemo />}
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
-              {taggedMemos.map(m => <Chip key={m.id} label={m.title} icon={<FileText className="w-3 h-3" />} onRemove={() => setTaggedMemos(taggedMemos.filter(item => item.id !== m.id))} />)}
+              {taggedMemos.map(m => <Chip key={m.id} label={m.title} icon={<FileText size={16} strokeWidth={1.5} />} onRemove={() => setTaggedMemos(taggedMemos.filter(item => item.id !== m.id))} />)}
             </div>
           </Section>
 
-          <Section label="상세 메모" icon={<FileText className="w-3.5 h-3.5" />}>
-            <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="일정에 대한 추가 메모를 남겨보세요" className="form-input min-h-[120px] resize-none leading-relaxed" />
+          <Section label="상세 메모" icon={<FileText size={16} strokeWidth={1.5} />}>
+            <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="일정에 대한 메모를 남겨요" className="form-input min-h-[120px] resize-none leading-relaxed" />
           </Section>
         </div>
 
         {/* Footer */}
-        <div className="p-8 border-t border-gray-100 bg-gray-50/30 flex gap-3 shrink-0">
-          <button onClick={onClose} disabled={isSaving} className="flex-1 btn-secondary">취소</button>
-          <button onClick={handleSave} disabled={isSaving} className="flex-[2] btn-primary">{isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-5 h-5" />}{isSaving ? '저장 중…' : '일정 저장하기'}</button>
+        <div className="px-6 py-4 border-t border-line flex justify-end gap-2 shrink-0">
+          <button onClick={onClose} disabled={isSaving} className="btn-secondary">취소</button>
+          <button onClick={handleSave} disabled={isSaving} className="btn-primary">{isSaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Check size={16} strokeWidth={1.5} />}{isSaving ? '저장 중…' : '저장'}</button>
         </div>
       </div>
     </div>
@@ -270,7 +267,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 function Section({ label, icon, children }: { label: string, icon?: React.ReactNode, children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 flex items-center gap-1">{icon} {label}</label>
+      <label className="text-sm font-medium text-ink-2 flex items-center gap-1.5"><span className="text-ink-3">{icon}</span>{label}</label>
       {children}
     </div>
   );
@@ -278,18 +275,18 @@ function Section({ label, icon, children }: { label: string, icon?: React.ReactN
 
 function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name: string, image: string, rating: string, category: string, distance: string, y: string, x: string, desc: string }, onClick: () => void }) {
   return (
-    <div onClick={onClick} className="flex-shrink-0 w-44 bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-indigo-200 hover:shadow-lg transition-all cursor-pointer group">
-      <div className="relative h-24 w-full bg-gray-100">
+    <div onClick={onClick} className="flex-shrink-0 w-44 bg-surface border border-line rounded-[10px] overflow-hidden hover:bg-raised transition-colors duration-150 ease-out cursor-pointer">
+      <div className="relative h-24 w-full bg-raised">
         <ImageWithFallback 
           src={rec.image} 
           alt={rec.name} 
           fill 
           containerClassName="w-full h-full"
-          className="object-cover group-hover:scale-110 transition-transform duration-500" 
+          className="object-cover" 
         />
-        <div className="absolute top-1.5 right-1.5 z-10 bg-white/90 text-gray-800 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5"><Star className="w-2.5 h-2.5 text-yellow-400 fill-yellow-400" /> {rec.rating}</div>
+        <div className="absolute top-1.5 right-1.5 z-10 bg-surface/90 text-ink text-xs tabular-nums px-1.5 py-0.5 rounded-md flex items-center gap-1"><Star size={12} strokeWidth={1.5} className="text-ink-3" /> {rec.rating}</div>
       </div>
-      <div className="p-2.5"><h4 className="font-black text-gray-800 text-xs truncate">{rec.name}</h4><p className="text-[10px] text-gray-400">{rec.category} · {rec.distance}</p></div>
+      <div className="p-3"><h4 className="font-medium text-ink text-xs truncate">{rec.name}</h4><p className="text-xs text-ink-3">{rec.category} · {rec.distance}</p></div>
     </div>
   );
 }

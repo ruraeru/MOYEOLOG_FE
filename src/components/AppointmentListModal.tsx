@@ -1,6 +1,7 @@
-import { X, Clock, MapPin, Users, Plus, ChevronRight } from 'lucide-react';
+import { X, Clock, MapPin, Plus, ChevronRight } from 'lucide-react';
 import { type ScheduleResponse } from '@/lib/schedule-api';
 import { format, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
 
 interface AppointmentListModalProps {
   isOpen: boolean;
@@ -23,82 +24,77 @@ export default function AppointmentListModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden"
+        className="w-full max-w-md rounded-2xl border border-line bg-surface shadow-float overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line">
           <div>
-            <h2 className="text-xl font-bold text-gray-800">일정 조회</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{date}</p>
+            <h2 className="text-lg font-semibold text-ink">일정 조회</h2>
+            <p className="stamp mt-0.5">{format(parseISO(date), 'M.d EEE', { locale: ko })}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
-            <X className="w-6 h-6" />
-          </button>
+          <button onClick={onClose} className="btn-ghost"><X size={18} strokeWidth={1.5} /></button>
         </div>
 
         {/* Content */}
         <div className="p-6 max-h-[60vh] overflow-y-auto no-scrollbar">
           {appointments.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {appointments.map((apt) => (
                 <div
                   key={apt.id}
                   onClick={() => onAppointmentClick(apt)}
-                  className="group bg-white border border-gray-100 rounded-2xl p-4 hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer relative"
+                  className="group flex items-center gap-3 rounded-[10px] border border-line px-4 py-3 hover:bg-raised transition-colors duration-150 ease-out cursor-pointer"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="w-1 h-10 rounded-full bg-indigo-500 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-800 truncate">{apt.title}</h3>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-                          <Clock className="w-3.5 h-3.5 text-gray-400" />
-                          {format(parseISO(apt.startTime), 'HH:mm')}
-                        </div>
-                        {apt.location && (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
-                            <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                            {apt.location}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5 text-xs text-indigo-500 font-bold uppercase tracking-wider">
-                          <Users className="w-3.5 h-3.5" />
-                          {apt.groupId ? 'Group' : 'Personal'}
-                        </div>
+                  <div className="w-0.5 h-10 rounded-full bg-accent shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-medium text-ink truncate">{apt.title}</h3>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={16} strokeWidth={1.5} className="text-ink-3" />
+                        <span className="stamp">{format(parseISO(apt.startTime), 'HH:mm')}</span>
                       </div>
+                      {apt.location && (
+                        <div className="flex items-center gap-1.5 text-xs text-ink-2 min-w-0">
+                          <MapPin size={16} strokeWidth={1.5} className="text-ink-3 shrink-0" />
+                          <span className="truncate">{apt.location}</span>
+                        </div>
+                      )}
+                      <span className="rounded-md bg-raised px-2 py-0.5 text-xs text-ink-2">
+                        {apt.groupId ? '모임' : '개인'}
+                      </span>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-400 transition-colors self-center" />
                   </div>
+                  <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3 shrink-0" />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                <Clock className="w-8 h-8 text-gray-300" />
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
+                <Clock size={18} strokeWidth={1.5} className="text-ink-3" />
               </div>
-              <p className="text-gray-500 font-bold">등록된 일정이 없습니다.</p>
-              <p className="text-xs text-gray-400 mt-1 font-medium">새로운 일정을 추가해보세요!</p>
+              <p className="text-sm font-medium text-ink">등록된 일정이 없어요</p>
+              <p className="text-sm text-ink-3 mt-1">새 일정을 추가하면 여기에 모여요</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-100 bg-gray-50/50">
+        <div className="px-6 py-4 border-t border-line flex justify-end gap-2">
           <button
             onClick={() => {
               onClose();
               onCreateNew();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-black hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+            className="btn-primary"
           >
-            <Plus className="w-4 h-4" />
-            새 일정 추가하기
+            <Plus size={16} strokeWidth={1.5} />
+            새 일정 추가
           </button>
         </div>
       </div>

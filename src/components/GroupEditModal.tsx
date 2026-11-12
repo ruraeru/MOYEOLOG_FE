@@ -14,8 +14,8 @@ interface GroupEditModalProps {
 }
 
 const THEMES = [
-  { id: 'indigo', color: 'bg-indigo-500' },
-  { id: 'blue', color: 'bg-blue-500' },
+  { id: 'indigo', color: 'bg-accent' },
+  { id: 'blue', color: 'bg-sky-500' },
   { id: 'emerald', color: 'bg-emerald-500' },
   { id: 'orange', color: 'bg-orange-500' },
   { id: 'rose', color: 'bg-rose-500' },
@@ -80,12 +80,12 @@ export default function GroupEditModal({
 
   const handleSave = async () => {
     if (session?.user?.id !== group.createdById) {
-      setError('모임 수정 권한이 없습니다.');
+      setError('모임을 수정할 권한이 없어요');
       return;
     }
 
     if (!name.trim()) {
-      setError('모임 이름을 입력해주세요.');
+      setError('모임 이름을 입력해 주세요');
       return;
     }
 
@@ -104,7 +104,7 @@ export default function GroupEditModal({
       onSuccess?.();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '모임 수정에 실패했습니다.');
+      setError(e instanceof Error ? e.message : '모임을 수정하지 못했어요');
     } finally {
       setIsSaving(false);
     }
@@ -114,48 +114,43 @@ export default function GroupEditModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-[2.5rem] w-full max-w-lg flex flex-col shadow-2xl my-8"
+        className="bg-surface border border-line rounded-2xl w-full max-w-lg flex flex-col shadow-float my-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-              <ImageIcon className="w-5 h-5" />
-            </div>
-            <h2 className="text-xl font-black text-gray-900 tracking-tight">모임 정보 수정</h2>
-          </div>
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
+          <h2 className="text-lg font-semibold text-ink">모임 정보 수정</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+            className="btn-ghost"
           >
-            <X className="w-6 h-6" />
+            <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
-        <div className="p-8 space-y-8 overflow-y-auto no-scrollbar max-h-[70vh]">
+        <div className="p-6 space-y-6 overflow-y-auto no-scrollbar max-h-[70vh]">
           {/* Background Image Upload */}
-          <div className="space-y-3">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">배경 사진</label>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-ink">배경 사진</label>
             <div 
               onClick={() => bgInputRef.current?.click()}
-              className="relative h-40 w-full rounded-[2rem] bg-gray-50 border-2 border-dashed border-gray-200 overflow-hidden cursor-pointer group"
+              className="relative h-40 w-full rounded-xl bg-raised border border-dashed border-line-strong overflow-hidden cursor-pointer group"
             >
               {bgPreview ? (
                 <>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={bgPreview} alt="Background" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-all flex items-center justify-center">
-                    <Camera className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100" />
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors duration-150 ease-out flex items-center justify-center">
+                    <Camera size={18} strokeWidth={1.5} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out" />
                   </div>
                 </>
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-400 group-hover:text-indigo-500 transition-colors">
-                  <ImageIcon className="w-8 h-8" />
-                  <span className="text-xs font-bold">배경 사진 업로드</span>
+                <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-ink-3 group-hover:text-ink-2 transition-colors duration-150 ease-out">
+                  <ImageIcon size={18} strokeWidth={1.5} />
+                  <span className="text-sm">배경 사진 올리기</span>
                 </div>
               )}
               <input type="file" ref={bgInputRef} onChange={handleBgChange} className="hidden" accept="image/*" />
@@ -163,51 +158,51 @@ export default function GroupEditModal({
           </div>
 
           {/* Profile Image & Basic Info */}
-          <div className="flex flex-col md:flex-row gap-8 items-start">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
             <div className="relative shrink-0 mx-auto md:mx-0">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1 block mb-3">프로필 사진</label>
+              <label className="text-sm font-medium text-ink block mb-2">프로필 사진</label>
               <div 
                 onClick={() => profileInputRef.current?.click()}
-                className="w-32 h-32 rounded-[2.5rem] bg-indigo-50 border-4 border-white shadow-xl overflow-hidden cursor-pointer group relative"
+                className="size-32 rounded-2xl bg-raised border border-line overflow-hidden cursor-pointer group relative"
               >
                 {profilePreview ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-indigo-300">
-                    <Users className="w-12 h-12" />
+                  <div className="w-full h-full flex items-center justify-center text-ink-3">
+                    <Users size={18} strokeWidth={1.5} />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
-                  <Camera className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-all" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-150 ease-out flex items-center justify-center">
+                  <Camera size={18} strokeWidth={1.5} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out" />
                 </div>
               </div>
               <input type="file" ref={profileInputRef} onChange={handleProfileChange} className="hidden" accept="image/*" />
             </div>
 
-            <div className="flex-1 w-full space-y-6">
+            <div className="flex-1 w-full space-y-5">
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">모임 이름</label>
+                <label className="text-sm font-medium text-ink">모임 이름</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-gray-50 border-2 border-transparent rounded-2xl px-5 py-3.5 text-sm outline-none focus:border-indigo-500 focus:bg-white transition-all font-bold"
+                  className="form-input"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">테마 색상</label>
+                <label className="text-sm font-medium text-ink">테마 색상</label>
                 <div className="flex flex-wrap gap-3">
                   {THEMES.map((theme) => (
                     <button
                       key={theme.id}
                       onClick={() => setSelectedTheme(theme.id)}
-                      className={`w-9 h-9 rounded-xl ${theme.color} flex items-center justify-center text-white transition-all hover:scale-110 shadow-sm ${
-                        selectedTheme === theme.id ? 'ring-4 ring-indigo-100 scale-110' : 'opacity-70'
+                      className={`size-8 rounded-lg ${theme.color} flex items-center justify-center text-white transition-[transform,opacity] duration-150 ease-out active:scale-[0.98] ${
+                        selectedTheme === theme.id ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface' : 'opacity-70 hover:opacity-100'
                       }`}
                     >
-                      {selectedTheme === theme.id && <Check className="w-4 h-4 stroke-[3]" />}
+                      {selectedTheme === theme.id && <Check size={16} strokeWidth={1.5} />}
                     </button>
                   ))}
                 </div>
@@ -216,27 +211,27 @@ export default function GroupEditModal({
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">소개글</label>
+            <label className="text-sm font-medium text-ink">소개글</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full bg-gray-50 border-2 border-transparent rounded-3xl px-6 py-4 text-sm outline-none focus:border-indigo-500 focus:bg-white transition-all font-bold h-32 resize-none leading-relaxed"
+              className="form-input h-32 resize-none leading-relaxed"
             />
           </div>
 
           {error && (
-            <div className="p-4 bg-rose-50 rounded-2xl text-rose-600 text-xs font-bold border border-rose-100">
+            <div className="px-4 py-3 bg-negative-soft rounded-lg text-negative text-sm">
               {error}
             </div>
           )}
         </div>
 
-        <div className="p-8 bg-gray-50/50 flex gap-4 shrink-0">
+        <div className="px-6 py-4 border-t border-line flex justify-end gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="flex-1 py-4 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl text-sm font-black hover:bg-gray-100 transition-all disabled:opacity-50"
+            className="btn-secondary"
           >
             취소
           </button>
@@ -244,10 +239,10 @@ export default function GroupEditModal({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex-[2] px-8 py-4 bg-indigo-600 text-white rounded-2xl text-sm font-black hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 disabled:opacity-70 flex items-center justify-center gap-2"
+            className="btn-primary"
           >
-            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isSaving ? '저장 중…' : '정보 저장하기'}
+            {isSaving && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
+            {isSaving ? '저장 중…' : '저장'}
           </button>
         </div>
       </div>
