@@ -106,8 +106,8 @@ export const groupApi = {
     return response.data;
   },
 
-  async inviteMembers(groupId: string, emails: string[], session: Session | null): Promise<void> {
-    await axiosInstance.post(`/api/groups/${groupId}/invitations`, { emails }, {
+  async inviteMembers(groupId: string, userIds: string[], session: Session | null): Promise<void> {
+    await axiosInstance.post(`/api/groups/${groupId}/invitations`, { userIds }, {
       headers: getAuthHeaders(session),
     });
   },

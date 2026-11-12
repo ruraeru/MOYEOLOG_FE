@@ -7,7 +7,8 @@ import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
-import { format, parseISO } from 'date-fns';
+import { toLocalDateTimeString } from '@/lib/utils';
+import { addHours, format, parseISO } from 'date-fns';
 import { useKakaoMap } from '@/hooks/useKakaoMap';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { useMentions } from '@/hooks/useMentions';
@@ -129,10 +130,15 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     if (!title.trim()) return toast.warning('제목을 입력해주세요.');
     setIsSaving(true);
     try {
-      const start = new Date(`${date}T${time || '00:00'}`);
+      const start = parseISO(`${date}T${time || '00:00'}`);
+      if (Number.isNaN(start.getTime())) {
+        toast.warning('날짜와 시간을 확인해주세요.');
+        return;
+      }
+      // 오프셋 없는 로컬 시각으로 전송 (19:00으로 저장한 일정은 19:00으로 돌아옵니다)
       const payload = {
-        title, description: memo, startTime: start.toISOString(),
-        endTime: new Date(start.getTime() + 3600000).toISOString(),
+        title, description: memo, startTime: toLocalDateTimeString(start),
+        endTime: toLocalDateTimeString(addHours(start, 1)),
         location, groupId: selectedGroupId || undefined,
         taggedMemoIds: taggedMemos.map(m => m.id),
         participantIds: participants.filter(p => p.id).map(p => p.id!),

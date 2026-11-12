@@ -293,7 +293,7 @@ export default function SchedulePage() {
         isOpen={isListModalOpen} 
         onClose={() => setIsListModalOpen(false)} 
         date={selectedDate} 
-        appointments={filteredSchedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))} 
+        appointments={filteredSchedules.filter(s => isSameDay(parseISO(s.startTime), parseISO(selectedDate)))} 
         onCreateNew={() => { setSelectedSchedule(null); setIsModalOpen(true); }} 
         onAppointmentClick={(s) => { setIsListModalOpen(false); setSelectedSchedule(s); setIsDetailOpen(true); }} 
       />

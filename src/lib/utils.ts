@@ -1,4 +1,11 @@
+import { format } from 'date-fns';
 import { THEME_COLORS, type ThemeKey } from './constants';
+
+/**
+ * Date를 오프셋 없는 로컬 시각 문자열(yyyy-MM-dd'T'HH:mm:ss)로 변환합니다.
+ * 일정 시간은 서버와 "벽시계 시각" 그대로 주고받으므로 toISOString()(UTC 변환)을 쓰면 안 됩니다.
+ */
+export const toLocalDateTimeString = (date: Date) => format(date, "yyyy-MM-dd'T'HH:mm:ss");
 
 /**
  * 테마 키에 해당하는 색상 객체를 반환합니다.

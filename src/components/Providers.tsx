@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { SessionProvider } from 'next-auth/react';
 import { useState } from 'react';
 import AlertContainer from './AlertContainer';
+import SessionGuard from './SessionGuard';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -22,6 +23,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
+      <SessionGuard />
       <QueryClientProvider client={queryClient}>
         {children}
         <AlertContainer />

@@ -4,11 +4,20 @@ import { useSyncExternalStore, useEffect } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { Calendar } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { safeCallbackPath } from '@/lib/url-safety';
 
 const emptySubscribe = () => () => {};
 
+/**
+ * 로그인 후 돌아갈 경로. callbackUrl 쿼리가 같은 사이트 내 상대 경로일 때만 사용하고, 아니면 /memo로 보냅니다.
+ */
+const getCallbackPath = () =>
+  safeCallbackPath(new URLSearchParams(window.location.search).get('callbackUrl'));
+
+const getLoginError = () => new URLSearchParams(window.location.search).get('error');
+
 export default function LoginPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   const isMounted = useSyncExternalStore(
@@ -17,11 +26,14 @@ export default function LoginPage() {
     () => false
   );
 
+  const sessionError = session?.user?.error;
+
   useEffect(() => {
-    if (status === 'authenticated') {
-      router.push('/memo');
+    // 오류 상태의 세션은 SessionGuard가 로그아웃시키므로 이동하지 않습니다.
+    if (status === 'authenticated' && !sessionError) {
+      router.push(getCallbackPath());
     }
-  }, [status, router]);
+  }, [status, sessionError, router]);
 
   if (!isMounted || status === 'loading') {
     return (
@@ -32,6 +44,8 @@ export default function LoginPage() {
   }
 
   if (status === 'authenticated') return null;
+
+  const loginError = getLoginError();
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#F8F9FB] p-6">
@@ -48,8 +62,14 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {loginError && (
+          <p role="alert" className="mb-4 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-center text-sm font-bold text-rose-600">
+            로그인에 실패했습니다. 잠시 후 다시 시도해주세요.
+          </p>
+        )}
+
         <button
-          onClick={() => signIn('kakao', { callbackUrl: '/memo' })}
+          onClick={() => signIn('kakao', { callbackUrl: getCallbackPath() })}
           className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#FEE500] px-8 py-4 text-lg font-bold text-[#191919] shadow-md transition-all hover:bg-[#FEE500]/90 hover:scale-[1.02]"
         >
           <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>

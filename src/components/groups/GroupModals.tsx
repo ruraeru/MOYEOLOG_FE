@@ -94,7 +94,7 @@ export function GroupModals({
         isOpen={isListModalOpen} 
         onClose={() => setIsListModalOpen(false)} 
         date={selectedDate} 
-        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))} 
+        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), parseISO(selectedDate)))} 
         onCreateNew={() => { setSelectedSchedule(null); setIsScheduleModalOpen(true); }} 
         onAppointmentClick={handleScheduleClick} 
       />

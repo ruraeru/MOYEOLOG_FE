@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useRef, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { groupApi } from '@/lib/group-api';
@@ -17,13 +17,16 @@ function GroupInviteContent() {
   const [success, setSuccess] = useState(false);
 
   const code = searchParams.get('code');
+  // 세션 객체가 갱신되어 effect가 다시 실행되더라도 초대 요청은 한 번만 보냅니다.
+  const processedRef = useRef(false);
 
   useEffect(() => {
     if (status === 'loading') return;
     
     if (status === 'unauthenticated') {
       toast.warning('로그인이 필요한 서비스입니다.');
-      router.push(`/?callbackUrl=/invite/group?code=${code}`);
+      const target = code ? `/invite/group?code=${encodeURIComponent(code)}` : '/invite/group';
+      router.push(`/?callbackUrl=${encodeURIComponent(target)}`);
       return;
     }
 
@@ -32,6 +35,9 @@ function GroupInviteContent() {
       setLoading(false);
       return;
     }
+
+    if (processedRef.current) return;
+    processedRef.current = true;
 
     const processInvite = async () => {
       try {

@@ -25,6 +25,7 @@ import { memoApi, type MemoResponse, type MemoInsight } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import MemoShareModal from './MemoShareModal';
 import dynamic from 'next/dynamic';
+import { markdownRehypePlugins } from '@/lib/markdown';
 import { useRouter } from 'next/navigation';
 import { fileToDataUrl, convertToWebP } from '@/lib/utils';
 import '@uiw/react-md-editor/markdown-editor.css';
@@ -531,6 +532,7 @@ export default function MemoDetailView({
         <div className="text-gray-700 leading-relaxed min-h-[400px] relative" data-color-mode="light" onKeyUp={isEditing ? handleEditorKeyUp : undefined}>
           {isEditing ? (
             <MDEditor
+              previewOptions={{ rehypePlugins: markdownRehypePlugins }}
               value={editContent}
               onChange={(val) => setEditContent(val || '')}
               preview="live"
@@ -539,6 +541,7 @@ export default function MemoDetailView({
             />
           ) : (
             <EdMarkdown
+              rehypePlugins={markdownRehypePlugins}
               source={memo.content}
               style={{
                 backgroundColor: 'transparent',
@@ -632,7 +635,7 @@ export default function MemoDetailView({
                     <span className="text-[8px] text-gray-300 font-medium">클릭하여 추가</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {insight.keywords.map((kw) => {
+                    {(insight.keywords ?? []).map((kw) => {
                       const isAdded = currentTags.includes(kw);
                       return (
                         <button

@@ -1,4 +1,5 @@
-import { axiosInstance } from './axios';
+import { Session } from 'next-auth';
+import { axiosInstance, getAuthHeaders } from './axios';
 
 export interface UserResponse {
   id: string;
@@ -10,12 +11,14 @@ export interface UserResponse {
 }
 
 export const userApi = {
-  async getMe(): Promise<UserResponse> {
-    const response = await axiosInstance.get('/api/users/me');
+  async getMe(session: Session | null): Promise<UserResponse> {
+    const response = await axiosInstance.get('/api/users/me', {
+      headers: getAuthHeaders(session),
+    });
     return response.data;
   },
 
-  async updateMe(data: { nickname?: string; bio?: string; image?: File }): Promise<UserResponse> {
+  async updateMe(data: { nickname?: string; bio?: string; image?: File }, session: Session | null): Promise<UserResponse> {
     const formData = new FormData();
     
     const userUpdate = {
@@ -31,6 +34,7 @@ export const userApi = {
 
     const response = await axiosInstance.put('/api/users/me', formData, {
       headers: {
+        ...getAuthHeaders(session),
         'Content-Type': 'multipart/form-data',
       },
     });

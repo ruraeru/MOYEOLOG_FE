@@ -55,8 +55,8 @@ export default function SettingsPage() {
   // React Query: Get User Data
   const { data: userData, isLoading } = useQuery({
     queryKey: ['user', 'me'],
-    queryFn: () => userApi.getMe(),
-    enabled: !!session,
+    queryFn: () => userApi.getMe(session),
+    enabled: !!session?.user?.accessToken,
   });
 
   // React Hook Form
@@ -101,7 +101,7 @@ export default function SettingsPage() {
       nickname: values.nickname,
       bio: values.bio,
       image: imageFile || undefined
-    }),
+    }, session),
     onSuccess: async (updatedUser) => {
       setSuccess(true);
       queryClient.setQueryData(['user', 'me'], updatedUser);

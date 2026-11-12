@@ -60,7 +60,7 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle }: M
 
   const filteredFriends = friends.filter(f => 
     f.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (f.email || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (!isOpen) return null;

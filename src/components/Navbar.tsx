@@ -22,7 +22,7 @@ const navItems = [
   { name: '메모', href: '/memo', icon: FileText },
   { name: '모임', href: '/groups', icon: Users },
   { name: '친구', href: '/friends', icon: UserPlus },
-  { name: '알림', href: '/notifications', icon: Bell, badge: 3 },
+  { name: '알림', href: '/notifications', icon: Bell },
   { name: '설정', href: '/settings', icon: Settings },
 ];
 
@@ -60,14 +60,7 @@ export default function Navbar() {
                   : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                   }`}
               >
-                <div className="relative">
-                  <item.icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
-                  {item.badge && (
-                    <span className="absolute -top-2 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-400 text-[8px] text-white font-bold border-2 border-white">
-                      {item.badge}
-                    </span>
-                  )}
-                </div>
+                <item.icon className={`w-4 h-4 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
                 <span>{item.name}</span>
               </Link>
             );
@@ -78,7 +71,6 @@ export default function Navbar() {
         <div className="flex items-center gap-5">
           <Link href="/notifications" className="relative p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-all">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-2.5 right-2.5 h-1.5 w-1.5 rounded-full bg-red-400 border border-white"></span>
           </Link>
 
           <button
