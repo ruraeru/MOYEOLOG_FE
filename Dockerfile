@@ -40,6 +40,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# 이미지 최적화 캐시 디렉터리를 nextjs 소유로 미리 만들어 둡니다.
+# (여기에 새 named volume을 마운트하면 이 소유권을 그대로 물려받아 EACCES 없이 캐시가 동작합니다)
+RUN mkdir -p .next/cache/images && chown -R nextjs:nodejs .next/cache
+
 USER nextjs
 
 EXPOSE 3000

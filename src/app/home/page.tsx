@@ -256,7 +256,7 @@ export default function HomePage() {
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}
         date={selectedDate}
-        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), new Date(selectedDate)))}
+        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), parseISO(selectedDate)))}
         onCreateNew={() => { setSelectedSchedule(null); setIsModalOpen(true); }}
         onAppointmentClick={handleScheduleClick}
       />
@@ -338,14 +338,20 @@ function GroupCard({ group, onClick }: GroupCardProps) {
 
   return (
     <div onClick={onClick} className="bg-white rounded-2xl border border-gray-100 p-5 hover:border-indigo-100 hover:shadow-sm transition-all cursor-pointer group flex items-center gap-4">
-      <ImageWithFallback 
-        src={profileSrc || ''} 
-        alt={group.name} 
-        fill 
-        containerClassName={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm relative`} 
-        className="object-cover"
-        fallbackIcon={initial}
-      />
+      {profileSrc ? (
+        <ImageWithFallback 
+          src={profileSrc} 
+          alt={group.name} 
+          fill 
+          containerClassName={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm relative`} 
+          className="object-cover"
+          fallbackIcon={initial}
+        />
+      ) : (
+        <div className={`w-12 h-12 ${theme.iconBg} rounded-xl flex items-center justify-center ${theme.text} text-xl font-black shrink-0 group-hover:scale-105 transition-transform border border-white shadow-sm relative overflow-hidden`}>
+          {initial}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-bold text-gray-800 truncate group-hover:text-indigo-500 transition-colors tracking-tight">{group.name}</h3>
         <div className="flex items-center gap-1.5 mt-1.5">

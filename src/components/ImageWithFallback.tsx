@@ -18,15 +18,17 @@ export default function ImageWithFallback({
 }: ImageWithFallbackProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  // src가 비어 있으면 next/image가 `/_next/image?url=`를 요청하므로 곧바로 대체 UI를 보여줍니다.
+  const isMissing = !props.src;
 
   return (
     <div className={`relative overflow-hidden flex items-center justify-center ${containerClassName || ''}`}>
-      {isLoading && !hasError && (
+      {isLoading && !hasError && !isMissing && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 z-10">
           <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
         </div>
       )}
-      {hasError ? (
+      {hasError || isMissing ? (
         <div className="flex flex-col items-center justify-center text-gray-300 w-full h-full bg-gray-50">
           {fallbackIcon || <ImageIcon className="w-8 h-8" />}
         </div>

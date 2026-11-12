@@ -15,6 +15,7 @@ import { fileToDataUrl, convertToWebP } from '@/lib/utils';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
+import { markdownRehypePlugins } from '@/lib/markdown';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
@@ -201,6 +202,7 @@ export default function MemoEditModal({
 
               <div className="flex-1 min-h-[350px] border border-gray-100 rounded-2xl overflow-hidden bg-white" data-color-mode="light">
                 <MDEditor
+                  previewOptions={{ rehypePlugins: markdownRehypePlugins }}
                   value={content}
                   onChange={(val) => setContent(val || '')}
                   preview="live"

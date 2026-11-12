@@ -20,6 +20,7 @@ import { useMentions } from '@/hooks/useMentions';
 import { MentionList, type MentionItem } from './Mentions';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
+import { markdownRehypePlugins } from '@/lib/markdown';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 import type { TopicResponse } from '@/types/topic';
@@ -246,6 +247,7 @@ export default function GroupTopicCreateModal({
             {/* Markdown Editor */}
             <div className="flex-1 min-h-[400px] rounded-3xl overflow-hidden border border-gray-100 shadow-sm" data-color-mode="light">
               <MDEditor
+                previewOptions={{ rehypePlugins: markdownRehypePlugins }}
                 value={content}
                 onChange={(val) => setContent(val || '')}
                 preview="live"

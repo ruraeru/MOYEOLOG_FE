@@ -27,7 +27,7 @@ export default function GroupInviteModal({
   const [loading, setLoading] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -51,24 +51,24 @@ export default function GroupInviteModal({
     }
   }, [isOpen, session, fetchFriends]);
 
-  const handleToggleSelect = (email: string) => {
-    setSelectedEmails(prev => 
-      prev.includes(email) 
-        ? prev.filter(e => e !== email) 
-        : [...prev, email]
+  const handleToggleSelect = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId) 
+        : [...prev, userId]
     );
   };
 
   const handleInvite = async () => {
-    if (selectedEmails.length === 0) return;
+    if (selectedUserIds.length === 0) return;
 
     try {
       setInviting(true);
       setError(null);
-      await groupApi.inviteMembers(groupId, selectedEmails, session);
+      await groupApi.inviteMembers(groupId, selectedUserIds, session);
       onSuccess?.();
       onClose();
-      setSelectedEmails([]);
+      setSelectedUserIds([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : '초대 발송에 실패했습니다.');
     } finally {
@@ -78,7 +78,7 @@ export default function GroupInviteModal({
 
   const filteredFriends = friends.filter(friend => 
     friend.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (friend.email || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   if (!isOpen) return null;
@@ -127,11 +127,11 @@ export default function GroupInviteModal({
           ) : filteredFriends.length > 0 ? (
             <div className="space-y-1">
               {filteredFriends.map((friend) => {
-                const isSelected = selectedEmails.includes(friend.email);
+                const isSelected = selectedUserIds.includes(friend.userId);
                 return (
                   <button
                     key={friend.id}
-                    onClick={() => handleToggleSelect(friend.email)}
+                    onClick={() => handleToggleSelect(friend.userId)}
                     className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${
                       isSelected ? 'bg-indigo-50 border-indigo-100' : 'hover:bg-gray-50 border-transparent'
                     } border`}
@@ -181,12 +181,12 @@ export default function GroupInviteModal({
         <div className="p-6 bg-gray-50/50 flex flex-col gap-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-bold text-gray-400">선택된 친구</span>
-            <span className="text-xs font-bold text-indigo-600">{selectedEmails.length}명</span>
+            <span className="text-xs font-bold text-indigo-600">{selectedUserIds.length}명</span>
           </div>
           <button
             type="button"
             onClick={handleInvite}
-            disabled={inviting || selectedEmails.length === 0}
+            disabled={inviting || selectedUserIds.length === 0}
             className="w-full py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
           >
             {inviting && <Loader2 className="w-4 h-4 animate-spin" />}

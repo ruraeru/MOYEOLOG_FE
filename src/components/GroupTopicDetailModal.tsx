@@ -24,6 +24,7 @@ import { useMentions } from '@/hooks/useMentions';
 import { MentionList, type MentionItem } from './Mentions';
 import type { TopicDetailResponse, TopicResponse } from '@/types/topic';
 import dynamic from 'next/dynamic';
+import { markdownRehypePlugins } from '@/lib/markdown';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
@@ -311,6 +312,7 @@ export default function GroupTopicDetailModal({
 
             <div className="text-gray-700 leading-relaxed" data-color-mode="light">
               <EdMarkdown 
+                rehypePlugins={markdownRehypePlugins}
                 source={topic.content} 
                 components={markdownComponents}
                 style={{ 
@@ -412,6 +414,7 @@ export default function GroupTopicDetailModal({
                     </div>
                     <div className="text-sm text-gray-600 leading-relaxed font-medium bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-50" data-color-mode="light">
                       <EdMarkdown 
+                        rehypePlugins={markdownRehypePlugins}
                         source={comment.content} 
                         components={markdownComponents}
                         style={{ backgroundColor: 'transparent', fontSize: '0.875rem', color: 'inherit' }} 

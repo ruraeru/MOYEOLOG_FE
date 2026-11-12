@@ -56,8 +56,16 @@ function syncMentionTitles(content: string, taggedMemos?: {id:string, title:stri
 function processMemoResponse(memo: MemoResponse): MemoResponse {
   return {
     ...memo,
+    insight: memo.insight ? normalizeInsight(memo.insight) : memo.insight,
     content: syncMentionTitles(memo.content, memo.taggedMemos, memo.taggedSchedules)
   };
+}
+
+/**
+ * 인사이트 응답의 keywords가 null로 내려와도 화면이 깨지지 않도록 빈 배열로 보정합니다.
+ */
+function normalizeInsight(insight: MemoInsight): MemoInsight {
+  return { ...insight, keywords: Array.isArray(insight.keywords) ? insight.keywords : [] };
 }
 
 export const memoApi = {
@@ -163,11 +171,12 @@ export const memoApi = {
 
   async getInsight(id: string, session: Session | null): Promise<MemoInsight | null> {
     try {
-      const response = await axiosInstance.get<MemoInsight>(`/api/memos/${id}/insight`, {
+      const response = await axiosInstance.get<MemoInsight | ''>(`/api/memos/${id}/insight`, {
         headers: getAuthHeaders(session),
       });
-      if (response.status === 204) return null;
-      return response.data;
+      // 인사이트가 없으면 백엔드는 204(본문 없음)를 반환합니다. 빈 200 본문도 동일하게 취급합니다.
+      if (response.status === 204 || !response.data || typeof response.data !== 'object') return null;
+      return normalizeInsight(response.data);
     } catch (error) {
       const err = error as { response?: { status: number } };
       if (err.response?.status === 404) return null;
@@ -179,6 +188,6 @@ export const memoApi = {
     const response = await axiosInstance.post<MemoInsight>(`/api/memos/${id}/analyze`, {}, {
       headers: getAuthHeaders(session),
     });
-    return response.data;
+    return normalizeInsight(response.data);
   }
 };

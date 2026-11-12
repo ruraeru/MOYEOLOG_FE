@@ -6,7 +6,7 @@ export interface FriendResponse {
   userId: string; // 상대방 유저 ID
   customId: string;
   nickname: string;
-  email: string;
+  email?: string | null;
   profileImage?: string;
   status: 'PENDING' | 'ACCEPTED';
 }
