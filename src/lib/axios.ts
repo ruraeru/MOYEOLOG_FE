@@ -4,7 +4,7 @@ import { Session } from 'next-auth';
 const isBrowser = typeof window !== 'undefined';
 const API_BASE_URL = isBrowser 
   ? '' 
-  : (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://moyeolog.kro.kr:8080');
+  : (process.env.BACKEND_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || 'http://app:8080');
 
 export const axiosInstance = axios.create({
   baseURL: API_BASE_URL,

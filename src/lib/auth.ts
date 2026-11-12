@@ -32,7 +32,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, account, profile, trigger, session }) {
       const internalApiUrl = process.env.BACKEND_INTERNAL_URL || 'http://app:8080';
-      const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://moyeolog.kro.kr';
+      const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://moyeolog.ruraeru.xyz';
 
       // 1. 세션 업데이트 요청 시 (trigger === "update")
       if (trigger === "update" && session) {
