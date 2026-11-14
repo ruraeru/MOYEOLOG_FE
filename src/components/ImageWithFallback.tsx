@@ -24,19 +24,19 @@ export default function ImageWithFallback({
   return (
     <div className={`relative overflow-hidden flex items-center justify-center ${containerClassName || ''}`}>
       {isLoading && !hasError && !isMissing && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80 z-10">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+        <div className="absolute inset-0 flex items-center justify-center bg-raised/80 z-10">
+          <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
         </div>
       )}
       {hasError || isMissing ? (
-        <div className="flex flex-col items-center justify-center text-gray-300 w-full h-full bg-gray-50">
-          {fallbackIcon || <ImageIcon className="w-8 h-8" />}
+        <div className="flex flex-col items-center justify-center text-ink-3 w-full h-full bg-raised">
+          {fallbackIcon || <ImageIcon size={18} strokeWidth={1.5} />}
         </div>
       ) : (
         <Image
           {...props}
           alt={alt}
-          className={`transition-opacity duration-500 ${isLoading ? 'opacity-0' : 'opacity-100'} ${className || ''}`}
+          className={`transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'} ${className || ''}`}
           onLoad={(e) => {
             setIsLoading(false);
             if (onLoad) (onLoad as (event: React.SyntheticEvent<HTMLImageElement, Event>) => void)(e);

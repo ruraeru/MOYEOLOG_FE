@@ -24,14 +24,14 @@ function FriendInviteContent() {
     if (status === 'loading') return;
     
     if (status === 'unauthenticated') {
-      toast.warning('로그인이 필요한 서비스입니다.');
+      toast.warning('로그인이 필요해요');
       const target = code ? `/invite/friend?code=${encodeURIComponent(code)}` : '/invite/friend';
       router.push(`/?callbackUrl=${encodeURIComponent(target)}`);
       return;
     }
 
     if (!code) {
-      setError('초대 코드가 유효하지 않습니다.');
+      setError('초대 코드가 유효하지 않아요');
       setLoading(false);
       return;
     }
@@ -47,7 +47,7 @@ function FriendInviteContent() {
           router.push('/friends');
         }, 2000);
       } catch (err) {
-        const message = err instanceof Error ? err.message : '친구 신청에 실패했습니다.';
+        const message = err instanceof Error ? err.message : '친구 신청을 보내지 못했어요';
         setError(message);
       } finally {
         setLoading(false);
@@ -58,45 +58,42 @@ function FriendInviteContent() {
   }, [code, session, status, router]);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md p-10 text-center space-y-6">
-        <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+    <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
+      <div className="card w-full max-w-sm p-6 text-center space-y-5">
+        <div className="size-10 rounded-full bg-raised flex items-center justify-center mx-auto">
           {loading ? (
-            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+            <Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" />
           ) : success ? (
-            <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+            <CheckCircle2 size={18} strokeWidth={1.5} className="text-positive" />
+          ) : error ? (
+            <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
           ) : (
-            <UserPlus className="w-10 h-10 text-indigo-600" />
+            <UserPlus size={18} strokeWidth={1.5} className="text-ink-3" />
           )}
         </div>
 
-        <div className="space-y-2">
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-            {loading ? '친구 초대 처리 중…' : success ? '친구 신청 완료!' : '친구 초대'}
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold text-ink">
+            {loading ? '친구 초대를 확인하고 있어요' : success ? '친구 신청을 보냈어요' : '친구 초대'}
           </h1>
-          <p className="text-sm text-gray-500 font-medium">
-            {loading 
-              ? '잠시만 기다려주세요. 정보를 확인 중입니다.' 
-              : success 
-                ? '친구 신청을 보냈습니다. 곧 친구 목록으로 이동합니다.' 
-                : error || '친구 초대를 수락하시겠습니까?'}
+          <p className={`text-sm ${error ? 'text-negative' : 'text-ink-2'}`}>
+            {error || (loading
+              ? '잠시만 기다려주세요'
+              : success
+                ? '곧 친구 목록으로 이동해요'
+                : '친구 초대를 확인하지 못했어요')}
           </p>
         </div>
 
-        {error && (
-          <div className="bg-rose-50 text-rose-600 p-4 rounded-2xl flex items-center gap-3 text-sm font-bold border border-rose-100 animate-shake">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            {error}
+        {!loading && (success || error) && (
+          <div className="flex flex-col gap-2">
+            <button onClick={() => router.push(error ? '/home' : '/friends')} className="btn-primary w-full">
+              {error ? '홈으로' : '친구 목록으로'}
+            </button>
+            <button onClick={() => router.push(error ? '/friends' : '/home')} className="btn-secondary w-full">
+              {error ? '친구 목록으로' : '홈으로'}
+            </button>
           </div>
-        )}
-
-        {!loading && error && (
-          <button
-            onClick={() => router.push('/home')}
-            className="w-full py-4 bg-gray-900 text-white rounded-2xl text-sm font-black hover:bg-gray-800 transition-all shadow-lg active:scale-95"
-          >
-            홈으로 돌아가기
-          </button>
         )}
       </div>
     </div>
@@ -106,8 +103,8 @@ function FriendInviteContent() {
 export default function FriendInvitePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+      <div className="min-h-screen bg-canvas flex items-center justify-center">
+        <Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" />
       </div>
     }>
       <FriendInviteContent />

@@ -70,7 +70,7 @@ export default function GroupInviteModal({
       onClose();
       setSelectedUserIds([]);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '초대 발송에 실패했습니다.');
+      setError(e instanceof Error ? e.message : '초대장을 보내지 못했어요');
     } finally {
       setInviting(false);
     }
@@ -85,35 +85,35 @@ export default function GroupInviteModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-md flex flex-col shadow-2xl overflow-hidden max-h-[80vh]"
+        className="bg-surface border border-line rounded-2xl w-full max-w-md flex flex-col shadow-float overflow-hidden max-h-[80vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-800">멤버 초대하기</h2>
-            <p className="text-xs text-gray-400 font-medium">{groupName}</p>
+            <h2 className="text-lg font-semibold text-ink">멤버 초대</h2>
+            <p className="text-xs text-ink-3">{groupName}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400"
+            className="btn-ghost"
           >
-            <X className="w-5 h-5" />
+            <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
-        <div className="p-4 border-b border-gray-100">
+        <div className="p-4 border-b border-line">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search size={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
             <input
               type="text"
               placeholder="친구 이름 또는 이메일 검색"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-100 rounded-xl pl-10 pr-4 py-2 text-sm outline-none focus:border-indigo-400 focus:bg-white transition-all"
+              className="form-input pl-10"
             />
           </div>
         </div>
@@ -121,8 +121,8 @@ export default function GroupInviteModal({
         <div className="flex-1 overflow-y-auto p-2 min-h-[300px] no-scrollbar">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-              <p className="text-sm text-gray-400 font-bold">친구 목록을 불러오는 중...</p>
+              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+              <p className="text-sm text-ink-3">친구 목록을 불러오는 중이에요</p>
             </div>
           ) : filteredFriends.length > 0 ? (
             <div className="space-y-1">
@@ -132,11 +132,11 @@ export default function GroupInviteModal({
                   <button
                     key={friend.id}
                     onClick={() => handleToggleSelect(friend.userId)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${
-                      isSelected ? 'bg-indigo-50 border-indigo-100' : 'hover:bg-gray-50 border-transparent'
-                    } border`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-150 ease-out ${
+                      isSelected ? 'bg-accent-soft' : 'hover:bg-raised'
+                    }`}
                   >
-                    <div className="w-10 h-10 rounded-full relative overflow-hidden shrink-0 border border-gray-100">
+                    <div className="size-10 rounded-full relative overflow-hidden shrink-0">
                       {friend.profileImage ? (
                         <ImageWithFallback 
                           src={friend.profileImage.startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
@@ -147,21 +147,21 @@ export default function GroupInviteModal({
                           unoptimized
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 font-bold text-sm">
+                        <div className="w-full h-full flex items-center justify-center bg-raised text-ink-2 text-sm">
                           {friend.nickname.substring(0, 1)}
                         </div>
                       )}
                     </div>
                     <div className="flex-1 text-left min-w-0">
-                      <p className={`text-sm font-bold truncate ${isSelected ? 'text-indigo-600' : 'text-gray-800'}`}>
+                      <p className={`text-sm font-medium truncate ${isSelected ? 'text-accent' : 'text-ink'}`}>
                         {friend.nickname}
                       </p>
-                      <p className="text-xs text-gray-400 truncate">{friend.email}</p>
+                      <p className="text-xs text-ink-3 truncate">{friend.email}</p>
                     </div>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 transition-all ${
-                      isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-200'
+                    <div className={`size-5 rounded-full flex items-center justify-center border transition-colors duration-150 ease-out ${
+                      isSelected ? 'bg-accent border-accent text-white' : 'border-line-strong'
                     }`}>
-                      {isSelected && <Check className="w-4 h-4" />}
+                      {isSelected && <Check size={12} strokeWidth={1.5} />}
                     </div>
                   </button>
                 );
@@ -169,27 +169,29 @@ export default function GroupInviteModal({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-              <UserPlus className="w-12 h-12 text-gray-100 mb-4" />
-              <p className="text-gray-400 font-bold text-sm">초대할 수 있는 친구가 없습니다.</p>
-              <p className="text-xs text-gray-400 mt-1 font-medium">먼저 친구를 추가해보세요!</p>
+              <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
+                <UserPlus size={18} strokeWidth={1.5} className="text-ink-3" />
+              </div>
+              <p className="text-sm font-medium text-ink">초대할 수 있는 친구가 없어요</p>
+              <p className="text-sm text-ink-3 mt-1">먼저 친구를 추가해 보세요</p>
             </div>
           )}
         </div>
 
-        {error && <p className="px-6 py-2 text-xs font-medium text-red-500">{error}</p>}
+        {error && <p className="px-6 py-2 text-sm text-negative">{error}</p>}
 
-        <div className="p-6 bg-gray-50/50 flex flex-col gap-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold text-gray-400">선택된 친구</span>
-            <span className="text-xs font-bold text-indigo-600">{selectedUserIds.length}명</span>
+        <div className="px-6 py-4 border-t border-line flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-ink-3">선택한 친구</span>
+            <span className="text-xs text-ink-2 tabular-nums">{selectedUserIds.length}명</span>
           </div>
           <button
             type="button"
             onClick={handleInvite}
             disabled={inviting || selectedUserIds.length === 0}
-            className="w-full py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
+            className="btn-primary w-full"
           >
-            {inviting && <Loader2 className="w-4 h-4 animate-spin" />}
+            {inviting && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
             {inviting ? '초대장 발송 중…' : '초대장 보내기'}
           </button>
         </div>

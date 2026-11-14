@@ -20,11 +20,11 @@ export default function MemoDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-5xl max-h-[85vh] flex shadow-2xl overflow-hidden relative"
+        className="bg-surface border border-line rounded-2xl w-full max-w-5xl max-h-[85vh] flex shadow-float overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
         <MemoDetailView 

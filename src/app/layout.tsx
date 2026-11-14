@@ -6,7 +6,7 @@ import BottomNavbar from "@/components/BottomNavbar";
 
 export const metadata: Metadata = {
   title: '모여로그 | MOYEOLOG',
-  description: '일정, 메모, 모임을 한곳에서 관리하는 스마트 협업 플랫폼',
+  description: '일정, 메모, 모임을 친구와 한곳에서 함께 쓰는 서비스',
 };
 
 export default function RootLayout({

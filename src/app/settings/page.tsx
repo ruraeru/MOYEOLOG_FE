@@ -32,11 +32,11 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const menuItems = [
-  { id: 'profile', label: '프로필 설정', icon: UserIcon, color: 'text-blue-500', bg: 'bg-blue-50' },
-  { id: 'notif', label: '알림 설정', icon: Bell, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-  { id: 'security', label: '계정 및 보안', icon: Lock, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-  { id: 'display', label: '화면 및 디스플레이', icon: Eye, color: 'text-orange-500', bg: 'bg-orange-50' },
-  { id: 'language', label: '언어 설정', icon: Globe, color: 'text-gray-500', bg: 'bg-gray-50' },
+  { id: 'profile', label: '프로필 설정', icon: UserIcon },
+  { id: 'notif', label: '알림 설정', icon: Bell },
+  { id: 'security', label: '계정 및 보안', icon: Lock },
+  { id: 'display', label: '화면 및 디스플레이', icon: Eye },
+  { id: 'language', label: '언어 설정', icon: Globe },
 ];
 
 export default function SettingsPage() {
@@ -137,26 +137,26 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col bg-[#F8F9FB]">
+      <div className="h-screen flex flex-col bg-canvas">
         <Navbar />
         <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+          <Loader2 size={24} strokeWidth={1.5} className="animate-spin text-ink-3" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden font-sans">
       <Navbar />
       
       <main className="flex-1 overflow-hidden flex">
         
         {/* Settings Sidebar */}
-        <aside className="w-80 bg-white border-r border-gray-100 p-8 flex flex-col gap-8 hidden lg:flex shrink-0">
+        <aside className="w-72 bg-surface border-r border-line p-6 flex flex-col gap-6 hidden lg:flex shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 tracking-tight">설정</h2>
-            <p className="text-sm text-gray-400 mt-1 font-medium">앱 환경을 원하는 대로 관리하세요.</p>
+            <h2 className="text-2xl font-semibold text-ink">설정</h2>
+            <p className="text-sm text-ink-2 mt-1">앱 환경을 원하는 대로 바꿔 보세요.</p>
           </div>
 
           <nav className="flex flex-col gap-1">
@@ -164,37 +164,35 @@ export default function SettingsPage() {
               <button
                 key={item.id}
                 onClick={() => setActiveMenu(item.id)}
-                className={`flex items-center justify-between p-3.5 rounded-2xl transition-all ${activeMenu === item.id ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                className={`flex h-9 items-center justify-between px-3 rounded-lg text-sm transition-colors ${activeMenu === item.id ? 'bg-raised text-ink font-medium' : 'text-ink-2 hover:bg-raised hover:text-ink'}`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center`}>
-                    <item.icon className={`w-5 h-5 ${item.color}`} />
-                  </div>
-                  <span className="text-sm font-bold">{item.label}</span>
+                  <item.icon size={16} strokeWidth={1.5} className={activeMenu === item.id ? 'text-accent' : 'text-ink-3'} />
+                  <span>{item.label}</span>
                 </div>
-                <ChevronRight className={`w-4 h-4 ${activeMenu === item.id ? 'opacity-100' : 'opacity-0'}`} />
+                <ChevronRight size={16} strokeWidth={1.5} className={`text-ink-3 ${activeMenu === item.id ? 'opacity-100' : 'opacity-0'}`} />
               </button>
             ))}
           </nav>
 
           <button 
             onClick={() => signOut({ callbackUrl: '/' })}
-            className="mt-auto flex items-center gap-3 p-3.5 text-red-500 font-bold hover:bg-red-50 rounded-2xl transition-all"
+            className="mt-auto flex h-9 items-center gap-3 px-3 text-negative hover:bg-negative-soft rounded-lg transition-colors"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut size={16} strokeWidth={1.5} />
             <span className="text-sm">로그아웃</span>
           </button>
         </aside>
 
         {/* Settings Content */}
-        <div className="flex-1 overflow-y-auto no-scrollbar p-8 lg:p-16">
+        <div className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-12">
           <div className="max-w-2xl mx-auto">
             
             {activeMenu === 'profile' && (
-              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                <div className="flex flex-col items-center gap-6 text-center">
+              <div className="space-y-8 animate-in fade-in duration-200">
+                <div className="flex flex-col items-center gap-4 text-center">
                   <div className="relative group">
-                    <div className="w-36 h-32 md:w-32 md:h-32 rounded-[2.5rem] overflow-hidden border-4 border-white shadow-xl relative bg-indigo-50 flex items-center justify-center">
+                    <div className="size-28 rounded-full overflow-hidden border border-line relative bg-raised flex items-center justify-center">
                       {imagePreview ? (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img 
@@ -203,15 +201,14 @@ export default function SettingsPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <UserIcon className="w-12 h-12 text-indigo-200" />
+                        <UserIcon size={32} strokeWidth={1.5} className="text-ink-3" />
                       )}
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
                     </div>
                     <button 
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute -bottom-1 -right-1 w-11 h-11 bg-indigo-600 text-white rounded-2xl flex items-center justify-center border-4 border-[#F8F9FB] hover:bg-indigo-700 transition-all shadow-lg"
+                      className="absolute bottom-0 right-0 size-9 bg-surface text-ink-2 rounded-full flex items-center justify-center border border-line-strong hover:bg-raised transition-colors"
                     >
-                      <Camera className="w-5 h-5" />
+                      <Camera size={16} strokeWidth={1.5} />
                     </button>
                     <input 
                       type="file" 
@@ -222,67 +219,67 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-gray-900 tracking-tight">{userData?.nickname}</h3>
-                    <p className="text-sm text-gray-400 font-bold tracking-widest uppercase mt-1">ID: {userData?.customId}</p>
-                    <p className="text-xs text-gray-400 font-medium mt-1">{userData?.email}</p>
+                    <h3 className="text-2xl font-semibold text-ink">{userData?.nickname}</h3>
+                    <p className="text-sm text-ink-2 mt-1 tabular-nums">ID: {userData?.customId}</p>
+                    <p className="text-xs text-ink-3 mt-0.5">{userData?.email}</p>
                   </div>
                 </div>
 
-                <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-8 bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-gray-100">
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">활동 이름</label>
+                <form onSubmit={handleSubmit(onFormSubmit)} className="card space-y-5 p-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-ink">활동 이름</label>
                     <input 
                       {...register('nickname')}
                       type="text" 
-                      placeholder="이름을 입력하세요"
-                      className={`w-full bg-gray-50 border-2 rounded-2xl px-6 py-4 text-sm outline-none transition-all font-bold ${errors.nickname ? 'border-rose-300 focus:border-rose-500' : 'border-transparent focus:border-indigo-500 focus:bg-white'}`}
+                      placeholder="이름을 입력해 주세요"
+                      className={`form-input ${errors.nickname ? '!border-negative' : ''}`}
                     />
                     {errors.nickname && (
-                      <p className="text-[10px] text-rose-500 font-bold px-1 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" /> {errors.nickname.message}
+                      <p className="text-xs text-negative flex items-center gap-1">
+                        <AlertCircle size={16} strokeWidth={1.5} /> {errors.nickname.message}
                       </p>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">자기소개</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-ink">자기소개</label>
                     <textarea 
                       {...register('bio')}
-                      placeholder="자기소개를 입력해보세요"
-                      className={`w-full bg-gray-50 border-2 rounded-2xl px-6 py-4 text-sm outline-none transition-all font-bold min-h-[140px] resize-none leading-relaxed ${errors.bio ? 'border-rose-300 focus:border-rose-500' : 'border-transparent focus:border-indigo-500 focus:bg-white'}`}
+                      placeholder="자기소개를 적어 보세요"
+                      className={`form-input min-h-[120px] resize-none leading-relaxed ${errors.bio ? '!border-negative' : ''}`}
                     />
                     {errors.bio && (
-                      <p className="text-[10px] text-rose-500 font-bold px-1 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" /> {errors.bio.message}
+                      <p className="text-xs text-negative flex items-center gap-1">
+                        <AlertCircle size={16} strokeWidth={1.5} /> {errors.bio.message}
                       </p>
                     )}
                   </div>
 
                   {mutation.isError && (
-                    <div className="p-4 bg-rose-50 text-rose-600 text-xs font-bold rounded-2xl border border-rose-100">
+                    <div className="px-4 py-3 bg-negative-soft text-negative text-sm rounded-[10px]">
                       {(mutation.error as Error).message}
                     </div>
                   )}
 
                   {success && (
-                    <div className="p-4 bg-emerald-50 text-emerald-600 text-xs font-bold rounded-2xl border border-emerald-100 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      성공적으로 저장되었습니다!
+                    <div className="px-4 py-3 bg-raised text-ink text-sm rounded-[10px] flex items-center gap-2">
+                      <CheckCircle2 size={16} strokeWidth={1.5} className="text-positive" />
+                      저장했어요
                     </div>
                   )}
 
-                  <div className="flex gap-4 pt-4">
+                  <div className="flex justify-end pt-2">
                     <button 
                       type="submit"
                       disabled={mutation.isPending}
-                      className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="btn-primary"
                     >
                       {mutation.isPending ? (
                         <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
                           저장 중…
                         </>
                       ) : (
-                        '설정 저장하기'
+                        '저장'
                       )}
                     </button>
                   </div>
@@ -291,17 +288,17 @@ export default function SettingsPage() {
             )}
 
             {activeMenu !== 'profile' && (
-              <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center text-gray-300">
-                  <Lock className="w-8 h-8" />
+              <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+                <div className="size-10 bg-raised rounded-full flex items-center justify-center">
+                  <Lock size={18} strokeWidth={1.5} className="text-ink-3" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-gray-800">준비 중인 기능입니다</h3>
-                  <p className="text-sm text-gray-400 font-medium">조금만 기다려주세요! 곧 멋진 기능으로 찾아오겠습니다.</p>
+                  <h3 className="text-sm font-medium text-ink">아직 준비 중이에요</h3>
+                  <p className="text-sm text-ink-3">조금만 기다려 주세요.</p>
                 </div>
                 <button 
                   onClick={() => setActiveMenu('profile')}
-                  className="text-indigo-600 text-sm font-bold hover:underline"
+                  className="btn-ghost"
                 >
                   프로필 설정으로 돌아가기
                 </button>

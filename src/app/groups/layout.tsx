@@ -49,28 +49,28 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
   }, [fetchGroups]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#F8F9FB] text-gray-900 overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden font-sans">
       <Navbar />
       
       <div className="flex-1 flex overflow-hidden">
-        {/* Group Navigation Sidebar (Discord Style) */}
-        <aside className="w-20 bg-white border-r border-gray-100 flex flex-col items-center py-6 gap-4 shrink-0 overflow-y-auto no-scrollbar z-20 shadow-sm">
+        {/* Group Navigation Sidebar */}
+        <aside className="w-20 bg-surface border-r border-line flex flex-col items-center py-6 gap-4 shrink-0 overflow-y-auto no-scrollbar z-20">
           {/* Create Group Button */}
           <button 
             onClick={openCreateModal}
-            className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all duration-300 shadow-sm group outline-none"
+            className="size-12 rounded-xl bg-raised text-ink-2 flex items-center justify-center hover:bg-accent-soft hover:text-accent transition-colors duration-150 ease-out"
             title="새 모임 만들기"
           >
-            <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
+            <Plus size={18} strokeWidth={1.5} />
           </button>
 
-          <div className="w-8 h-px bg-gray-100 my-2" />
+          <div className="w-8 h-px bg-line" />
 
           {/* Group Icons */}
           {loading ? (
             <div className="flex flex-col gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center">
-                <Loader2 className="w-4 h-4 animate-spin text-gray-200" />
+              <div className="size-12 rounded-xl bg-raised flex items-center justify-center">
+                <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" />
               </div>
             </div>
           ) : (
@@ -79,25 +79,15 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
               const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
               const profileSrc = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
               
-              const themeColors = {
-                indigo: 'bg-indigo-500',
-                blue: 'bg-blue-500',
-                emerald: 'bg-emerald-500',
-                orange: 'bg-orange-500',
-                rose: 'bg-rose-500',
-                amber: 'bg-amber-500'
-              };
-
               return (
                 <div key={group.id} className="relative flex items-center">
                   {isActive && (
-                    <div className="absolute -left-0 w-1 h-8 bg-indigo-600 rounded-r-full" />
+                    <div className="absolute left-0 w-1 h-8 bg-accent rounded-r-full" />
                   )}
                   <button
                     onClick={() => router.push(`/groups/${group.id}`)}
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg transition-all duration-300 shadow-sm relative overflow-hidden group outline-none
-                      ${isActive ? 'rounded-xl scale-110 shadow-indigo-100 shadow-lg' : 'hover:rounded-xl hover:scale-105'}
-                      ${!profileSrc ? (themeColors[group.colorTheme as keyof typeof themeColors] || 'bg-indigo-500') : ''}`}
+                    className={`size-12 rounded-xl flex items-center justify-center font-semibold text-lg transition-colors duration-150 ease-out relative overflow-hidden group
+                      ${!profileSrc ? (isActive ? 'bg-accent text-white' : 'bg-raised text-ink hover:bg-accent-soft hover:text-accent') : ''}`}
                     title={group.name}
                   >
                     {profileSrc ? (
@@ -111,7 +101,9 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
                     ) : (
                       group.name.substring(0, 1)
                     )}
-                    <div className={`absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity`} />
+                    {profileSrc && (
+                      <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out" />
+                    )}
                   </button>
                 </div>
               );
@@ -120,7 +112,7 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-hidden flex flex-col relative bg-[#F8F9FB]">
+        <main className="flex-1 overflow-hidden flex flex-col relative bg-canvas">
           {children}
         </main>
       </div>

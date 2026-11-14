@@ -6,6 +6,7 @@ import {
   Edit2, ChevronLeft, Users, User as UserIcon
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
@@ -132,19 +133,19 @@ export default function AppointmentDetailView({
 
   if (loadingSchedule) {
     return (
-      <div className={`flex items-center justify-center bg-white ${isPage ? 'h-full flex-1' : 'p-20 rounded-[2.5rem]'}`}>
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+      <div className={`flex items-center justify-center bg-surface ${isPage ? 'h-full flex-1' : 'p-20 rounded-2xl'}`}>
+        <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
       </div>
     );
   }
 
   if (!schedule) {
     return (
-      <div className={`flex flex-col items-center justify-center bg-white gap-4 ${isPage ? 'h-full flex-1' : 'p-20 rounded-[2.5rem]'}`}>
-        <Calendar className="w-10 h-10 text-gray-200" />
-        <p className="text-gray-400 font-medium">일정을 찾을 수 없습니다.</p>
+      <div className={`flex flex-col items-center justify-center bg-surface gap-3 ${isPage ? 'h-full flex-1' : 'p-20 rounded-2xl'}`}>
+        <div className="size-10 rounded-full bg-raised flex items-center justify-center"><Calendar size={18} strokeWidth={1.5} className="text-ink-3" /></div>
+        <p className="text-sm font-medium text-ink">일정을 찾을 수 없어요</p>
         {isPage && (
-          <button onClick={() => router.back()} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors">
+          <button onClick={() => router.back()} className="btn-secondary">
             뒤로가기
           </button>
         )}
@@ -153,7 +154,7 @@ export default function AppointmentDetailView({
   }
 
   const handleDelete = async () => {
-    if (!(await confirm('정말로 이 일정을 삭제하시겠습니까?'))) return;
+    if (!(await confirm('이 일정을 삭제할까요?'))) return;
 
     setIsDeleting(true);
     try {
@@ -181,24 +182,21 @@ export default function AppointmentDetailView({
   const endTime = parseISO(schedule.endTime);
 
   return (
-    <div className={`flex flex-col lg:flex-row bg-white overflow-hidden ${isPage ? 'h-full' : 'w-full h-full rounded-[2.5rem]'}`}>
+    <div className={`flex flex-col lg:flex-row bg-surface overflow-hidden ${isPage ? 'h-full' : 'w-full h-full rounded-2xl border border-line shadow-float'}`}>
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col p-6 lg:p-10 overflow-y-auto no-scrollbar border-r border-gray-100">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
+      <div className="flex-1 flex flex-col p-6 lg:p-8 overflow-y-auto no-scrollbar border-r border-line">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
             {isPage && (
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 mr-2"
+                className="btn-ghost"
                 title="뒤로가기"
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft size={18} strokeWidth={1.5} />
               </button>
             )}
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <h2 className="text-xl font-black text-gray-900 tracking-tight">일정 상세 정보</h2>
+            <h2 className="text-lg font-semibold text-ink">일정 상세</h2>
           </div>
 
           <div className="flex items-center gap-2">
@@ -206,66 +204,57 @@ export default function AppointmentDetailView({
               <>
                 <button 
                   onClick={() => onEdit ? onEdit(schedule) : setIsEditModalOpen(true)}
-                  className="p-2 hover:bg-indigo-50 rounded-full transition-colors text-gray-400 hover:text-indigo-500"
+                  className="btn-ghost text-ink-2"
                   title="일정 수정"
                 >
-                  <Edit2 className="w-5 h-5" />
+                  <Edit2 size={18} strokeWidth={1.5} />
                 </button>
                 <button 
                   onClick={handleDelete}
                   disabled={isDeleting}
-                  className="p-2 hover:bg-red-50 rounded-full transition-colors text-gray-400 hover:text-red-500 disabled:opacity-50"
+                  className="btn-ghost text-ink-2 hover:text-negative disabled:opacity-50"
                   title="삭제하기"
                 >
-                  {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                  {isDeleting ? <Loader2 size={18} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={18} strokeWidth={1.5} />}
                 </button>
               </>
             )}
             {!isPage && onClose && (
-              <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 lg:hidden ml-2">
-                <X className="w-6 h-6" />
+              <button onClick={onClose} className="btn-ghost lg:hidden">
+                <X size={18} strokeWidth={1.5} />
               </button>
             )}
           </div>
         </div>
 
-        <div className="space-y-4 mb-10">
+        <div className="space-y-3 mb-8">
           <div className="flex items-center gap-2">
-            <span className="px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-100">
-              {schedule.groupId ? 'Group Event' : 'Personal'}
+            <span className="rounded-md bg-raised px-2 py-0.5 text-xs text-ink-2">
+              {schedule.groupId ? '모임 일정' : '개인 일정'}
             </span>
-            {schedule.groupId && (
-              <span className="px-4 py-1.5 bg-amber-50 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100">
-                모임 일정
-              </span>
-            )}
           </div>
-          <h1 className="text-3xl lg:text-4xl font-black text-gray-900 tracking-tighter leading-[1.2]">
+          <h1 className="text-2xl font-semibold text-ink">
             {schedule.title}
           </h1>
         </div>
 
         {/* Info Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-          <div className="flex items-center gap-4 bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-indigo-500 border border-indigo-50 shrink-0">
-              <Calendar className="w-6 h-6" />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+          <div className="flex items-center gap-3 card px-4 py-3">
+            <Calendar size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider mb-0.5">날짜</p>
-              <p className="text-sm font-black text-gray-800 truncate">
-                {format(startTime, 'yyyy. MM. dd')}
+              <p className="text-xs text-ink-3">날짜</p>
+              <p className="stamp !text-sm !text-ink truncate">
+                {format(startTime, 'M.d EEE', { locale: ko })}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-emerald-500 border border-emerald-50 shrink-0">
-              <Clock className="w-6 h-6" />
-            </div>
+          <div className="flex items-center gap-3 card px-4 py-3">
+            <Clock size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
             <div className="min-w-0">
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider mb-0.5">시간</p>
-              <p className="text-sm font-black text-gray-800 truncate">
+              <p className="text-xs text-ink-3">시간</p>
+              <p className="stamp !text-sm !text-ink truncate">
                 {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
               </p>
             </div>
@@ -274,60 +263,58 @@ export default function AppointmentDetailView({
 
         {/* Location Detail Section */}
         {schedule.location && (
-          <div className="space-y-4 mb-10">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-rose-500" /> 장소 정보
+          <div className="space-y-3 mb-8">
+            <h3 className="text-base font-semibold text-ink flex items-center gap-2">
+              <MapPin size={16} strokeWidth={1.5} className="text-ink-3" /> 장소 정보
             </h3>
             
             {isLoadingLocation ? (
-              <div className="w-full h-40 bg-gray-50 rounded-[2rem] border border-dashed border-gray-200 flex items-center justify-center">
-                <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+              <div className="w-full h-40 bg-raised rounded-2xl flex items-center justify-center">
+                <Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" />
               </div>
             ) : locationDetail ? (
-              <div className="group relative overflow-hidden bg-white border border-gray-100 rounded-[2rem] shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all duration-500">
+              <div className="card relative overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   {locationDetail.imageUrl && (
-                    <div className="relative w-full md:w-56 h-48 md:h-auto overflow-hidden bg-gray-50 shrink-0">
+                    <div className="relative w-full md:w-56 h-48 md:h-auto overflow-hidden bg-raised shrink-0">
                       <ImageWithFallback 
                         src={locationDetail.imageUrl} 
                         alt={schedule.location} 
                         fill
                         containerClassName="w-full h-full"
-                        className="object-cover group-hover:scale-110 transition-transform duration-700" 
+                        className="object-cover" 
                         unoptimized
                       />
                     </div>
                   )}
-                  <div className="flex-1 p-6 flex flex-col justify-center">
+                  <div className="flex-1 p-5 flex flex-col justify-center">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <h4 className="text-xl font-black text-gray-900 leading-tight">{schedule.location}</h4>
+                      <h4 className="text-lg font-semibold text-ink">{schedule.location}</h4>
                       <a 
                         href={locationDetail.placeUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm shrink-0"
+                        className="btn-ghost text-ink-2 shrink-0"
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <ExternalLink size={16} strokeWidth={1.5} />
                       </a>
                     </div>
-                    <p className="text-sm font-bold text-gray-500 flex items-center gap-1.5 mb-3">
-                      <MapIcon className="w-3.5 h-3.5" />
+                    <p className="text-sm text-ink-2 flex items-center gap-1.5 mb-3">
+                      <MapIcon size={16} strokeWidth={1.5} className="text-ink-3" />
                       {locationDetail.address}
                     </p>
-                    <span className="inline-block px-3 py-1 bg-gray-50 text-gray-400 rounded-lg text-[10px] font-black uppercase self-start border border-gray-100">
+                    <span className="inline-block rounded-md bg-raised px-2 py-0.5 text-xs text-ink-2 self-start">
                       {locationDetail.category}
                     </span>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-4 bg-gray-50/50 rounded-3xl p-6 border border-gray-100/50">
-                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-rose-500 border border-rose-50 shrink-0">
-                  <MapPin className="w-6 h-6" />
-                </div>
+              <div className="flex items-center gap-3 card px-4 py-3">
+                <MapPin size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
                 <div>
-                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-wider mb-0.5">장소</p>
-                  <p className="text-sm font-black text-gray-800">{schedule.location}</p>
+                  <p className="text-xs text-ink-3">장소</p>
+                  <p className="text-sm font-medium text-ink">{schedule.location}</p>
                 </div>
               </div>
             )}
@@ -335,50 +322,50 @@ export default function AppointmentDetailView({
         )}
 
         {/* Description */}
-        <div className="space-y-4 mb-8">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-            <FileText className="w-4 h-4 text-gray-400" /> 상세 설명
+        <div className="space-y-3 mb-8">
+          <h3 className="text-base font-semibold text-ink flex items-center gap-2">
+            <FileText size={16} strokeWidth={1.5} className="text-ink-3" /> 상세 설명
           </h3>
-          <div className="bg-gray-50/50 border-2 border-transparent rounded-[2rem] p-7 text-sm text-gray-600 leading-relaxed font-medium min-h-[120px] hover:bg-white hover:border-gray-100 transition-all duration-300 whitespace-pre-wrap">
-            {schedule.description || '추가된 설명이 없습니다.'}
+          <div className="bg-raised rounded-2xl p-5 text-sm text-ink-2 leading-relaxed min-h-[120px] whitespace-pre-wrap">
+            {schedule.description || '추가된 설명이 없어요'}
           </div>
         </div>
       </div>
 
       {/* Sidebar Area */}
-      <div className="w-full lg:w-[360px] bg-gray-50/50 p-6 lg:p-8 overflow-y-auto no-scrollbar flex flex-col gap-8 shrink-0 relative border-l border-gray-100/50">
+      <div className="w-full lg:w-[360px] bg-canvas p-6 overflow-y-auto no-scrollbar flex flex-col gap-6 shrink-0 relative">
         {!isPage && onClose && (
           <button
             onClick={onClose}
-            className="absolute top-8 right-8 p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hidden lg:block"
+            className="btn-ghost absolute top-4 right-4 hidden lg:inline-flex"
           >
-            <X className="w-6 h-6" />
+            <X size={18} strokeWidth={1.5} />
           </button>
         )}
 
         {/* Author */}
-        <div className="space-y-4 pt-4 lg:pt-0">
-          <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-            <UserIcon className="w-4 h-4 text-blue-500" /> 작성자
+        <div className="space-y-3 pt-4 lg:pt-0">
+          <h3 className="text-base font-semibold text-ink flex items-center gap-2">
+            <UserIcon size={16} strokeWidth={1.5} className="text-ink-3" /> 작성자
           </h3>
-          <div className="flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-3xl shadow-sm">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-100 flex items-center justify-center text-sm font-black text-indigo-600 border border-indigo-200 shadow-inner">
+          <div className="flex items-center gap-3 card px-4 py-3">
+            <div className="size-8 rounded-full bg-accent-soft flex items-center justify-center text-sm font-medium text-accent">
               {schedule.authorNickname[0]}
             </div>
-            <span className="text-sm font-black text-gray-700">{schedule.authorNickname}</span>
+            <span className="text-sm font-medium text-ink">{schedule.authorNickname}</span>
           </div>
         </div>
 
         {/* Participants */}
         {schedule.participants && schedule.participants.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-              <Users className="w-4 h-4 text-blue-500" /> 참여자
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-ink flex items-center gap-2">
+              <Users size={16} strokeWidth={1.5} className="text-ink-3" /> 참여자
             </h3>
             <div className="flex flex-wrap gap-2">
               {schedule.participants.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 pl-2 pr-3 py-2 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-indigo-200 transition-colors cursor-default">
-                  <div className="w-7 h-7 rounded-xl bg-indigo-50 flex items-center justify-center overflow-hidden border border-indigo-100 shrink-0">
+                <div key={p.id} className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 card !rounded-full">
+                  <div className="size-6 rounded-full bg-accent-soft flex items-center justify-center overflow-hidden relative shrink-0">
                     {p.profileImage ? (
                       <ImageWithFallback 
                         src={p.profileImage.startsWith('/uploads/') ? `${apiUrl}${p.profileImage}` : p.profileImage} 
@@ -389,10 +376,10 @@ export default function AppointmentDetailView({
                         unoptimized
                       />
                     ) : (
-                      <span className="text-[10px] font-black text-indigo-500">{p.nickname[0]}</span>
+                      <span className="text-xs text-accent">{p.nickname[0]}</span>
                     )}
                   </div>
-                  <span className="text-xs font-bold text-gray-700">{p.nickname}</span>
+                  <span className="text-sm text-ink">{p.nickname}</span>
                 </div>
               ))}
             </div>
@@ -401,26 +388,24 @@ export default function AppointmentDetailView({
 
         {/* Tagged Memos */}
         {schedule.taggedMemos && schedule.taggedMemos.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-indigo-500" /> 연결된 메모
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-ink flex items-center gap-2">
+              <MessageSquare size={16} strokeWidth={1.5} className="text-ink-3" /> 연결된 메모
             </h3>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-2">
               {schedule.taggedMemos.map((memo) => (
                 <div
                   key={memo.id}
                   onClick={() => handleMemoClick(memo.id)}
-                  className="flex items-center gap-4 p-4 bg-white border border-gray-100 rounded-2xl hover:border-indigo-200 hover:shadow-md transition-all duration-300 cursor-pointer group"
+                  className="flex items-center gap-3 card px-4 py-3 hover:bg-raised transition-colors duration-150 ease-out cursor-pointer"
                 >
-                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-500 shadow-sm">
-                    <FileText className="w-5 h-5" />
-                  </div>
+                  <FileText size={16} strokeWidth={1.5} className="text-ink-3 shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-gray-800 text-sm truncate group-hover:text-indigo-600 transition-colors">
+                    <h4 className="text-sm text-ink truncate">
                       {memo.title}
                     </h4>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-indigo-500 transition-all" />
+                  <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3" />
                 </div>
               ))}
             </div>
@@ -428,9 +413,9 @@ export default function AppointmentDetailView({
         )}
 
         {/* Metadata */}
-        <div className="mt-auto pt-8 border-t border-gray-100 flex flex-col gap-1 text-[10px] text-gray-400 font-black uppercase tracking-widest">
-          <span>ID: {schedule.id.slice(0, 8)}</span>
-          <span>Created: {format(parseISO(schedule.createdAt), 'yyyy. MM. dd. HH:mm')}</span>
+        <div className="mt-auto pt-6 border-t border-line flex flex-col gap-1 stamp">
+          <span>ID {schedule.id.slice(0, 8)}</span>
+          <span>작성 {format(parseISO(schedule.createdAt), 'M.d EEE HH:mm', { locale: ko })}</span>
         </div>
       </div>
 

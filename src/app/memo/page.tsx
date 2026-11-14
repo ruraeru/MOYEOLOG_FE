@@ -17,6 +17,8 @@ import {
   Lock,
   Loader2,
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ko } from 'date-fns/locale';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
@@ -28,7 +30,7 @@ type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
 export default function MemoPage() {
   return (
-    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-[#F8F9FB]"><Loader2 className="w-8 h-8 animate-spin text-indigo-600" /></div>}>
+    <Suspense fallback={<div className="h-screen flex items-center justify-center bg-canvas"><Loader2 size={24} strokeWidth={1.5} className="animate-spin text-accent" /></div>}>
       <MemoContent />
     </Suspense>
   );
@@ -122,8 +124,8 @@ function MemoContent() {
         image: getFileUrl(m.imageUrl) || undefined,
         tags: m.tags || [],
         category: isShared ? '공유받음' : (group ? group.name : '내 메모'),
-        categoryColor: isShared ? 'bg-purple-500' : theme.bg,
-        date: new Date(m.createdAt).toLocaleDateString(),
+        categoryColor: isShared ? 'bg-accent' : theme.dot,
+        date: format(new Date(m.createdAt), 'M.d EEE', { locale: ko }),
         locked: false,
         isFavorite: m.isFavorite,
         groupId: m.groupId
@@ -168,13 +170,13 @@ function MemoContent() {
     return baseTitle;
   };
 
-  if (status === 'loading') return <div className="h-screen flex items-center justify-center bg-[#F8F9FB]"><div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" /></div>;
+  if (status === 'loading') return <div className="h-screen flex items-center justify-center bg-canvas"><div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" /></div>;
 
   return (
-    <div className="h-screen flex flex-col bg-white text-gray-900 overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-72 border-r border-gray-100 flex flex-col p-6 gap-10 overflow-y-auto no-scrollbar hidden lg:flex bg-white">
+        <aside className="w-72 border-r border-line flex-col p-5 gap-8 overflow-y-auto no-scrollbar hidden lg:flex bg-canvas">
           <div>
             <SectionTitle label="카테고리" />
             <div className="space-y-1">
@@ -193,7 +195,7 @@ function MemoContent() {
                   key={g.id}
                   label={g.name}
                   active={filter.type === 'group' && filter.id === g.id}
-                  color={getThemeColors(g.colorTheme).bg}
+                  color={getThemeColors(g.colorTheme).dot}
                   onClick={() => setFilter({ type: 'group', id: g.id })}
                 />
               ))}
@@ -202,20 +204,20 @@ function MemoContent() {
 
           <div>
             <SectionTitle label="태그" />
-            <div className="flex flex-wrap gap-2 px-1">
+            <div className="flex flex-wrap gap-2 px-2">
               {dynamicTags.length > 0 ? dynamicTags.map(tag => (
                 <TagBadge key={tag} label={tag} isActive={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
-              )) : <p className="text-[10px] text-gray-400 font-medium">사용된 태그가 없습니다.</p>}
+              )) : <p className="text-xs text-ink-3">사용한 태그가 없어요</p>}
             </div>
           </div>
         </aside>
 
-        <main className="flex-1 flex flex-col overflow-hidden bg-white">
+        <main className="flex-1 flex flex-col overflow-hidden bg-canvas">
           <Header title={getPageTitle()} loading={loading} onViewChange={setViewMode} currentView={viewMode} />
 
-          <div className="flex-1 overflow-y-auto p-8 pt-4 no-scrollbar">
+          <div className="flex-1 overflow-y-auto p-6 pt-2 no-scrollbar">
             {loading && allMemos.length === 0 ? <LoadingState /> : memos.length === 0 ? <EmptyState type={filter.type} /> : (
-              <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
+              <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
                 {memos.map(memo => (
                   <MemoCard
                     key={memo.id}
@@ -230,8 +232,8 @@ function MemoContent() {
             )}
           </div>
 
-          <button onClick={() => setIsCreateOpen(true)} className="fixed bottom-10 right-10 w-16 h-16 bg-[#6366F1] text-white rounded-4xl flex items-center justify-center shadow-2xl hover:bg-[#5558E6] transition-all transform hover:scale-110 active:scale-95 z-30">
-            <Plus className="w-8 h-8" />
+          <button onClick={() => setIsCreateOpen(true)} aria-label="새 메모" className="fixed bottom-8 right-8 size-12 bg-accent text-white rounded-full flex items-center justify-center shadow-float hover:bg-accent-hover transition-colors duration-150 ease-out active:scale-[0.98] z-30">
+            <Plus size={20} strokeWidth={1.5} />
           </button>
         </main>
       </div>
@@ -250,7 +252,7 @@ interface SectionTitleProps {
 }
 
 function SectionTitle({ label }: SectionTitleProps) {
-  return <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-4 px-2"><ChevronDown className="w-3 h-3" /> {label}</h3>;
+  return <h3 className="text-xs text-ink-3 flex items-center gap-1.5 mb-2 px-2"><ChevronDown size={16} strokeWidth={1.5} /> {label}</h3>;
 }
 
 interface SidebarItemProps {
@@ -265,18 +267,18 @@ function SidebarItem({ icon: Icon, label, active, color, onClick }: SidebarItemP
   return (
     <div
       onClick={onClick}
-      className={`flex items-center justify-between px-4 py-3 rounded-2xl cursor-pointer transition-all duration-300 group ${active
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-          : 'hover:bg-white text-gray-500 hover:text-indigo-600'
+      className={`flex items-center justify-between px-3 py-2 rounded-[10px] cursor-pointer transition-colors duration-150 ease-out ${active
+          ? 'bg-raised text-ink'
+          : 'text-ink-2 hover:bg-raised'
         }`}
     >
       <div className="flex items-center gap-3">
         {Icon ? (
-          <Icon className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-400 group-hover:text-indigo-500'}`} />
+          <Icon size={16} strokeWidth={1.5} className={active ? 'text-ink' : 'text-ink-3'} />
         ) : (
-          <div className={`w-2 h-2 rounded-full ${active ? 'bg-white' : (color || 'bg-gray-300')}`} />
+          <div className={`size-2 rounded-full ${color || 'bg-ink-3'}`} />
         )}
-        <span className={`text-sm font-black ${active ? 'text-white' : ''}`}>{label}</span>
+        <span className={`text-sm ${active ? 'font-medium' : ''}`}>{label}</span>
       </div>
     </div>
   );
@@ -292,9 +294,9 @@ function TagBadge({ label, isActive, onClick }: TagBadgeProps) {
   return (
     <span
       onClick={onClick}
-      className={`text-[10px] font-black px-3 py-1.5 rounded-xl cursor-pointer transition-all duration-300 ${isActive
-          ? 'bg-indigo-600 text-white shadow-md'
-          : 'bg-white text-gray-400 hover:text-indigo-600 hover:shadow-sm border border-transparent hover:border-indigo-100'
+      className={`text-xs rounded-md px-2 py-0.5 cursor-pointer transition-colors duration-150 ease-out ${isActive
+          ? 'bg-accent-soft text-accent'
+          : 'bg-raised text-ink-2 hover:text-ink'
         }`}
     >
       #{label}
@@ -311,32 +313,32 @@ interface HeaderProps {
 
 function Header({ title, loading, onViewChange, currentView }: HeaderProps) {
   return (
-    <div className="p-10 pb-6 space-y-8">
+    <div className="px-6 pt-6 pb-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-black text-gray-900 tracking-tight">{title}</h2>
-        {loading && <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />}
+        <h2 className="text-2xl font-semibold text-ink">{title}</h2>
+        {loading && <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />}
       </div>
-      <div className="flex items-center gap-4 justify-between">
-        <div className="relative flex-1 w-full group">
+      <div className="flex items-center gap-3 justify-between">
+        <div className="relative flex-1 w-full">
           <input
             type="text"
             placeholder="메모 제목 또는 내용 검색"
-            className="w-full bg-white border-0 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold focus:ring-4 focus:ring-indigo-50 transition-all outline-none shadow-sm group-hover:shadow-md"
+            className="form-input w-full pl-10"
           />
-          <Search className="w-5 h-5 absolute left-4 top-4 text-gray-300 group-hover:text-indigo-400 transition-colors" />
+          <Search size={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
         </div>
-        <div className="flex p-1.5 bg-gray-200/50 rounded-2xl">
+        <div className="flex p-1 bg-raised rounded-[10px]">
           <button
             onClick={() => onViewChange('grid')}
-            className={`p-2.5 rounded-xl transition-all ${currentView === 'grid' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`p-2 rounded-lg transition-colors duration-150 ease-out ${currentView === 'grid' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 hover:text-ink'}`}
           >
-            <Grid className="w-4 h-4" />
+            <Grid size={16} strokeWidth={1.5} />
           </button>
           <button
             onClick={() => onViewChange('list')}
-            className={`p-2.5 rounded-xl transition-all ${currentView === 'list' ? 'bg-white shadow-md text-indigo-600' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`p-2 rounded-lg transition-colors duration-150 ease-out ${currentView === 'list' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 hover:text-ink'}`}
           >
-            <List className="w-4 h-4" />
+            <List size={16} strokeWidth={1.5} />
           </button>
         </div>
       </div>
@@ -345,16 +347,16 @@ function Header({ title, loading, onViewChange, currentView }: HeaderProps) {
 }
 
 function LoadingState() {
-  return <div className="flex flex-col items-center justify-center py-24 gap-3"><Loader2 className="w-8 h-8 animate-spin text-indigo-400" /><p className="text-sm font-semibold text-gray-400 tracking-tight">메모를 불러오는 중...</p></div>;
+  return <div className="flex flex-col items-center justify-center py-24 gap-3"><Loader2 size={24} strokeWidth={1.5} className="animate-spin text-ink-3" /><p className="text-sm text-ink-3">메모를 불러오고 있어요</p></div>;
 }
 
 function EmptyState({ type }: { type: string }) {
-  const messages: Record<string, string> = { group: '이 모임에 작성된 메모가 없습니다.', shared: '공유받은 메모가 없습니다.', favorites: '즐겨찾기한 메모가 없습니다.', tag: '해당 태그가 포함된 메모가 없습니다.' };
+  const messages: Record<string, string> = { group: '이 모임에 쓴 메모가 없어요', shared: '공유받은 메모가 없어요', favorites: '즐겨찾기한 메모가 없어요', tag: '이 태그가 붙은 메모가 없어요' };
   return (
-    <div className="flex flex-col items-center justify-center py-32 text-center border-2 border-dashed border-gray-50 rounded-3xl mx-8">
-      <Archive className="w-12 h-12 text-gray-200 mb-4 stroke-[1.5]" />
-      <p className="text-gray-500 font-semibold">{messages[type] || '메모가 없습니다.'}</p>
-      <p className="text-xs text-gray-400 mt-1 font-medium">새로운 메모를 작성해보세요!</p>
+    <div className="flex flex-col items-center justify-center py-24 text-center">
+      <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3"><Archive size={18} strokeWidth={1.5} className="text-ink-3" /></div>
+      <p className="text-sm font-medium text-ink">{messages[type] || '메모가 없어요'}</p>
+      <p className="text-sm text-ink-3 mt-1">새 메모를 쓰면 여기에 모여요</p>
     </div>
   );
 }
@@ -367,86 +369,56 @@ interface MemoCardProps extends MemoCardView {
 }
 
 function MemoCard({ title, description, image, tags, category, categoryColor, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
-  const { data: session } = useSession();
   const isList = viewMode === 'list';
   return (
     <div
       onClick={onClick}
-      className={`bg-white border border-gray-100 transition-all duration-300 group flex overflow-hidden cursor-pointer ${isList
-          ? 'rounded-2xl p-5 gap-6 hover:border-indigo-200 hover:bg-indigo-50/10'
-          : 'rounded-3xl flex-col hover:border-indigo-200 hover:shadow-sm'
-        }`}
+      className={`card group flex overflow-hidden cursor-pointer transition-colors duration-150 ease-out hover:border-line-strong ${isList ? 'p-4 gap-4' : 'flex-col'}`}
     >
       {image && (
         <ImageWithFallback
           src={image}
           alt={title}
           fill
-          containerClassName={isList ? "w-28 h-28 rounded-xl shrink-0 shadow-sm" : "h-44 w-full bg-gray-50"}
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
+          containerClassName={isList ? "size-24 rounded-[10px] shrink-0" : "h-40 w-full bg-raised"}
+          className="object-cover"
         />
       )}
-      {!isList && image && (
-        <button
-          onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
-          className={`absolute top-3 right-3 z-10 p-1.5 rounded-lg backdrop-blur-md transition-all ${isFavorite ? 'bg-amber-400 text-white' : 'bg-white/80 text-gray-300 hover:text-indigo-400'
-            }`}
-        >
-          <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-        </button>
-      )}
-      <div className={isList ? "flex flex-col flex-1 min-w-0 py-0.5" : "p-6 flex flex-col gap-3.5 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between">
-          <h4 className="font-bold text-gray-800 text-base truncate group-hover:text-indigo-500 transition-colors tracking-tight">{title}</h4>
-          <div className="flex items-center gap-1.5">
-            {(isList || !image) && (
-              <button
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
-                className={`p-1 rounded-md transition-all ${isFavorite ? 'text-amber-400' : 'text-gray-200 hover:text-indigo-400 hover:bg-indigo-50'}`}
-              >
-                <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-              </button>
-            )}
-            {locked && <Lock className="w-3.5 h-3.5 text-gray-300" />}
-          </div>
-        </div>
-        <p className="text-[13px] text-gray-500 leading-relaxed line-clamp-2 font-medium">{description}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
-            <span
-              key={tag}
-              onClick={(e: React.MouseEvent) => onTagClick(e, tag)}
-              className="text-[10px] text-indigo-400 font-bold bg-indigo-50/50 px-2 py-0.5 rounded-lg hover:bg-indigo-100 transition-colors"
+      <div className={isList ? "flex flex-col gap-2 flex-1 min-w-0" : "p-5 flex flex-col gap-3 flex-1 min-w-0"}>
+        <div className="flex items-center justify-between gap-2">
+          <h4 className="font-semibold text-ink text-base truncate">{title}</h4>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {locked && <Lock size={16} strokeWidth={1.5} className="text-ink-3" />}
+            <button
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
+              className={`p-1 rounded-md transition-colors duration-150 ease-out ${isFavorite ? 'text-accent' : 'text-ink-3 hover:text-ink-2'}`}
             >
-              #{tag}
-            </span>
-          ))}
-        </div>
-        <div className="flex items-center justify-between mt-auto pt-3.5 border-t border-gray-50">
-          <div className="flex items-center gap-3">
-            <div className="w-5 h-5 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-400 text-[8px] font-black overflow-hidden relative shrink-0">
-              {session?.user?.image ? (
-                <ImageWithFallback 
-                  src={session.user.image} 
-                  alt={session.user.name || '나'} 
-                  fill 
-                  containerClassName="w-full h-full"
-                  className="object-cover"
-                  unoptimized
-                />
-              ) : (
-                (session?.user?.name || '나')[0]
-              )}
-            </div>
-            <span className="text-[10px] text-gray-500 font-black tracking-tight">{session?.user?.name || '나'}</span>
-            {category && (
-              <div className="flex items-center gap-1.5 ml-2 border-l border-gray-100 pl-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${categoryColor || 'bg-gray-300'}`} />
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{category}</span>
-              </div>
-            )}
+              <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
+            </button>
           </div>
-          <span className="text-[10px] text-gray-300 font-bold uppercase">{date}</span>
+        </div>
+        <p className="text-sm text-ink-2 leading-relaxed line-clamp-3">{description}</p>
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                onClick={(e: React.MouseEvent) => onTagClick(e, tag)}
+                className="text-xs text-ink-2 bg-raised rounded-md px-2 py-0.5 hover:text-ink transition-colors duration-150 ease-out"
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center justify-between mt-auto pt-3 border-t border-line">
+          {category ? (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className={`size-1.5 rounded-full shrink-0 ${categoryColor || 'bg-ink-3'}`} />
+              <span className="text-xs text-ink-3 truncate">{category}</span>
+            </div>
+          ) : <span />}
+          <span className="stamp">{date}</span>
         </div>
       </div>
     </div>
