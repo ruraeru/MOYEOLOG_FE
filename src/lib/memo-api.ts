@@ -186,6 +186,7 @@ export const memoApi = {
 
   async analyze(id: string, session: Session | null): Promise<MemoInsight> {
     const response = await axiosInstance.post<MemoInsight>(`/api/memos/${id}/analyze`, {}, {
+      timeout: 300000, // 로컬 LLM 분석은 1분을 넘길 수 있다 (nginx 도 300s)
       headers: getAuthHeaders(session),
     });
     return normalizeInsight(response.data);

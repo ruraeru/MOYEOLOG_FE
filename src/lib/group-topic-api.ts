@@ -64,6 +64,7 @@ export const groupTopicApi = {
 
   async analyze(topicId: string, session: Session | null): Promise<TopicInsightResponse> {
     const response = await axiosInstance.post<TopicInsightResponse>(`/api/topics/${topicId}/analyze`, {}, {
+      timeout: 300000, // 로컬 LLM 분석은 1분을 넘길 수 있다 (nginx 도 300s)
       headers: getAuthHeaders(session),
     });
     return response.data;
