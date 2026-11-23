@@ -27,7 +27,7 @@ export default function FriendSearchModal({ isOpen, onClose, onSuccess }: Friend
     setSuccess(false);
 
     try {
-      await friendApi.sendRequest(customId, session);
+      await friendApi.sendRequest(customId.trim(), session);
       setSuccess(true);
       setCustomId('');
       onSuccess?.();
@@ -61,11 +61,14 @@ export default function FriendSearchModal({ isOpen, onClose, onSuccess }: Friend
               <input
                 type="text"
                 value={customId}
-                onChange={(e) => setCustomId(e.target.value)}
+                // 복사할 때 딸려 온 공백을 먼저 지운 뒤 8자로 맞춰요(maxLength 는 공백까지 세어 ID 를 잘라 버림).
+                onChange={(e) => setCustomId(e.target.value.replace(/\s+/g, '').slice(0, 8))}
                 placeholder="친구의 8자리 ID를 입력해요"
                 className="form-input pl-10"
                 required
-                maxLength={8}
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
               />
               <Search size={16} strokeWidth={1.5} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
             </div>

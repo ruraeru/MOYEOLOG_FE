@@ -1,11 +1,14 @@
 import type { NextAuthOptions } from 'next-auth';
 import KakaoProvider from 'next-auth/providers/kakao';
+import type { JWT as Token } from 'next-auth/jwt';
 
 interface KakaoProfile {
   id: number;
   kakao_account?: {
     name?: string;
     email?: string;
+    is_email_valid?: boolean;
+    is_email_verified?: boolean;
     profile?: {
       nickname?: string;
       profile_image_url?: string;
@@ -39,7 +42,10 @@ const FALLBACK_ACCESS_TOKEN_TTL_MS = 5 * 60 * 1000;
 const SYNC_TIMEOUT_MS = 5000;
 const REFRESH_TIMEOUT_MS = 5000;
 
-const MAX_NAME_LENGTH = 50;
+const LOGOUT_TIMEOUT_MS = 5000;
+const VERIFY_TIMEOUT_MS = 5000;
+
+const MAX_NAME_LENGTH = 20;
 const MAX_IMAGE_URL_LENGTH = 2048;
 
 /**
@@ -59,6 +65,105 @@ function getAccessTokenExpires(accessToken: string): number {
   return Date.now() + FALLBACK_ACCESS_TOKEN_TTL_MS;
 }
 
+/** 화면에 보이는 글자(grapheme) 단위로 나눕니다 (👩‍💻 같은 ZWJ 이모지도 1자, 백엔드와 같은 기준). */
+function splitGraphemes(value: string): string[] {
+  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+    return Array.from(new Intl.Segmenter('ko', { granularity: 'grapheme' }).segment(value), (s) => s.segment);
+  }
+  return [...value];
+}
+
+/** 앞뒤 공백을 지우고 글자(grapheme) 기준으로 자릅니다 (이모지를 쪼개지 않음). */
+function trimToGraphemes(value: string, max: number): string {
+  return splitGraphemes(value.trim()).slice(0, max).join('').trim();
+}
+
+/**
+ * 리프레시 토큰으로 액세스 토큰을 새로 받습니다.
+ * 백엔드가 리프레시 토큰을 거부하면 세션을 오류 상태로 만들고(SessionGuard 가 로그아웃시킴),
+ * 일시 장애면 기존 토큰을 그대로 돌려줘 다음 요청에서 다시 시도합니다.
+ */
+async function refreshAccessToken(token: Token, internalApiUrl: string): Promise<Token> {
+  if (!token.refreshToken) {
+    return { ...token, error: 'RefreshAccessTokenError' };
+  }
+
+  try {
+    const response = await fetch(`${internalApiUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: token.refreshToken }),
+      signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
+    });
+
+    if (response.status === 400 || response.status === 401 || response.status === 403 || response.status === 404) {
+      // 리프레시 토큰이 거부됨(로그아웃·탈퇴·모든 기기 로그아웃 등) → 다시 로그인해야 합니다.
+      console.error('Refresh token rejected:', response.status);
+      return { ...token, error: 'RefreshAccessTokenError' };
+    }
+
+    if (!response.ok) {
+      console.error('Error refreshing access token:', response.status);
+      return token;
+    }
+
+    const refreshedTokens = (await response.json()) as Partial<BackendAuthResponse>;
+    if (!refreshedTokens.accessToken) {
+      return { ...token, error: 'RefreshAccessTokenError' };
+    }
+
+    return {
+      ...token,
+      accessToken: refreshedTokens.accessToken,
+      accessTokenExpires: getAccessTokenExpires(refreshedTokens.accessToken),
+      refreshToken: refreshedTokens.refreshToken ?? token.refreshToken, // 새 RT가 오면 교체, 아니면 기존 것 유지
+    };
+  } catch (error) {
+    // 네트워크 오류/타임아웃: 일시적인 문제로 보고 다음 요청에서 다시 시도합니다.
+    console.error('Error refreshing access token', error);
+    return token;
+  }
+}
+
+/** 백엔드가 이 액세스 토큰을 받아 주는지 확인합니다. 'unknown' 은 일시 장애(판단 보류). */
+async function checkAccessToken(
+  accessToken: string | undefined,
+  internalApiUrl: string
+): Promise<'ok' | 'rejected' | 'unknown'> {
+  if (!accessToken) return 'rejected';
+  try {
+    const response = await fetch(`${internalApiUrl}/api/users/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
+    });
+    if (response.ok) return 'ok';
+    if (response.status === 401) return 'rejected';
+    // 403(탈퇴 등으로 접근 불가)·404(사용자 없음)도 이 세션으로는 더 쓸 수 없습니다.
+    if (response.status === 403 || response.status === 404) return 'rejected';
+    return 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * 브라우저가 401 을 받았을 때(SessionGuard → update({ revalidate: true })) 호출됩니다.
+ * 만료 전이라도 백엔드가 거부한 토큰이면 갱신을 시도하고, 갱신도 안 되거나 새 토큰도 거부되면
+ * 세션을 오류 상태로 만들어 로그인 화면으로 보냅니다.
+ */
+async function revalidateToken(token: Token, internalApiUrl: string): Promise<Token> {
+  const current = await checkAccessToken(token.accessToken, internalApiUrl);
+  if (current !== 'rejected') return token;
+
+  const refreshed = await refreshAccessToken(token, internalApiUrl);
+  if (refreshed.error) return refreshed;
+  if (refreshed.accessToken === token.accessToken) return refreshed; // 일시 장애로 갱신 못 함
+
+  const next = await checkAccessToken(refreshed.accessToken, internalApiUrl);
+  if (next === 'rejected') return { ...refreshed, error: 'BackendRejectedToken' };
+  return refreshed;
+}
+
 function toPublicImageUrl(image: string | null | undefined, publicApiUrl: string): string | null {
   if (!image) return null;
   return image.startsWith('/uploads/') ? `${publicApiUrl}${image}` : image;
@@ -76,6 +181,35 @@ export const authOptions: NextAuthOptions = {
     signIn: '/',
     error: '/',
   },
+  events: {
+    /**
+     * 로그아웃하면 백엔드에도 알려 리프레시 토큰을 폐기하고 액세스 토큰을 더 쓰지 못하게 합니다.
+     * 실패해도 쿠키 삭제(로그아웃 자체)는 막지 않습니다.
+     */
+    async signOut({ token }) {
+      if (!token?.refreshToken && !token?.accessToken) return;
+      const internalApiUrl = process.env.BACKEND_INTERNAL_URL || 'http://app:8080';
+      try {
+        const response = await fetch(`${internalApiUrl}/api/auth/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Internal-Secret': process.env.INTERNAL_API_SECRET ?? '',
+          },
+          body: JSON.stringify({
+            refreshToken: token.refreshToken ?? null,
+            accessToken: token.accessToken ?? null,
+          }),
+          signal: AbortSignal.timeout(LOGOUT_TIMEOUT_MS),
+        });
+        if (!response.ok && response.status !== 401 && response.status !== 404) {
+          console.error('Backend logout failed:', response.status);
+        }
+      } catch (error) {
+        console.error('Backend logout error:', error);
+      }
+    },
+  },
   callbacks: {
     /**
      * 카카오 인증 직후 백엔드와 사용자 정보를 동기화합니다.
@@ -88,11 +222,17 @@ export const authOptions: NextAuthOptions = {
       const internalApiUrl = process.env.BACKEND_INTERNAL_URL || 'http://app:8080';
       const kakaoProfile = profile as unknown as KakaoProfile;
 
-      const nickname = kakaoProfile.kakao_account?.name ||
+      const rawNickname = kakaoProfile.kakao_account?.name ||
                        user.name ||
                        kakaoProfile.properties?.nickname ||
                        kakaoProfile.kakao_account?.profile?.nickname ||
-                       '사용자';
+                       '';
+      const nickname = trimToGraphemes(rawNickname, MAX_NAME_LENGTH) || '사용자';
+
+      // 카카오가 유효하고 인증된 이메일이라고 확인해 준 경우에만 백엔드가 기존 계정과 연결할 수 있습니다.
+      const emailVerified =
+        kakaoProfile.kakao_account?.is_email_valid === true &&
+        kakaoProfile.kakao_account?.is_email_verified === true;
 
       const email = kakaoProfile.kakao_account?.email || user.email || '';
       const profileImage = user.image ||
@@ -103,6 +243,7 @@ export const authOptions: NextAuthOptions = {
         const syncData = {
           kakaoId: kakaoProfile.id.toString(),
           email: email,
+          emailVerified,
           nickname: nickname,
           profileImage: profileImage,
         };
@@ -143,18 +284,28 @@ export const authOptions: NextAuthOptions = {
       const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://moyeolog.ruraeru.xyz';
 
       // 1. 세션 업데이트 요청 시 (trigger === "update")
-      //    클라이언트가 보낸 값이므로 표시용 이름/이미지만, 형식이 올바를 때에만 반영합니다.
+      //    - { revalidate: true }: 브라우저가 401 을 받음 → 백엔드에 토큰을 확인하고 필요하면 갱신/오류 처리
+      //    - 그 밖: 클라이언트가 보낸 값이므로 표시용 이름/이미지만, 형식이 올바를 때에만 반영합니다.
       if (trigger === "update" && session) {
+        if (token.error) return token;
+
+        if ((session as { revalidate?: unknown }).revalidate === true) {
+          return revalidateToken(token, internalApiUrl);
+        }
+
         const nextName: unknown = session?.user?.name;
         const nextImage: unknown = session?.user?.image;
 
         if (typeof nextName === 'string') {
           const trimmed = nextName.trim();
-          if (trimmed.length > 0 && trimmed.length <= MAX_NAME_LENGTH) {
+          if (trimmed.length > 0 && splitGraphemes(trimmed).length <= MAX_NAME_LENGTH) {
             token.name = trimmed;
           }
         }
-        if (
+        if (nextImage === null) {
+          // 프로필 사진을 지운 경우
+          token.picture = null;
+        } else if (
           typeof nextImage === 'string' &&
           nextImage.length <= MAX_IMAGE_URL_LENGTH &&
           /^(https?:\/\/|\/(?!\/))/.test(nextImage)
@@ -200,46 +351,7 @@ export const authOptions: NextAuthOptions = {
       }
 
       // 5. 토큰 만료 시 Refresh Token을 사용하여 갱신 시도
-      if (!token.refreshToken) {
-        return { ...token, error: 'RefreshAccessTokenError' };
-      }
-
-      try {
-        const response = await fetch(`${internalApiUrl}/api/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: token.refreshToken }),
-          signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
-        });
-
-        if (response.status === 400 || response.status === 401 || response.status === 403) {
-          // 리프레시 토큰이 거부됨 → 다시 로그인해야 합니다.
-          console.error('Refresh token rejected:', response.status);
-          return { ...token, error: 'RefreshAccessTokenError' };
-        }
-
-        if (!response.ok) {
-          // 백엔드 일시 장애: 세션을 버리지 않고 다음 요청에서 다시 시도합니다.
-          console.error('Error refreshing access token:', response.status);
-          return token;
-        }
-
-        const refreshedTokens = (await response.json()) as Partial<BackendAuthResponse>;
-        if (!refreshedTokens.accessToken) {
-          return { ...token, error: 'RefreshAccessTokenError' };
-        }
-
-        return {
-          ...token,
-          accessToken: refreshedTokens.accessToken,
-          accessTokenExpires: getAccessTokenExpires(refreshedTokens.accessToken),
-          refreshToken: refreshedTokens.refreshToken ?? token.refreshToken, // 새 RT가 오면 교체, 아니면 기존 것 유지
-        };
-      } catch (error) {
-        // 네트워크 오류/타임아웃: 일시적인 문제로 보고 다음 요청에서 다시 시도합니다.
-        console.error('Error refreshing access token', error);
-        return token;
-      }
+      return refreshAccessToken(token, internalApiUrl);
     },
     async session({ session, token }) {
       if (session.user) {

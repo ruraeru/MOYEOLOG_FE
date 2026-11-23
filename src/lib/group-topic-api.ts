@@ -7,6 +7,22 @@ import type {
   TopicInsightResponse 
 } from '@/types/topic';
 
+/** 백엔드가 추가로 내려줄 수 있는 필드(계약 5·6절). 없으면 화면에서 생략한다. */
+export type TopicInsightView = TopicInsightResponse & {
+  keywords?: string[];
+  stale?: boolean;
+};
+
+export type TopicCommentView = TopicCommentResponse & {
+  authorCustomId?: string | null;
+};
+
+export type TopicDetailView = Omit<TopicDetailResponse, 'comments' | 'insight'> & {
+  topic: TopicResponse & { authorCustomId?: string | null };
+  comments: TopicCommentView[];
+  insight?: TopicInsightView | null;
+};
+
 export const groupTopicApi = {
   async getByGroup(groupId: string, session: Session | null): Promise<TopicResponse[]> {
     const response = await axiosInstance.get<TopicResponse[]>(`/api/groups/${groupId}/topics`, {
@@ -22,8 +38,8 @@ export const groupTopicApi = {
     return response.data;
   },
 
-  async getById(topicId: string, session: Session | null): Promise<TopicDetailResponse> {
-    const response = await axiosInstance.get<TopicDetailResponse>(`/api/topics/${topicId}`, {
+  async getById(topicId: string, session: Session | null): Promise<TopicDetailView> {
+    const response = await axiosInstance.get<TopicDetailView>(`/api/topics/${topicId}`, {
       headers: getAuthHeaders(session),
     });
     return response.data;
@@ -49,8 +65,8 @@ export const groupTopicApi = {
     return response.data;
   },
 
-  async updateComment(commentId: string, content: string, session: Session | null): Promise<TopicCommentResponse> {
-    const response = await axiosInstance.put<TopicCommentResponse>(`/api/topics/comments/${commentId}`, { content }, {
+  async updateComment(commentId: string, content: string, session: Session | null): Promise<TopicCommentView> {
+    const response = await axiosInstance.put<TopicCommentView>(`/api/topics/comments/${commentId}`, { content }, {
       headers: getAuthHeaders(session),
     });
     return response.data;
@@ -62,8 +78,8 @@ export const groupTopicApi = {
     });
   },
 
-  async analyze(topicId: string, session: Session | null): Promise<TopicInsightResponse> {
-    const response = await axiosInstance.post<TopicInsightResponse>(`/api/topics/${topicId}/analyze`, {}, {
+  async analyze(topicId: string, session: Session | null): Promise<TopicInsightView> {
+    const response = await axiosInstance.post<TopicInsightView>(`/api/topics/${topicId}/analyze`, {}, {
       timeout: 300000, // 로컬 LLM 분석은 1분을 넘길 수 있다 (nginx 도 300s)
       headers: getAuthHeaders(session),
     });

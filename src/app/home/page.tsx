@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { format, isSameDay, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -21,34 +21,35 @@ import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
-import MemoDetailModal from '@/components/MemoDetailModal';
-import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import { memoApi } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
-import { stripMarkdown } from '@/lib/utils';
+import { stripMarkdown, initialOf } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/axios';
+import { formatStamp, scheduleDotClass, schedulesOnDay, useTimeFormat, useWeekStartsOn } from '@/lib/schedule-utils';
 
 const emptySubscribe = () => () => { };
 
 export default function HomePage() {
+  const tf = useTimeFormat();
   const router = useRouter();
   const { data: session } = useSession();
-  const userId = session?.user?.id;
 
   const queryClient = useQueryClient();
 
-  const { data: memoData, isLoading: memosLoading } = useQuery({
+  const { data: memoData, isLoading: memosLoading, error: memosError, refetch: refetchMemos } = useQuery({
     queryKey: ['memos'],
     queryFn: () => memoApi.getAll(session!),
     enabled: !!session
   });
 
-  const { data: scheduleData, isLoading: schedulesLoading } = useQuery({
+  const { data: scheduleData, isLoading: schedulesLoading, error: schedulesError, refetch: refetchSchedules } = useQuery({
     queryKey: ['schedules'],
     queryFn: () => scheduleApi.getAll(session!),
     enabled: !!session
   });
 
-  const { data: groupData, isLoading: groupsLoading } = useQuery({
+  const { data: groupData, isLoading: groupsLoading, error: groupsError, refetch: refetchGroups } = useQuery({
     queryKey: ['groups'],
     queryFn: () => groupApi.getAll(session!),
     enabled: !!session
@@ -58,6 +59,7 @@ export default function HomePage() {
   const schedules = scheduleData || [];
   const userGroups = groupData || [];
   const loading = memosLoading || schedulesLoading || groupsLoading;
+  const weekStartsOn = useWeekStartsOn();
 
   const refreshData = () => {
     queryClient.invalidateQueries({ queryKey: ['memos'] });
@@ -109,7 +111,8 @@ export default function HomePage() {
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
 
-    const daySchedules = schedules.filter(s => isSameDay(parseISO(s.startTime), date));
+    // 여러 날 일정은 걸친 모든 날짜에, 시간순으로
+    const daySchedules = schedulesOnDay(schedules, date);
 
     return (
       <div className="mt-1 flex flex-col gap-0.5 w-full">
@@ -126,8 +129,9 @@ export default function HomePage() {
           </div>
         </div>
         {daySchedules.slice(0, 2).map(s => (
-          <div key={s.id} className="bg-accent-soft text-accent text-xs px-1.5 py-0.5 rounded-md truncate w-full text-left">
-            {s.title}
+          <div key={s.id} className="flex items-center gap-1 text-ink text-xs px-1 py-0.5 rounded-md w-full text-left min-w-0">
+            <span className={`size-1.5 rounded-full shrink-0 ${scheduleDotClass(s, userGroups)}`} />
+            <span className="truncate">{s.title}</span>
           </div>
         ))}
         {daySchedules.length > 2 && (
@@ -155,6 +159,8 @@ export default function HomePage() {
                 <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
                 <span className="text-sm text-ink-3">불러오는 중</span>
               </div>
+            ) : memosError && !memoData ? (
+              <LoadError message={getApiErrorMessage(memosError)} onRetry={() => refetchMemos()} />
             ) : recentMemos.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
                 <div className="size-10 rounded-full bg-raised flex items-center justify-center">
@@ -170,7 +176,7 @@ export default function HomePage() {
                   title={memo.title}
                   description={stripMarkdown(memo.content)}
                   author={session?.user?.name || '나'}
-                  date={format(new Date(memo.createdAt), 'M.d EEE HH:mm', { locale: ko })}
+                  date={formatStamp(memo.createdAt, tf)}
                   tags={memo.tags.map((t) => `#${t}`)}
                   onClick={() => handleMemoClick(memo.id)}
                 />
@@ -185,6 +191,12 @@ export default function HomePage() {
             <h2 className="text-base font-semibold text-ink">오늘</h2>
             <span className="stamp">{format(new Date(), 'M.d EEE', { locale: ko })}</span>
           </div>
+          {schedulesError && !scheduleData && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-[10px] bg-negative-soft px-3 py-2">
+              <p className="text-sm text-negative min-w-0">일정을 불러오지 못했어요. {getApiErrorMessage(schedulesError)}</p>
+              <button onClick={() => refetchSchedules()} className="btn-secondary h-8 shrink-0">다시 시도</button>
+            </div>
+          )}
           {isMounted ? (
             <div className="flex-1 min-h-[440px]">
               <Calendar
@@ -193,7 +205,7 @@ export default function HomePage() {
                 className="w-full h-full border-none font-sans"
                 tileContent={getTileContent}
                 formatDay={(locale, date) => format(date, 'd')}
-                calendarType="gregory"
+                calendarType={weekStartsOn === 1 ? 'iso8601' : 'gregory'}
                 onClickDay={handleOpenListModal}
               />
             </div>
@@ -216,6 +228,8 @@ export default function HomePage() {
                 <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
                 <span className="text-sm text-ink-3">불러오는 중</span>
               </div>
+            ) : groupsError && !groupData ? (
+              <LoadError message={getApiErrorMessage(groupsError)} onRetry={() => refetchGroups()} />
             ) : userGroups.length === 0 ? (
               <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
                 <div className="size-10 rounded-full bg-raised flex items-center justify-center">
@@ -250,7 +264,8 @@ export default function HomePage() {
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}
         date={selectedDate}
-        appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), parseISO(selectedDate)))}
+        appointments={schedulesOnDay(schedules, parseISO(selectedDate))}
+        groups={userGroups}
         onCreateNew={() => { setSelectedSchedule(null); setIsModalOpen(true); }}
         onAppointmentClick={handleScheduleClick}
       />
@@ -291,7 +306,7 @@ function MemoCard({ title, description, author, date, tags, onClick }: { title: 
                 unoptimized
               />
             ) : (
-              userName[0]
+              initialOf(userName)
             )}
           </div>
           <span className="text-xs text-ink-3 truncate">{userName}</span>
@@ -302,10 +317,12 @@ function MemoCard({ title, description, author, date, tags, onClick }: { title: 
   );
 }
 
-function EventBadge({ color, text }: { color: string, text: string }) {
+function LoadError({ message, onRetry }: { message: string, onRetry: () => void }) {
   return (
-    <div className={`${color} text-xs px-1.5 py-0.5 rounded-md truncate`}>
-      {text}
+    <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
+      <p className="text-sm font-medium text-ink">불러오지 못했어요</p>
+      <p className="text-sm text-ink-3">{message}</p>
+      <button onClick={onRetry} className="btn-secondary mt-1">다시 시도</button>
     </div>
   );
 }
@@ -316,7 +333,7 @@ interface GroupCardProps {
 }
 
 function GroupCard({ group, onClick }: GroupCardProps) {
-  const initial = group.name.substring(0, 1);
+  const initial = initialOf(group.name);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   const profileSrc = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
 
@@ -354,7 +371,7 @@ function GroupCard({ group, onClick }: GroupCardProps) {
                     containerClassName="w-full h-full"
                     className="object-cover"
                   />
-                ) : member.nickname.substring(0, 1)}
+                ) : initialOf(member.nickname)}
               </div>
             ))}
           </div>

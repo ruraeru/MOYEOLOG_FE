@@ -30,11 +30,9 @@ export default function RootLayout({
           src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`}
           strategy="beforeInteractive"
         />
-        <Providers>
-          <div className="flex-1 flex flex-col pb-16 lg:pb-0">
-            {children}
-          </div>
-          <BottomNavbar />
+        {/* 하단 내비는 로그인한 화면에서만 보입니다 (Providers 의 AppShell 이 결정). */}
+        <Providers bottomNav={<BottomNavbar />}>
+          {children}
         </Providers>
       </body>
     </html>

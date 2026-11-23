@@ -1,36 +1,37 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { X, Loader2, Check, Camera, Image as ImageIcon, Users } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Loader2, Check, Camera, Image as ImageIcon, Users, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { groupApi, type GroupResponse } from '@/lib/group-api';
-import { convertToWebP } from '@/lib/utils';
+import { groupApi, validateGroupName, GROUP_NAME_MAX, type GroupResponse } from '@/lib/group-api';
+import { convertToWebP, getFileUrl } from '@/lib/utils';
+import { THEME_COLORS, type ThemeKey } from '@/lib/constants';
+import { useAlert } from '@/hooks/useAlert';
 
 interface GroupEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   group: GroupResponse;
   onSuccess?: () => void;
+  /** 모임을 삭제한 뒤 호출 (목록으로 이동 등) */
+  onDeleted?: () => void;
 }
 
-const THEMES = [
-  { id: 'indigo', color: 'bg-accent' },
-  { id: 'blue', color: 'bg-sky-500' },
-  { id: 'emerald', color: 'bg-emerald-500' },
-  { id: 'orange', color: 'bg-orange-500' },
-  { id: 'rose', color: 'bg-rose-500' },
-  { id: 'amber', color: 'bg-amber-500' },
-];
+const THEMES = (Object.keys(THEME_COLORS) as ThemeKey[]).map((id) => ({ id, color: THEME_COLORS[id].dot }));
 
 export default function GroupEditModal({
   isOpen,
   onClose,
   group,
   onSuccess,
+  onDeleted,
 }: GroupEditModalProps) {
   const { data: session } = useSession();
+  const { confirm, toast } = useAlert();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const isOwner = group.myRole ? group.myRole === 'OWNER' : session?.user?.id === group.createdById;
   const [name, setName] = useState(group.name);
-  const [description, setDescription] = useState(group.description);
+  const [description, setDescription] = useState(group.description ?? '');
   const [selectedTheme, setSelectedTheme] = useState(group.colorTheme);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,23 +39,14 @@ export default function GroupEditModal({
   // Image states
   const [profileFile, setProfileFile] = useState<File | null>(null);
   const [bgFile, setBgFile] = useState<File | null>(null);
-  const [profilePreview, setProfilePreview] = useState<string | null>(null);
-  const [bgPreview, setBgPreview] = useState<string | null>(null);
+  // 모달은 열릴 때마다 새로 마운트되므로(GroupModals) 현재 모임 값으로 시작한다
+  const [profilePreview, setProfilePreview] = useState<string | null>(() => getFileUrl(group.profileImage));
+  const [bgPreview, setBgPreview] = useState<string | null>(() => getFileUrl(group.backgroundImage));
 
   const profileInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-  useEffect(() => {
-    if (isOpen) {
-      setName(group.name);
-      setDescription(group.description);
-      setSelectedTheme(group.colorTheme);
-      setProfilePreview(group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null);
-      setBgPreview(group.backgroundImage ? (group.backgroundImage.startsWith('/uploads/') ? `${apiUrl}${group.backgroundImage}` : group.backgroundImage) : null);
-    }
-  }, [isOpen, group, apiUrl]);
 
   const handleProfileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,13 +71,14 @@ export default function GroupEditModal({
   };
 
   const handleSave = async () => {
-    if (session?.user?.id !== group.createdById) {
+    if (!isOwner) {
       setError('모임을 수정할 권한이 없어요');
       return;
     }
 
-    if (!name.trim()) {
-      setError('모임 이름을 입력해 주세요');
+    const nameError = validateGroupName(name);
+    if (nameError) {
+      setError(nameError);
       return;
     }
 
@@ -94,7 +87,7 @@ export default function GroupEditModal({
 
     try {
       await groupApi.update(group.id, {
-        name,
+        name: name.trim(),
         description,
         colorTheme: selectedTheme,
         image: profileFile || undefined,
@@ -110,7 +103,30 @@ export default function GroupEditModal({
     }
   };
 
-  if (!isOpen || (session?.user?.id !== group.createdById)) return null;
+  const handleDelete = async () => {
+    if (!isOwner || isDeleting) return;
+    const ok = await confirm(
+      '모임의 토픽과 댓글도 함께 지워지고, 되돌릴 수 없어요. 모임 메모와 일정은 작성자의 개인 메모·일정으로 남아요.',
+      `'${group.name}' 모임을 삭제할까요?`,
+      '삭제',
+      '취소',
+    );
+    if (!ok) return;
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await groupApi.remove(group.id, session);
+      toast.success('모임을 삭제했어요');
+      onClose();
+      onDeleted?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '모임을 삭제하지 못했어요');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (!isOpen || !isOwner) return null;
 
   return (
     <div
@@ -189,6 +205,9 @@ export default function GroupEditModal({
                   onChange={(e) => setName(e.target.value)}
                   className="form-input"
                 />
+                <p className={`text-xs text-right tabular-nums ${[...name.trim()].length > GROUP_NAME_MAX ? 'text-negative' : 'text-ink-3'}`}>
+                  {[...name.trim()].length}/{GROUP_NAME_MAX}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -197,6 +216,8 @@ export default function GroupEditModal({
                   {THEMES.map((theme) => (
                     <button
                       key={theme.id}
+                      type="button"
+                      aria-label={`테마 색상 ${theme.id}`}
                       onClick={() => setSelectedTheme(theme.id)}
                       className={`size-8 rounded-lg ${theme.color} flex items-center justify-center text-white transition-[transform,opacity] duration-150 ease-out active:scale-[0.98] ${
                         selectedTheme === theme.id ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface' : 'opacity-70 hover:opacity-100'
@@ -226,7 +247,16 @@ export default function GroupEditModal({
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-line flex justify-end gap-2 shrink-0">
+        <div className="px-6 py-4 border-t border-line flex items-center justify-end gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={isSaving || isDeleting}
+            className="btn-ghost text-negative hover:!bg-negative-soft mr-auto"
+          >
+            {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
+            모임 삭제
+          </button>
           <button
             type="button"
             onClick={onClose}

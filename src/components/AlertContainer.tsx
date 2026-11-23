@@ -2,16 +2,14 @@
 
 import { useAlertStore } from '@/hooks/useAlert';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+
+const emptySubscribe = () => () => {};
 
 export default function AlertContainer() {
   const { toasts, removeToast, modal, closeModal } = useAlertStore();
-  const [mounted, setMounted] = useState(false);
-
-  // Hydration safety
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Hydration safety: 서버 렌더링과 첫 하이드레이션에서는 그리지 않습니다.
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   if (!mounted) return null;
 

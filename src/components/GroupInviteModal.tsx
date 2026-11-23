@@ -1,17 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Loader2, Search, UserPlus, Check } from 'lucide-react';
+import { X, Loader2, Search, UserPlus, Check, AlertCircle } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { groupApi } from '@/lib/group-api';
 import ImageWithFallback from './ImageWithFallback';
+import { getApiErrorMessage } from '@/lib/axios';
+import { useAlert } from '@/hooks/useAlert';
+import { initialOf } from '@/lib/utils';
 
 interface GroupInviteModalProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: string;
   groupName: string;
+  /** 이미 모임에 있는 사람 (목록에서 뺀다) */
+  memberIds?: string[];
   onSuccess?: () => void;
 }
 
@@ -20,11 +25,14 @@ export default function GroupInviteModal({
   onClose,
   groupId,
   groupName,
+  memberIds,
   onSuccess,
 }: GroupInviteModalProps) {
   const { data: session } = useSession();
+  const { toast } = useAlert();
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [friends, setFriends] = useState<FriendResponse[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -34,12 +42,13 @@ export default function GroupInviteModal({
 
   const fetchFriends = useCallback(async () => {
     try {
-      setLoading(true);
       const data = await friendApi.getFriends(session);
+      setLoadError(null);
       // 수락된 친구만 필터링
       setFriends(data.filter(f => f.status === 'ACCEPTED'));
     } catch (e) {
       console.error('Failed to fetch friends:', e);
+      setLoadError(getApiErrorMessage(e, '친구 목록을 불러오지 못했어요.'));
     } finally {
       setLoading(false);
     }
@@ -66,6 +75,7 @@ export default function GroupInviteModal({
       setInviting(true);
       setError(null);
       await groupApi.inviteMembers(groupId, selectedUserIds, session);
+      toast.success(`${selectedUserIds.length}명에게 초대를 보냈어요`);
       onSuccess?.();
       onClose();
       setSelectedUserIds([]);
@@ -76,10 +86,14 @@ export default function GroupInviteModal({
     }
   };
 
-  const filteredFriends = friends.filter(friend => 
-    friend.nickname.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (friend.email || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const query = searchQuery.trim().toLowerCase();
+  const filteredFriends = friends
+    .filter(friend => !memberIds?.includes(friend.userId))
+    .filter(friend =>
+      !query ||
+      friend.nickname.toLowerCase().includes(query) ||
+      (friend.customId || '').toLowerCase().includes(query)
+    );
 
   if (!isOpen) return null;
 
@@ -100,6 +114,7 @@ export default function GroupInviteModal({
           <button
             onClick={onClose}
             className="btn-ghost"
+            aria-label="닫기"
           >
             <X size={18} strokeWidth={1.5} />
           </button>
@@ -110,7 +125,7 @@ export default function GroupInviteModal({
             <Search size={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
             <input
               type="text"
-              placeholder="친구 이름 또는 이메일 검색"
+              placeholder="친구 이름 또는 아이디 검색"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="form-input pl-10"
@@ -124,6 +139,14 @@ export default function GroupInviteModal({
               <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
               <p className="text-sm text-ink-3">친구 목록을 불러오는 중이에요</p>
             </div>
+          ) : loadError ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center px-6 gap-3">
+              <div className="size-10 rounded-full bg-raised flex items-center justify-center">
+                <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
+              </div>
+              <p className="text-sm text-ink">{loadError}</p>
+              <button type="button" onClick={() => { setLoading(true); setLoadError(null); fetchFriends(); }} className="btn-secondary">다시 시도</button>
+            </div>
           ) : filteredFriends.length > 0 ? (
             <div className="space-y-1">
               {filteredFriends.map((friend) => {
@@ -131,6 +154,8 @@ export default function GroupInviteModal({
                 return (
                   <button
                     key={friend.id}
+                    type="button"
+                    aria-pressed={isSelected}
                     onClick={() => handleToggleSelect(friend.userId)}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-150 ease-out ${
                       isSelected ? 'bg-accent-soft' : 'hover:bg-raised'
@@ -148,7 +173,7 @@ export default function GroupInviteModal({
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-raised text-ink-2 text-sm">
-                          {friend.nickname.substring(0, 1)}
+                          {initialOf(friend.nickname)}
                         </div>
                       )}
                     </div>
@@ -156,7 +181,7 @@ export default function GroupInviteModal({
                       <p className={`text-sm font-medium truncate ${isSelected ? 'text-accent' : 'text-ink'}`}>
                         {friend.nickname}
                       </p>
-                      <p className="text-xs text-ink-3 truncate">{friend.email}</p>
+                      {friend.customId && <p className="text-xs text-ink-3 truncate">@{friend.customId}</p>}
                     </div>
                     <div className={`size-5 rounded-full flex items-center justify-center border transition-colors duration-150 ease-out ${
                       isSelected ? 'bg-accent border-accent text-white' : 'border-line-strong'
@@ -172,8 +197,12 @@ export default function GroupInviteModal({
               <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
                 <UserPlus size={18} strokeWidth={1.5} className="text-ink-3" />
               </div>
-              <p className="text-sm font-medium text-ink">초대할 수 있는 친구가 없어요</p>
-              <p className="text-sm text-ink-3 mt-1">먼저 친구를 추가해 보세요</p>
+              <p className="text-sm font-medium text-ink">
+                {query ? '검색 결과가 없어요' : '초대할 수 있는 친구가 없어요'}
+              </p>
+              <p className="text-sm text-ink-3 mt-1">
+                {query ? '다른 이름으로 찾아보세요' : '친구만 초대할 수 있어요. 이미 모임에 있는 친구는 빠져 있어요'}
+              </p>
             </div>
           )}
         </div>

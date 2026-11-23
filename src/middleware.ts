@@ -41,5 +41,11 @@ export const config = {
     '/friends/:path*',
     '/notifications/:path*',
     '/settings/:path*',
+    '/messages',
+    '/messages/:path*',
+    '/profile/:path*',
+    // 초대 링크: 비로그인이면 로그인 화면으로 보내고 callbackUrl 에 원래 경로(쿼리 포함)를 담아 로그인 후 돌아옵니다.
+    '/invite/:path*',
+    // '/help' 는 로그인 없이도 볼 수 있는 공개 페이지라 넣지 않습니다.
   ],
 };

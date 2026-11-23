@@ -29,3 +29,30 @@ export const KAKAO_MAP_CONFIG = {
   RETRY_INTERVAL: 500,
   DEFAULT_LEVEL: 3,
 };
+
+/**
+ * 기기별 화면 설정(localStorage) 키와 허용 값.
+ * 설정 화면이 쓰고, 메모·일정 화면이 읽습니다. 값이 없거나 잘못됐으면 기본값을 씁니다.
+ */
+export const PREF_KEYS = {
+  memoView: 'moyeolog.memoView', // 'grid' | 'list' (기본 grid)
+  scheduleView: 'moyeolog.scheduleView', // 'month' | 'week' | 'list' (기본 month)
+  weekStartsOn: 'moyeolog.weekStartsOn', // '0' | '1' (0 = 일요일, 기본 0)
+  hour12: 'moyeolog.hour12', // 'true' | 'false' (기본 false = 24시간)
+} as const;
+
+export const PREF_CHANGE_EVENT = 'moyeolog:prefs';
+
+export const PREF_OPTIONS = {
+  memoView: ['grid', 'list'],
+  scheduleView: ['month', 'week', 'list'],
+  weekStartsOn: ['0', '1'],
+  hour12: ['false', 'true'],
+} as const;
+
+export type PrefName = keyof typeof PREF_KEYS;
+export type PrefValue<K extends PrefName> = (typeof PREF_OPTIONS)[K][number];
+
+/** 이미지 업로드 공통 규칙 (백엔드와 같은 10MB, JPEG/PNG/GIF/WEBP) */
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;

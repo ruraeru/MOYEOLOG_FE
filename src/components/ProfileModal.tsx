@@ -15,6 +15,7 @@ import {
   Check
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { initialOf } from '@/lib/utils';
 
 interface User {
   name?: string | null;
@@ -73,14 +74,14 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-ink-2 font-medium text-lg">
-                  {user?.name?.[0] || '나'}
+                  {initialOf(user?.name, '나')}
                 </div>
               )}
             </div>
             <div className="min-w-0">
               <h3 className="text-base font-semibold text-ink truncate">{user?.name || '게스트'}</h3>
               <p className="text-xs text-ink-2 tabular-nums">ID: {user?.customId || '--------'}</p>
-              <p className="text-xs text-ink-3 truncate w-full">{user?.email || '로그인이 필요해요'}</p>
+              <p className="text-xs text-ink-3 truncate w-full">{user?.email || '등록된 이메일이 없어요'}</p>
             </div>
           </div>
         </div>

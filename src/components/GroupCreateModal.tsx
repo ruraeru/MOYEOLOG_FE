@@ -3,27 +3,24 @@
 import React, { useState } from 'react';
 import { X, Loader2, Check, Copy } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { groupApi, validateGroupName, GROUP_NAME_MAX, type GroupResponse } from '@/lib/group-api';
+import { THEME_COLORS, type ThemeKey } from '@/lib/constants';
 
 interface GroupCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** 완료 화면의 '모임으로 가기' */
+  onOpenGroup?: (groupId: string) => void;
 }
 
-const THEMES = [
-  { id: 'indigo', color: 'bg-accent' },
-  { id: 'blue', color: 'bg-sky-500' },
-  { id: 'emerald', color: 'bg-emerald-500' },
-  { id: 'orange', color: 'bg-orange-500' },
-  { id: 'rose', color: 'bg-rose-500' },
-  { id: 'amber', color: 'bg-amber-500' },
-];
+const THEMES = (Object.keys(THEME_COLORS) as ThemeKey[]).map((id) => ({ id, color: THEME_COLORS[id].dot }));
 
 export default function GroupCreateModal({
   isOpen,
   onClose,
   onSuccess,
+  onOpenGroup,
 }: GroupCreateModalProps) {
   const { data: session } = useSession();
   const [name, setName] = useState('');
@@ -50,8 +47,9 @@ export default function GroupCreateModal({
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      setError('모임 이름을 입력해 주세요');
+    const nameError = validateGroupName(name);
+    if (nameError) {
+      setError(nameError);
       return;
     }
 
@@ -60,7 +58,7 @@ export default function GroupCreateModal({
 
     try {
       const group = await groupApi.create({
-        name,
+        name: name.trim(),
         description,
         colorTheme: selectedTheme,
       }, session);
@@ -116,6 +114,9 @@ export default function GroupCreateModal({
                   placeholder="예: 대학 동기들, 프로젝트 팀"
                   className="form-input"
                 />
+                <p className={`text-xs text-right tabular-nums ${[...name.trim()].length > GROUP_NAME_MAX ? 'text-negative' : 'text-ink-3'}`}>
+                  {[...name.trim()].length}/{GROUP_NAME_MAX}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -134,6 +135,8 @@ export default function GroupCreateModal({
                   {THEMES.map((theme) => (
                     <button
                       key={theme.id}
+                      type="button"
+                      aria-label={`테마 색상 ${theme.id}`}
                       onClick={() => setSelectedTheme(theme.id)}
                       className={`size-8 rounded-lg ${theme.color} flex items-center justify-center text-white transition-[transform,opacity] duration-150 ease-out active:scale-[0.98] ${
                         selectedTheme === theme.id ? 'ring-2 ring-ink ring-offset-2 ring-offset-surface' : 'opacity-70 hover:opacity-100'
@@ -177,7 +180,7 @@ export default function GroupCreateModal({
 
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold text-ink">모임을 만들었어요</h2>
-                <p className="text-sm text-ink-2">초대 코드나 링크를 친구에게 보내 보세요</p>
+                <p className="text-sm text-ink-2">초대 코드나 링크를 친구에게 보내 보세요. 받은 사람은 모임 화면의 &lsquo;초대 코드로 참여&rsquo;에 코드를 넣으면 돼요.</p>
               </div>
 
               <div className="bg-raised rounded-xl p-4 space-y-4 text-left">
@@ -222,10 +225,22 @@ export default function GroupCreateModal({
             <div className="px-6 py-4 border-t border-line flex justify-end gap-2">
               <button
                 onClick={handleClose}
-                className="btn-primary"
+                className="btn-secondary"
               >
-                확인
+                닫기
               </button>
+              {onOpenGroup && (
+                <button
+                  onClick={() => {
+                    const id = createdGroup.id;
+                    handleClose();
+                    onOpenGroup(id);
+                  }}
+                  className="btn-primary"
+                >
+                  모임으로 가기
+                </button>
+              )}
             </div>
           </>
         )}

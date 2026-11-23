@@ -4,8 +4,6 @@ import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   X,
   Upload,
-  Bold,
-  Italic,
   Users,
   Tag as TagIcon,
   Sparkles,
@@ -14,8 +12,18 @@ import {
   FileText
 } from 'lucide-react';
 import { fileToDataUrl, convertToWebP } from '@/lib/utils';
-import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import {
+  memoApi,
+  type MemoResponse,
+  extractMentionIds,
+  matchMentionQuery,
+  mentionMatches,
+  MAX_IMAGE_BYTES,
+  IMAGE_TOO_LARGE_MESSAGE,
+} from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
+import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { getApiErrorMessage } from '@/lib/axios';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
 import { markdownRehypePlugins } from '@/lib/markdown';
@@ -35,7 +43,6 @@ interface MemoCreateModalProps {
 export default function MemoCreateModal({
   isOpen,
   onClose,
-  userId,
   onSuccess,
   groupId,
 }: MemoCreateModalProps) {
@@ -48,6 +55,8 @@ export default function MemoCreateModal({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [groups, setGroups] = useState<GroupResponse[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 데이터 로드
@@ -71,10 +80,14 @@ export default function MemoCreateModal({
         setAllMemos(memosData);
         setSchedules(schedulesData);
       }).catch(console.error);
+      // 모임 화면에서 연 경우(groupId 고정)가 아니면 모임 메모로 쓸 수 있게 내 모임을 불러온다.
+      if (!groupId) {
+        groupApi.getAll(session).then(setGroups).catch(() => setGroups([]));
+      }
     } else {
       setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
     }
-  }, [isOpen, session]);
+  }, [isOpen, session, groupId]);
 
   const resetForm = useCallback(() => {
     setTitle('');
@@ -83,6 +96,7 @@ export default function MemoCreateModal({
     setTags([]);
     setImagePreview(null);
     setImageFile(null);
+    setSelectedGroupId('');
     setError(null);
     setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
   }, []);
@@ -96,6 +110,10 @@ export default function MemoCreateModal({
   const handleImageSelect = async (file: File) => {
     try {
       const webpFile = await convertToWebP(file);
+      if (webpFile.size > MAX_IMAGE_BYTES) {
+        setError(IMAGE_TOO_LARGE_MESSAGE);
+        return;
+      }
       setImageFile(webpFile);
       const dataUrl = await fileToDataUrl(webpFile);
       setImagePreview(dataUrl);
@@ -125,10 +143,10 @@ export default function MemoCreateModal({
 
     const cursor = target.selectionStart;
     const textBeforeCursor = target.value.slice(0, cursor);
-    const match = textBeforeCursor.match(/@([^\s]*)$/);
+    const match = matchMentionQuery(textBeforeCursor);
 
     if (match) {
-      setMentionState({ active: true, query: match[1], startPos: match.index!, endPos: cursor });
+      setMentionState({ active: true, query: match.query, startPos: match.index, endPos: cursor });
     } else {
       setMentionState(prev => prev.active ? { ...prev, active: false } : prev);
     }
@@ -153,14 +171,14 @@ export default function MemoCreateModal({
 
     try {
       // 마크다운 파싱을 통한 자동 태그 추출
-      const taggedMemoIds = Array.from(new Set([...content.matchAll(/\[@[^\]]+\]\(\/memo\/([a-zA-Z0-9-]+)\)/g)].map(m => m[1])));
-      const taggedScheduleIds = Array.from(new Set([...content.matchAll(/\[@[^\]]+\]\(\/schedule\/([a-zA-Z0-9-]+)\)/g)].map(m => m[1])));
+      const taggedMemoIds = extractMentionIds(content, 'memo');
+      const taggedScheduleIds = extractMentionIds(content, 'schedule');
 
       await memoApi.create({
         title,
         content,
         imageFile: imageFile || undefined,
-        groupId: groupId || undefined,
+        groupId: groupId || selectedGroupId || undefined,
         tags: tags,
         taggedMemoIds,
         taggedScheduleIds
@@ -170,7 +188,7 @@ export default function MemoCreateModal({
       onSuccess?.();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '저장하지 못했어요');
+      setError(getApiErrorMessage(e));
     } finally {
       setIsSaving(false);
     }
@@ -179,19 +197,19 @@ export default function MemoCreateModal({
   if (!isOpen) return null;
 
   // 멘션 필터링
-  const matchedMemos = allMemos.filter(m => m.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
-  const matchedSchedules = schedules.filter(s => s.title.toLowerCase().includes(mentionState.query.toLowerCase())).slice(0, 5);
+  const matchedMemos = allMemos.filter(m => mentionMatches(m.title, mentionState.query)).slice(0, 5);
+  const matchedSchedules = schedules.filter(s => mentionMatches(s.title, mentionState.query)).slice(0, 5);
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 overflow-y-auto"
+      className="fixed inset-0 z-[110] flex items-stretch sm:items-center justify-center bg-black/40 p-0 sm:p-4"
       onClick={handleClose}
     >
       <div
-        className="bg-surface border border-line rounded-2xl w-full max-w-5xl flex flex-col shadow-float overflow-hidden relative"
+        className="bg-surface border border-line sm:rounded-2xl w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-2rem)] flex flex-col shadow-float overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
+        <div className="px-4 sm:px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
           <h2 className="text-lg font-semibold text-ink">새 메모</h2>
           <button
             onClick={handleClose}
@@ -202,8 +220,8 @@ export default function MemoCreateModal({
           </button>
         </div>
 
-        <div className="flex h-[600px]">
-          <div className="flex-1 flex flex-col p-6 border-r border-line overflow-y-auto no-scrollbar relative">
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden md:h-[600px] md:flex-none">
+          <div className="md:flex-1 flex flex-col p-4 sm:p-6 md:border-r border-line md:overflow-y-auto no-scrollbar relative min-w-0">
             <input
               type="text"
               value={title}
@@ -242,7 +260,7 @@ export default function MemoCreateModal({
                     <p className="text-sm font-medium text-ink">
                       이미지를 끌어다 놓거나 눌러서 올려요
                     </p>
-                    <p className="text-xs text-ink-3 mt-1">PNG, JPG, GIF (최대 10MB)</p>
+                    <p className="text-xs text-ink-3 mt-1">PNG, JPG, GIF, WEBP (최대 10MB)</p>
                   </div>
                 </>
               )}
@@ -252,6 +270,8 @@ export default function MemoCreateModal({
                   onClick={(e) => {
                     e.stopPropagation();
                     setImagePreview(null);
+                    setImageFile(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                   className="absolute top-3 right-3 text-xs text-negative bg-surface border border-line px-2 py-1 rounded-lg"
                 >
@@ -260,7 +280,7 @@ export default function MemoCreateModal({
               )}
             </div>
 
-            <div className="flex-1 min-h-[250px] relative" data-color-mode="light" onKeyUp={handleEditorKeyUp}>
+            <div className="flex-1 min-h-[300px] relative" data-color-mode="light" onKeyUp={handleEditorKeyUp}>
               <MDEditor
                 previewOptions={{ rehypePlugins: markdownRehypePlugins }}
                 value={content}
@@ -303,19 +323,27 @@ export default function MemoCreateModal({
             </div>
           </div>
 
-          <div className="w-[340px] bg-canvas p-6 flex flex-col gap-6 shrink-0 overflow-y-auto no-scrollbar">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-ink">
-                <Users size={16} strokeWidth={1.5} className="text-ink-3" />
-                <span>공유할 모임</span>
+          <div className="w-full md:w-[340px] bg-canvas p-4 sm:p-6 flex flex-col gap-6 shrink-0 md:overflow-y-auto no-scrollbar border-t md:border-t-0 border-line">
+            {!groupId && (
+              <div className="space-y-2">
+                <label htmlFor="memo-create-group" className="flex items-center gap-2 text-sm font-medium text-ink">
+                  <Users size={16} strokeWidth={1.5} className="text-ink-3" />
+                  <span>모임</span>
+                </label>
+                <select
+                  id="memo-create-group"
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
+                  className="form-input w-full text-sm"
+                >
+                  <option value="">개인 메모</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-ink-3">모임을 고르면 모임 멤버가 함께 보고 고칠 수 있어요</p>
               </div>
-              <input
-                type="text"
-                disabled
-                placeholder="아직 쓸 수 없어요"
-                className="form-input w-full text-xs"
-              />
-            </div>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-ink">
@@ -365,7 +393,7 @@ export default function MemoCreateModal({
                 <span>자동 정리</span>
               </div>
               <p className="text-xs text-ink-2 leading-relaxed">
-                저장하면 첨부한 이미지의 글자를 읽고 핵심 키워드를 추천해요
+                저장한 뒤 메모 화면에서 분석을 시작하면 이미지의 글자를 읽고 요약과 키워드를 추천해요
               </p>
             </div>
 
@@ -379,13 +407,9 @@ export default function MemoCreateModal({
           </div>
         </div>
 
-        {error && <p className="px-6 pb-2 text-sm text-negative">{error}</p>}
+        {error && <p className="px-4 sm:px-6 pt-2 text-sm text-negative shrink-0">{error}</p>}
 
-        <div className="border-t border-line px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-4 text-ink-3">
-            <Bold size={16} strokeWidth={1.5} />
-            <Italic size={16} strokeWidth={1.5} />
-          </div>
+        <div className="border-t border-line px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-end shrink-0">
           <div className="flex gap-2">
             <button
               type="button"

@@ -4,7 +4,7 @@ import React from 'react';
 import { MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { stripMarkdown } from '@/lib/utils';
+import { stripMarkdown, initialOf } from '@/lib/utils';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { type TopicResponse } from '@/types/topic';
 
@@ -63,7 +63,7 @@ export function TopicCard({ topic, viewMode, onClick }: TopicCardProps) {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-xs text-accent">
-                  {topic.authorNickname[0]}
+                  {initialOf(topic.authorNickname)}
                 </div>
               )}
             </div>
