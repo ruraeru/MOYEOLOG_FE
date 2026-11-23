@@ -12,9 +12,12 @@ import {
   Users,
   UserPlus,
   Bell,
-  Settings
+  Settings,
+  MessageCircle
 } from 'lucide-react';
 import ProfileModal from './ProfileModal';
+import { useUnreadCounts, badgeText } from '@/lib/notification-api';
+import { initialOf } from '@/lib/utils';
 
 const navItems = [
   { name: '홈', href: '/home', icon: Home },
@@ -22,7 +25,7 @@ const navItems = [
   { name: '메모', href: '/memo', icon: FileText },
   { name: '모임', href: '/groups', icon: Users },
   { name: '친구', href: '/friends', icon: UserPlus },
-  { name: '알림', href: '/notifications', icon: Bell },
+  { name: '메시지', href: '/messages', icon: MessageCircle },
   { name: '설정', href: '/settings', icon: Settings },
 ];
 
@@ -30,6 +33,7 @@ export default function Navbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const unread = useUnreadCounts();
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-line bg-surface">
@@ -47,7 +51,8 @@ export default function Navbar() {
         {/* Center: Menu (Visible from LG screens) */}
         <div className="hidden lg:flex items-center gap-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const count = item.href === '/messages' ? unread.messages : 0;
             return (
               <Link
                 key={item.name}
@@ -59,6 +64,11 @@ export default function Navbar() {
               >
                 <item.icon size={16} strokeWidth={1.5} className={isActive ? 'text-accent' : 'text-ink-3'} />
                 <span>{item.name}</span>
+                {count > 0 && (
+                  <span className="min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] leading-4 text-center tabular-nums">
+                    {badgeText(count)}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -66,8 +76,20 @@ export default function Navbar() {
 
         {/* Right: User */}
         <div className="flex items-center gap-2">
-          <Link href="/notifications" className="btn-ghost size-9 !px-0">
+          <Link
+            href="/notifications"
+            aria-label={unread.total > 0 ? `알림, 안 읽은 알림과 메시지 ${unread.total}개` : '알림'}
+            className={`btn-ghost size-9 !px-0 relative ${pathname.startsWith('/notifications') ? 'bg-raised text-ink' : ''}`}
+          >
             <Bell size={18} strokeWidth={1.5} />
+            {unread.total > 0 && (
+              <span
+                aria-hidden
+                className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] leading-4 text-center tabular-nums"
+              >
+                {badgeText(unread.total)}
+              </span>
+            )}
           </Link>
 
           <button
@@ -84,7 +106,7 @@ export default function Navbar() {
                 className="object-cover" 
               />
             ) : (
-              <span>{session?.user?.name?.[0] || '나'}</span>
+              <span>{initialOf(session?.user?.name, '나')}</span>
             )}
           </button>
         </div>

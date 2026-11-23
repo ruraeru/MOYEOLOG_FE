@@ -2,6 +2,31 @@ import React, { useState } from 'react';
 import Image, { ImageProps } from 'next/image';
 import { Loader2, ImageIcon } from 'lucide-react';
 
+const OWN_UPLOAD_HOSTS = new Set(
+  ['moyeolog.ruraeru.xyz', (() => {
+    try {
+      return new URL(process.env.NEXT_PUBLIC_API_URL || '').hostname;
+    } catch {
+      return '';
+    }
+  })()].filter(Boolean)
+);
+
+/**
+ * next.config 의 images.remotePatterns 에 있는 출처만 /_next/image 로 최적화할 수 있습니다.
+ * 그 밖의 절대 주소는 최적화 없이 브라우저가 직접 불러오게 해 깨지지 않게 합니다.
+ */
+function canOptimize(src: ImageProps['src']): boolean {
+  if (typeof src !== 'string' || !/^https?:\/\//i.test(src)) return true;
+  try {
+    const url = new URL(src);
+    if (url.hostname.endsWith('.kakaocdn.net')) return true;
+    return OWN_UPLOAD_HOSTS.has(url.hostname) && url.pathname.startsWith('/uploads/');
+  } catch {
+    return false;
+  }
+}
+
 interface ImageWithFallbackProps extends ImageProps {
   containerClassName?: string;
   fallbackIcon?: React.ReactNode;
@@ -14,6 +39,7 @@ export default function ImageWithFallback({
   onLoad,
   onError,
   alt,
+  unoptimized,
   ...props 
 }: ImageWithFallbackProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -36,6 +62,7 @@ export default function ImageWithFallback({
         <Image
           {...props}
           alt={alt}
+          unoptimized={unoptimized || !canOptimize(props.src)}
           className={`transition-opacity duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'} ${className || ''}`}
           onLoad={(e) => {
             setIsLoading(false);

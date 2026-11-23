@@ -1,0 +1,524 @@
+'use client';
+
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import axios from 'axios';
+import { format, isSameDay } from 'date-fns';
+import { useTimeFormat } from '@/lib/schedule-utils';
+import { ko } from 'date-fns/locale';
+import { ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Users } from 'lucide-react';
+import Navbar from '@/components/Navbar';
+import ImageWithFallback from '@/components/ImageWithFallback';
+import { messageApi, MESSAGE_MAX_LENGTH, type ConversationResponse, type MessageResponse } from '@/lib/message-api';
+import { friendApi, resolveImageUrl, type UserProfileResponse } from '@/lib/friend-api';
+import { getApiErrorMessage } from '@/lib/axios';
+import { refreshUnreadCounts, badgeText } from '@/lib/notification-api';
+import { useAlert } from '@/hooks/useAlert';
+import { initialOf } from '@/lib/utils';
+
+const POLL_MS = 5000;
+const PAGE_SIZE = 50;
+
+const parseDate = (value: string) => {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+const listStamp = (value: string, tf: string) => {
+  const d = parseDate(value);
+  if (!d) return '';
+  return isSameDay(d, new Date()) ? format(d, tf, { locale: ko }) : format(d, 'M.d EEE', { locale: ko });
+};
+
+/** createdAt(같은 형식의 문자열) 기준으로 정렬하고 id 로 중복을 없앱니다. */
+const mergeMessages = (a: MessageResponse[], b: MessageResponse[]) => {
+  const map = new Map<string, MessageResponse>();
+  for (const m of a) map.set(m.id, m);
+  for (const m of b) map.set(m.id, m);
+  return [...map.values()].sort((x, y) => (x.createdAt < y.createdAt ? -1 : x.createdAt > y.createdAt ? 1 : 0));
+};
+
+const useVisiblePolling = (fn: () => void, enabled: boolean) => {
+  const fnRef = useRef(fn);
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') fnRef.current();
+    }, POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fnRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [enabled]);
+};
+
+function Avatar({ src, name, className = 'size-10' }: { src?: string | null; name: string; className?: string }) {
+  const image = resolveImageUrl(src);
+  return (
+    <div className={`relative shrink-0 rounded-full bg-raised flex items-center justify-center overflow-hidden ${className}`}>
+      {image ? (
+        <ImageWithFallback
+          src={image}
+          alt={name}
+          fill
+          sizes="40px"
+          containerClassName="w-full h-full"
+          className="object-cover"
+          unoptimized
+        />
+      ) : (
+        <span className="text-sm font-medium text-ink-2">{initialOf(name)}</span>
+      )}
+    </div>
+  );
+}
+
+export default function MessagesView({ friendId }: { friendId?: string }) {
+  const tf = useTimeFormat();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [conversations, setConversations] = useState<ConversationResponse[]>([]);
+  const [convLoading, setConvLoading] = useState(true);
+  const [convError, setConvError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      const target = friendId ? `/messages/${encodeURIComponent(friendId)}` : '/messages';
+      router.replace(`/?callbackUrl=${encodeURIComponent(target)}`);
+    }
+  }, [status, router, friendId]);
+
+  const fetchConversations = useCallback(async (silent = false) => {
+    if (!session) return;
+    try {
+      if (!silent) setConvLoading(true);
+      const data = await messageApi.getConversations(session);
+      setConversations(data);
+      setConvError(null);
+    } catch (error) {
+      console.error('Failed to fetch conversations:', error);
+      // 폴링 중 실패는 기존 목록을 그대로 둡니다.
+      if (!silent) setConvError(getApiErrorMessage(error, '대화 목록을 불러오지 못했어요.'));
+    } finally {
+      if (!silent) setConvLoading(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  const pollConversations = useCallback(() => {
+    fetchConversations(true);
+  }, [fetchConversations]);
+  useVisiblePolling(pollConversations, status === 'authenticated' && !convError);
+
+  const handleRead = useCallback((id: string) => {
+    setConversations((prev) => prev.map((c) => (c.friend.id === id ? { ...c, unreadCount: 0 } : c)));
+  }, []);
+
+  const current = friendId ? conversations.find((c) => c.friend.id === friendId) : undefined;
+  const myId = session?.user?.id;
+
+  return (
+    <div className="h-[calc(100dvh-4rem)] lg:h-screen flex flex-col bg-canvas text-ink overflow-hidden">
+      <Navbar />
+      <main className="flex-1 min-h-0 flex max-w-6xl w-full mx-auto lg:p-6 lg:gap-4">
+        {/* Conversation list */}
+        <aside
+          className={`${friendId ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 shrink-0 flex-col min-h-0 bg-surface lg:rounded-2xl lg:border lg:border-line lg:overflow-hidden`}
+        >
+          <div className="px-4 py-4 border-b border-line">
+            <h2 className="text-lg font-semibold text-ink">메시지</h2>
+            <p className="text-xs text-ink-3 mt-0.5">친구와 1:1로 이야기해요</p>
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+            {convLoading || status !== 'authenticated' ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                <p className="text-sm text-ink-3">대화 목록을 불러오는 중…</p>
+              </div>
+            ) : convError ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <AlertCircle size={18} strokeWidth={1.5} className="text-negative mb-3" />
+                <p className="text-sm font-medium text-ink">대화 목록을 불러오지 못했어요</p>
+                <p className="text-sm text-ink-3 mt-1 mb-5">{convError}</p>
+                <button onClick={() => fetchConversations()} className="btn-secondary">
+                  <RotateCw size={16} strokeWidth={1.5} />
+                  다시 시도
+                </button>
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
+                  <Users size={18} strokeWidth={1.5} className="text-ink-3" />
+                </div>
+                <p className="text-sm font-medium text-ink">아직 대화가 없어요</p>
+                <p className="text-sm text-ink-3 mt-1 mb-5">친구 카드의 &apos;메시지 보내기&apos;로 대화를 시작해요</p>
+                <Link href="/friends" className="btn-secondary">친구 목록으로</Link>
+              </div>
+            ) : (
+              <ul className="divide-y divide-line">
+                {conversations.map((c) => {
+                  const active = c.friend.id === friendId;
+                  const last = c.lastMessage;
+                  return (
+                    <li key={c.friend.id}>
+                      <Link
+                        href={`/messages/${c.friend.id}`}
+                        className={`flex items-center gap-3 px-4 py-3 transition-colors ${active ? 'bg-raised' : 'hover:bg-raised'}`}
+                      >
+                        <Avatar src={c.friend.profileImage} name={c.friend.nickname} />
+                        <span className="flex-1 min-w-0">
+                          <span className="flex items-center justify-between gap-2">
+                            <span className={`text-sm truncate ${c.unreadCount > 0 ? 'text-ink font-medium' : 'text-ink'}`}>
+                              {c.friend.nickname}
+                            </span>
+                            {last && <span className="stamp shrink-0">{listStamp(last.createdAt, tf)}</span>}
+                          </span>
+                          <span className="flex items-center justify-between gap-2 mt-0.5">
+                            <span className={`text-xs truncate ${c.unreadCount > 0 ? 'text-ink-2' : 'text-ink-3'}`}>
+                              {last ? `${last.senderId === myId ? '나: ' : ''}${last.content}` : '아직 주고받은 메시지가 없어요'}
+                            </span>
+                            {c.unreadCount > 0 && (
+                              <span className="min-w-4 h-4 px-1 shrink-0 rounded-full bg-accent text-white text-[10px] leading-4 text-center tabular-nums">
+                                {badgeText(c.unreadCount)}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </aside>
+
+        {/* Chat */}
+        <section className={`${friendId ? 'flex' : 'hidden lg:flex'} flex-1 min-w-0 min-h-0 flex-col bg-surface lg:rounded-2xl lg:border lg:border-line lg:overflow-hidden`}>
+          {friendId && status === 'authenticated' ? (
+            <ChatPanel
+              key={friendId}
+              friendId={friendId}
+              conversation={current}
+              onRead={handleRead}
+              onSent={pollConversations}
+            />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
+              <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
+                <MessageCircle size={18} strokeWidth={1.5} className="text-ink-3" />
+              </div>
+              <p className="text-sm font-medium text-ink">대화를 골라 주세요</p>
+              <p className="text-sm text-ink-3 mt-1">왼쪽 목록에서 친구를 고르면 대화가 열려요</p>
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+interface ChatPanelProps {
+  friendId: string;
+  conversation?: ConversationResponse;
+  onRead: (friendId: string) => void;
+  onSent: () => void;
+}
+
+function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
+  const tf = useTimeFormat();
+  const { data: session } = useSession();
+  const { toast } = useAlert();
+  const myId = session?.user?.id;
+
+  const [messages, setMessages] = useState<MessageResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [profileMissing, setProfileMissing] = useState(false);
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
+  const restoreHeight = useRef<number | null>(null);
+
+  // 상대 정보와 친구 여부(친구가 아니면 보낼 수 없음)
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    friendApi
+      .getUserProfile(friendId, session)
+      .then((p) => {
+        if (cancelled) return;
+        setProfile(p);
+        if (p.friendStatus !== 'FRIEND') setBlocked('친구에게만 메시지를 보낼 수 있어요.');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const code = axios.isAxiosError(err) ? err.response?.status : undefined;
+        if (code === 404 || code === 400) {
+          setProfileMissing(true);
+          setBlocked('사용자를 찾을 수 없어요.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+    // 세션 객체가 바뀔 때마다 다시 부르지 않도록 토큰 유무만 봅니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friendId, !!session]);
+
+  const markReadIfNeeded = useCallback(
+    (list: MessageResponse[]) => {
+      if (!list.some((m) => m.senderId !== myId && !m.read)) return;
+      messageApi
+        .markRead(friendId, session)
+        .then(() => {
+          setMessages((prev) => prev.map((m) => (m.senderId !== myId ? { ...m, read: true } : m)));
+          onRead(friendId);
+          refreshUnreadCounts();
+        })
+        .catch((err) => console.error('Failed to mark messages read:', err));
+    },
+    [friendId, session, myId, onRead],
+  );
+
+  const fetchLatest = useCallback(
+    async (initial = false) => {
+      if (!session) return;
+      try {
+        if (initial) setLoading(true);
+        const data = await messageApi.getMessages(friendId, session, { size: PAGE_SIZE });
+        setMessages((prev) => (initial ? data : mergeMessages(prev, data)));
+        if (initial) setHasOlder(data.length >= PAGE_SIZE);
+        setError(null);
+        markReadIfNeeded(data);
+      } catch (err) {
+        console.error('Failed to fetch messages:', err);
+        const code = axios.isAxiosError(err) ? err.response?.status : undefined;
+        if (initial) {
+          setError(getApiErrorMessage(err, '메시지를 불러오지 못했어요.'));
+          if (code === 403) setBlocked(getApiErrorMessage(err, '친구에게만 메시지를 보낼 수 있어요.'));
+        }
+      } finally {
+        if (initial) setLoading(false);
+      }
+    },
+    [friendId, session, markReadIfNeeded],
+  );
+
+  useEffect(() => {
+    fetchLatest(true);
+    // 대화가 바뀌면 컴포넌트가 새로 만들어지므로 처음 한 번만 부릅니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const poll = useCallback(() => {
+    fetchLatest(false);
+  }, [fetchLatest]);
+  useVisiblePolling(poll, !error);
+
+  const loadOlder = async () => {
+    if (loadingOlder || messages.length === 0) return;
+    setLoadingOlder(true);
+    try {
+      const data = await messageApi.getMessages(friendId, session, { before: messages[0].createdAt, size: PAGE_SIZE });
+      restoreHeight.current = scrollRef.current?.scrollHeight ?? null;
+      stickToBottom.current = false;
+      setMessages((prev) => mergeMessages(data, prev));
+      setHasOlder(data.length >= PAGE_SIZE);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, '이전 메시지를 불러오지 못했어요.'));
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+
+  // 새 메시지가 오면 맨 아래에 붙어 있을 때만 따라 내려가고, 이전 메시지를 불러오면 보던 위치를 지킵니다.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (restoreHeight.current !== null) {
+      el.scrollTop = el.scrollHeight - restoreHeight.current + el.scrollTop;
+      restoreHeight.current = null;
+      return;
+    }
+    if (stickToBottom.current) el.scrollTop = el.scrollHeight;
+  }, [messages, loading]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
+  const length = [...draft.trim()].length;
+  const tooLong = length > MESSAGE_MAX_LENGTH;
+  const canSend = !blocked && !sending && length > 0 && !tooLong;
+
+  const handleSend = async () => {
+    if (!canSend) return;
+    const content = draft.trim();
+    setSending(true);
+    try {
+      const sent = await messageApi.send(friendId, content, session);
+      stickToBottom.current = true;
+      setMessages((prev) => mergeMessages(prev, [sent]));
+      setDraft('');
+      onSent();
+    } catch (err) {
+      const code = axios.isAxiosError(err) ? err.response?.status : undefined;
+      const message = getApiErrorMessage(err, '메시지를 보내지 못했어요.');
+      if (code === 403) setBlocked(message);
+      toast.error(message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const friendInfo = conversation?.friend ?? (profile
+    ? { id: profile.id, nickname: profile.nickname, profileImage: profile.profileImage, customId: profile.customId }
+    : null);
+
+  return (
+    <>
+      <header className="flex items-center gap-3 px-3 sm:px-4 h-14 border-b border-line shrink-0">
+        <Link href="/messages" className="btn-ghost size-9 !px-0 lg:hidden" aria-label="대화 목록으로">
+          <ArrowLeft size={18} strokeWidth={1.5} />
+        </Link>
+        {friendInfo ? (
+          <Link href={`/profile/${friendInfo.id}`} className="flex items-center gap-3 min-w-0 rounded-lg">
+            <Avatar src={friendInfo.profileImage} name={friendInfo.nickname} className="size-8" />
+            <span className="min-w-0">
+              <span className="block text-sm font-medium text-ink truncate">{friendInfo.nickname}</span>
+              <span className="block text-xs text-ink-3 tabular-nums">ID: {friendInfo.customId}</span>
+            </span>
+          </Link>
+        ) : (
+          <span className="text-sm text-ink-3">{profileMissing ? '알 수 없는 사용자' : '불러오는 중…'}</span>
+        )}
+      </header>
+
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-4">
+        {loading ? (
+          <div className="h-full flex items-center justify-center">
+            <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+          </div>
+        ) : error ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-4">
+            <AlertCircle size={18} strokeWidth={1.5} className="text-negative mb-3" />
+            <p className="text-sm font-medium text-ink">메시지를 불러오지 못했어요</p>
+            <p className="text-sm text-ink-3 mt-1 mb-5">{error}</p>
+            <button onClick={() => fetchLatest(true)} className="btn-secondary">
+              <RotateCw size={16} strokeWidth={1.5} />
+              다시 시도
+            </button>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <p className="text-sm text-ink-3">첫 메시지를 보내 보세요</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {hasOlder && (
+              <div className="flex justify-center pb-2">
+                <button onClick={loadOlder} disabled={loadingOlder} className="btn-ghost text-xs">
+                  {loadingOlder && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
+                  이전 메시지 보기
+                </button>
+              </div>
+            )}
+            {messages.map((m, i) => {
+              const mine = m.senderId === myId;
+              const d = parseDate(m.createdAt);
+              const prev = i > 0 ? parseDate(messages[i - 1].createdAt) : null;
+              const newDay = d && (!prev || !isSameDay(prev, d));
+              const isLastMine = mine && !messages.slice(i + 1).some((x) => x.senderId === myId);
+              return (
+                <React.Fragment key={m.id}>
+                  {newDay && d && (
+                    <div className="flex justify-center py-2">
+                      <span className="stamp">{format(d, 'yyyy.M.d EEE', { locale: ko })}</span>
+                    </div>
+                  )}
+                  <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
+                    {mine && (
+                      <span className="flex flex-col items-end shrink-0">
+                        {isLastMine && m.read && <span className="text-[10px] text-ink-3">읽음</span>}
+                        <span className="stamp">{d ? format(d, tf, { locale: ko }) : ''}</span>
+                      </span>
+                    )}
+                    <p
+                      className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                        mine ? 'bg-accent-soft text-ink' : 'bg-raised text-ink'
+                      }`}
+                    >
+                      {m.content}
+                    </p>
+                    {!mine && <span className="stamp shrink-0">{d ? format(d, tf, { locale: ko }) : ''}</span>}
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-line p-3 shrink-0">
+        {blocked ? (
+          <p className="text-sm text-ink-3 text-center py-2">{blocked}</p>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex items-end gap-2"
+          >
+            <div className="flex-1 min-w-0">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                rows={1}
+                placeholder="메시지를 입력해요 (줄바꿈은 Shift+Enter)"
+                aria-label="메시지 입력"
+                className="form-input resize-none max-h-32 min-h-10 py-2"
+              />
+              {length > MESSAGE_MAX_LENGTH - 200 && (
+                <p className={`text-xs mt-1 tabular-nums ${tooLong ? 'text-negative' : 'text-ink-3'}`}>
+                  {length}/{MESSAGE_MAX_LENGTH}
+                  {tooLong && ' · 2000자까지 보낼 수 있어요'}
+                </p>
+              )}
+            </div>
+            <button type="submit" disabled={!canSend} className="btn-primary size-10 !px-0 shrink-0" aria-label="보내기">
+              {sending ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}
+            </button>
+          </form>
+        )}
+      </div>
+    </>
+  );
+}

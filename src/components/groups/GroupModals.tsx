@@ -14,6 +14,19 @@ import AppointmentDetailModal from '@/components/AppointmentDetailModal';
 import GroupEditModal from '@/components/GroupEditModal';
 import GroupTopicCreateModal from '@/components/GroupTopicCreateModal';
 import GroupTopicDetailModal from '@/components/GroupTopicDetailModal';
+import GroupInviteModal from '@/components/GroupInviteModal';
+
+/**
+ * 모임 일정 탭에서 만든 일정이 그 모임 일정으로 저장되도록 defaultGroupId 를 넘긴다.
+ * (prop 은 fe-schedule 이 AppointmentModal 에 추가한다. 추가 전후 모두 타입 검사가 통과하게 넓힌 타입으로 쓴다.)
+ */
+/** 같은 이유로 넓힌 타입: fe-schedule 이 추가한 groups prop (모임 색 점) */
+const GroupAppointmentListModal = AppointmentListModal as React.ComponentType<
+  React.ComponentProps<typeof AppointmentListModal> & { groups?: GroupResponse[] }
+>;
+const GroupAppointmentModal = AppointmentModal as React.ComponentType<
+  React.ComponentProps<typeof AppointmentModal> & { defaultGroupId?: string }
+>;
 
 interface GroupModalsProps {
   isMemoModalOpen: boolean; 
@@ -29,14 +42,21 @@ interface GroupModalsProps {
   isTopicModalOpen: boolean; 
   setIsTopicModalOpen: (o: boolean) => void;
   isTopicDetailOpen: boolean; 
-  setIsTopicDetailOpen: (o: boolean) => void;
+  isInviteModalOpen: boolean;
+  setIsInviteModalOpen: (o: boolean) => void;
   groupId: string; 
   group: GroupResponse; 
   session: Session | null;
   selectedDate: string; 
   selectedSchedule: ScheduleResponse | null;
   selectedTopic: TopicResponse | null;
+  /** 상세 모달로 열 토픽 ID (목록 클릭 또는 ?topic= 쿼리) */
+  selectedTopicId: string | null;
+  onTopicDetailClose: () => void;
   onSuccess: () => void; 
+  /** 모임 정보 수정 후 (상세 + 사이드바 갱신) */
+  onGroupUpdated: () => void;
+  onGroupDeleted: () => void;
   handleTopicEdit: (t: TopicResponse) => void;
   handleMemoClick: (id: string) => void; 
   handleEdit: (s: ScheduleResponse) => void;
@@ -59,14 +79,19 @@ export function GroupModals({
   isTopicModalOpen, 
   setIsTopicModalOpen, 
   isTopicDetailOpen, 
-  setIsTopicDetailOpen, 
+  isInviteModalOpen,
+  setIsInviteModalOpen,
   groupId, 
   group, 
   session, 
   selectedDate, 
   selectedSchedule, 
   selectedTopic, 
+  selectedTopicId,
+  onTopicDetailClose,
   onSuccess, 
+  onGroupUpdated,
+  onGroupDeleted,
   handleTopicEdit, 
   handleMemoClick, 
   handleEdit, 
@@ -83,15 +108,17 @@ export function GroupModals({
         groupId={groupId} 
         onSuccess={onSuccess} 
       />
-      <AppointmentModal 
+      <GroupAppointmentModal 
         isOpen={isScheduleModalOpen} 
         onClose={() => { setIsScheduleModalOpen(false); setSelectedSchedule(null); }} 
         initialDate={selectedDate} 
         onSuccess={onSuccess} 
         initialSchedule={selectedSchedule} 
+        defaultGroupId={groupId}
       />
-      <AppointmentListModal 
+      <GroupAppointmentListModal 
         isOpen={isListModalOpen} 
+        groups={[group]}
         onClose={() => setIsListModalOpen(false)} 
         date={selectedDate} 
         appointments={schedules.filter(s => isSameDay(parseISO(s.startTime), parseISO(selectedDate)))} 
@@ -105,12 +132,13 @@ export function GroupModals({
         onSuccess={onSuccess} 
         onEdit={handleEdit} 
       />
-      <GroupEditModal 
+      {isEditModalOpen && <GroupEditModal 
         isOpen={isEditModalOpen} 
         onClose={() => setIsEditModalOpen(false)} 
         group={group} 
-        onSuccess={onSuccess} 
-      />
+        onSuccess={onGroupUpdated} 
+        onDeleted={onGroupDeleted}
+      />}
       <GroupTopicCreateModal 
         isOpen={isTopicModalOpen} 
         onClose={() => setIsTopicModalOpen(false)} 
@@ -120,12 +148,19 @@ export function GroupModals({
       />
       <GroupTopicDetailModal 
         isOpen={isTopicDetailOpen} 
-        onClose={() => setIsTopicDetailOpen(false)} 
-        topicId={selectedTopic?.id || null} 
+        onClose={onTopicDetailClose} 
+        topicId={selectedTopicId} 
         onDelete={onSuccess} 
         onEdit={handleTopicEdit} 
         onMemoClick={handleMemoClick} 
       />
+      {isInviteModalOpen && <GroupInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        groupId={groupId}
+        groupName={group.name}
+        memberIds={group.members.map(m => m.id)}
+      />}
     </>
   );
 }

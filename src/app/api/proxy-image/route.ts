@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
 import http from 'node:http';
 import https from 'node:https';
 import dns from 'node:dns';
@@ -148,7 +149,13 @@ function errorResponse(status: number, message: string) {
   );
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  // 로그인한 사용자만 사용할 수 있습니다 (오픈 프록시 방지, /api/search-image 와 같은 규칙).
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  if (!token || token.error) {
+    return errorResponse(401, 'Unauthorized');
+  }
+
   const { searchParams } = new URL(request.url);
   const imageUrl = searchParams.get('url');
 
@@ -168,7 +175,7 @@ export async function GET(request: Request) {
       headers: {
         'Content-Type': contentType,
         'Content-Length': String(body.length),
-        'Cache-Control': 'public, max-age=86400', // 24시간 캐싱
+        'Cache-Control': 'private, max-age=86400', // 로그인 사용자 전용이므로 브라우저에만 24시간 캐싱
         'X-Content-Type-Options': 'nosniff',
         'Content-Security-Policy': "default-src 'none'; sandbox",
         'Content-Disposition': 'inline',

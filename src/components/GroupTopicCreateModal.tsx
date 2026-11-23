@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useSyncExternalStore } from 'react';
 import {
   X,
   Upload,
@@ -11,21 +11,58 @@ import {
   Users,
   FileText
 } from 'lucide-react';
-import { getFileUrl, fileToDataUrl, convertToWebP } from '@/lib/utils';
+import { fileToDataUrl, convertToWebP, MAX_IMAGE_BYTES } from '@/lib/utils';
+import { getApiErrorMessage } from '@/lib/axios';
+import { useAlertStore } from '@/hooks/useAlert';
 import { groupTopicApi } from '@/lib/group-topic-api';
-import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import type { MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { useMentions } from '@/hooks/useMentions';
 import { MentionList, type MentionItem } from './Mentions';
 import { useSession } from 'next-auth/react';
 import dynamic from 'next/dynamic';
-import { markdownRehypePlugins } from '@/lib/markdown';
+import { markdownRehypePlugins, markdownListClassName, hasVisibleText } from '@/lib/markdown';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 import type { TopicResponse } from '@/types/topic';
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
+
+const IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
+const NOT_IMAGE_MESSAGE = 'JPG, PNG, GIF, WEBP 이미지만 올릴 수 있어요';
+
+/** 파일 앞부분(매직 바이트)으로 JPEG/PNG/GIF/WEBP 인지 확인한다. 확장자·MIME 은 믿지 않는다. */
+async function isSupportedImage(file: File): Promise<boolean> {
+  const b = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  if (b.length < 4) return false;
+  const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  const png = b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+  const gif = b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38;
+  const webp = b.length >= 12
+    && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46
+    && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+  return jpeg || png || gif || webp;
+}
+
+/** 브라우저가 실제로 그릴 수 있는 이미지인지 확인한다(헤더만 맞고 깨진 파일 거르기). */
+function canDecode(dataUrl: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth > 0 && img.naturalHeight > 0);
+    img.onerror = () => resolve(false);
+    img.src = dataUrl;
+  });
+}
+
+const NARROW_QUERY = '(max-width: 1023px)';
+function subscribeNarrow(callback: () => void) {
+  const mql = window.matchMedia(NARROW_QUERY);
+  mql.addEventListener('change', callback);
+  return () => mql.removeEventListener('change', callback);
+}
+const getNarrow = () => window.matchMedia(NARROW_QUERY).matches;
+const getNarrowServer = () => false;
 
 interface GroupTopicCreateModalProps {
   isOpen: boolean;
@@ -49,6 +86,7 @@ export default function GroupTopicCreateModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isNarrow = useSyncExternalStore(subscribeNarrow, getNarrow, getNarrowServer);
 
   // Mention states
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -99,30 +137,69 @@ export default function GroupTopicCreateModal({
     }
   }, [isOpen, initialTopic]);
 
-  const handleClose = () => {
+  const isDirty = initialTopic
+    ? title !== initialTopic.title || content !== initialTopic.content || imagePreview !== (initialTopic.imageUrl || null)
+    : !!(title.trim() || content.trim() || imagePreview);
+
+  const handleClose = async () => {
     if (isSaving) return;
+    if (isDirty && !(await useAlertStore.getState().confirm('작성 중인 내용이 사라져요. 닫을까요?', undefined, '닫기', '계속 쓰기'))) {
+      return;
+    }
     onClose();
   };
 
+  // Esc 로 닫기. 상세 모달 위에 열려 있을 수 있어 캡처 단계에서 먼저 받아 아래로 전달하지 않는다
+  const handleCloseRef = useRef(handleClose);
+  useEffect(() => {
+    handleCloseRef.current = handleClose;
+  });
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.isComposing) return;
+      if (useAlertStore.getState().modal) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleCloseRef.current();
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isOpen]);
+
   const handleImageSelect = async (file: File) => {
     try {
+      if (file.size > MAX_IMAGE_BYTES) {
+        setError('파일이 너무 커요. 10MB 이하로 올려 주세요.');
+        return;
+      }
+      if (!(await isSupportedImage(file))) {
+        setError(NOT_IMAGE_MESSAGE);
+        return;
+      }
       const webpFile = await convertToWebP(file);
       const dataUrl = await fileToDataUrl(webpFile);
+      if (!(await canDecode(dataUrl))) {
+        setError('이미지를 열 수 없어요. 다른 파일을 골라 주세요');
+        return;
+      }
       setImagePreview(dataUrl);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : '이미지를 처리하지 못했어요');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file?.type.startsWith('image/')) handleImageSelect(file);
+    if (file) handleImageSelect(file);
   };
 
   const handleSave = async () => {
-    if (!title.trim()) {
+    if (!hasVisibleText(title)) {
       setError('제목을 입력해 주세요');
       return;
     }
@@ -132,7 +209,7 @@ export default function GroupTopicCreateModal({
 
     try {
       const payload = {
-        title,
+        title: title.trim(),
         content,
         imageUrl: imagePreview || undefined,
       };
@@ -146,7 +223,7 @@ export default function GroupTopicCreateModal({
       onSuccess?.();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '저장하지 못했어요');
+      setError(getApiErrorMessage(e, '저장하지 못했어요'));
     } finally {
       setIsSaving(false);
     }
@@ -156,15 +233,18 @@ export default function GroupTopicCreateModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-0 lg:p-4"
       onClick={handleClose}
     >
       <div
-        className="bg-surface border border-line rounded-2xl w-full max-w-5xl flex flex-col shadow-float overflow-hidden relative max-h-[90vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={initialTopic ? '토픽 수정' : '새 토픽 작성'}
+        className="bg-surface w-full h-[100dvh] lg:h-auto lg:max-h-[90vh] lg:max-w-5xl lg:rounded-2xl lg:border lg:border-line lg:shadow-float flex flex-col overflow-hidden relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
+        <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-line flex items-center justify-between shrink-0">
           <h2 className="text-lg font-semibold text-ink">
             {initialTopic ? '토픽 수정' : '새 토픽 작성'}
           </h2>
@@ -172,21 +252,23 @@ export default function GroupTopicCreateModal({
             onClick={handleClose}
             disabled={isSaving}
             className="btn-ghost"
+            aria-label="닫기"
           >
             <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
           {/* Main Editor Section */}
-          <div className="flex-1 flex flex-col p-6 overflow-y-auto no-scrollbar border-r border-line bg-surface">
+          <div className="lg:flex-1 lg:min-w-0 flex flex-col p-4 lg:p-6 lg:overflow-y-auto no-scrollbar lg:border-r border-line bg-surface">
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="토픽 제목"
-              className="text-2xl font-semibold text-ink placeholder:text-ink-3 border-none outline-none mb-6 w-full bg-transparent"
+              aria-label="토픽 제목"
+              className="text-xl lg:text-2xl font-semibold text-ink placeholder:text-ink-3 border-none outline-none mb-6 w-full bg-transparent"
             />
 
             {/* Image Upload Area */}
@@ -199,7 +281,7 @@ export default function GroupTopicCreateModal({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept={IMAGE_ACCEPT}
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -238,12 +320,12 @@ export default function GroupTopicCreateModal({
             </div>
 
             {/* Markdown Editor */}
-            <div className="flex-1 min-h-[400px] rounded-xl overflow-hidden border border-line" data-color-mode="light">
+            <div className={`h-[360px] shrink-0 lg:h-auto lg:shrink lg:flex-1 lg:min-h-[400px] rounded-xl overflow-hidden border border-line ${markdownListClassName}`} data-color-mode="light">
               <MDEditor
                 previewOptions={{ rehypePlugins: markdownRehypePlugins }}
                 value={content}
                 onChange={(val) => setContent(val || '')}
-                preview="live"
+                preview={isNarrow ? 'edit' : 'live'}
                 height="100%"
                 className="no-scrollbar"
                 textareaProps={{
@@ -253,7 +335,7 @@ export default function GroupTopicCreateModal({
             </div>
 
             {/* Mentions Section */}
-            <div className="mt-6 pt-6 border-t border-line grid grid-cols-2 gap-4">
+            <div className="mt-6 pt-6 border-t border-line grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 relative">
                 <label className="text-sm font-medium text-ink flex items-center gap-2"><Users size={16} strokeWidth={1.5} className="text-ink-3" /> 친구 언급 (@)</label>
                 <div className="relative">
@@ -310,7 +392,7 @@ export default function GroupTopicCreateModal({
           </div>
 
           {/* Right Sidebar - Info & Tips */}
-          <div className="w-80 bg-canvas p-6 flex flex-col gap-6 shrink-0 overflow-y-auto no-scrollbar">
+          <div className="hidden lg:flex w-80 bg-canvas p-6 flex-col gap-6 shrink-0 overflow-y-auto no-scrollbar">
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <Sparkles size={16} strokeWidth={1.5} className="text-ink-3" />
@@ -339,7 +421,7 @@ export default function GroupTopicCreateModal({
                 </li>
                 <li className="flex gap-3">
                   <span className="size-1.5 rounded-full bg-line-strong mt-2 shrink-0" />
-                  <span>@멘션으로 특정 메모나 친구를 언급할 수 있어요 (준비 중)</span>
+                  <span>@멘션으로 특정 메모나 멤버를 언급할 수 있어요.</span>
                 </li>
               </ul>
             </div>
@@ -347,7 +429,7 @@ export default function GroupTopicCreateModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-line flex items-center justify-between shrink-0">
+        <div className="px-4 lg:px-6 pt-3 lg:pt-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:pb-4 border-t border-line flex items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-ink-3">
             {isSaving ? '저장하는 중이에요' : '저장하면 바로 반영돼요'}
           </div>
@@ -373,7 +455,7 @@ export default function GroupTopicCreateModal({
         </div>
 
         {error && (
-          <div className="absolute bottom-20 right-6 bg-negative-soft text-negative px-4 py-3 rounded-lg text-sm shadow-float">
+          <div role="alert" className="absolute bottom-20 left-4 right-4 lg:left-auto lg:right-6 bg-negative-soft text-negative px-4 py-3 rounded-lg text-sm shadow-float">
             {error}
           </div>
         )}

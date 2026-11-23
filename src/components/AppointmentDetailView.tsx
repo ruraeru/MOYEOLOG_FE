@@ -9,10 +9,16 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { groupApi } from '@/lib/group-api';
+import { getApiErrorMessage } from '@/lib/axios';
+import { getThemeColors, initialOf } from '@/lib/utils';
+import { formatScheduleRange, formatStamp, isMultiDaySchedule, useTimeFormat } from '@/lib/schedule-utils';
 import ImageWithFallback from './ImageWithFallback';
 import AppointmentModal from './AppointmentModal';
+import { useAlert } from '@/hooks/useAlert';
 
 interface LocationDetail {
   address: string;
@@ -30,8 +36,6 @@ interface AppointmentDetailViewProps {
   isPage?: boolean;
 }
 
-import { useAlert } from '@/hooks/useAlert';
-
 export default function AppointmentDetailView({
   scheduleId,
   initialSchedule,
@@ -40,12 +44,15 @@ export default function AppointmentDetailView({
   onEdit,
   isPage = false
 }: AppointmentDetailViewProps) {
+  const tf = useTimeFormat();
   const router = useRouter();
   const { data: session } = useSession();
   const { confirm, toast } = useAlert();
   
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(initialSchedule || null);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
@@ -55,33 +62,37 @@ export default function AppointmentDetailView({
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+  const { data: userGroups = [] } = useQuery({
+    queryKey: ['groups'],
+    queryFn: () => groupApi.getAll(session!),
+    enabled: !!session && !!schedule?.groupId
+  });
+  const scheduleGroup = schedule?.groupId ? userGroups.find((g) => g.id === schedule.groupId) : undefined;
+
+  const loadSchedule = useCallback(async () => {
+    if (!scheduleId || !session) return;
+    setLoadingSchedule(true);
+    setLoadError(null);
+    try {
+      const res = await scheduleApi.getAll(session);
+      setSchedule(res.find(s => s.id === scheduleId) || null);
+    } catch (e) {
+      console.error(e);
+      setLoadError(getApiErrorMessage(e));
+    } finally {
+      setLoadingSchedule(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleId, session?.user?.accessToken, reloadKey]);
+
   // 일정 정보 로드 (scheduleId만 주어졌을 경우)
   useEffect(() => {
     if (initialSchedule) {
       setSchedule(initialSchedule);
       return;
     }
-    
-    if (scheduleId && session) {
-      const fetchSchedule = async () => {
-        setLoadingSchedule(true);
-        try {
-          const res = await scheduleApi.getAll(session);
-          const found = res.find(s => s.id === scheduleId);
-          if (found) {
-            setSchedule(found);
-          } else {
-            console.warn("해당 일정을 찾을 수 없습니다.");
-          }
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setLoadingSchedule(false);
-        }
-      };
-      fetchSchedule();
-    }
-  }, [scheduleId, initialSchedule, session]);
+    loadSchedule();
+  }, [initialSchedule, loadSchedule]);
 
   // 장소 정보 카카오 API 로드
   useEffect(() => {
@@ -139,11 +150,25 @@ export default function AppointmentDetailView({
     );
   }
 
+  if (!schedule && loadError) {
+    return (
+      <div className={`flex flex-col items-center justify-center bg-surface gap-3 ${isPage ? 'h-full flex-1' : 'p-20 rounded-2xl'}`}>
+        <p className="text-sm font-medium text-ink">일정을 불러오지 못했어요</p>
+        <p className="text-sm text-ink-3 text-center px-6">{loadError}</p>
+        <div className="flex gap-2">
+          {isPage && <button onClick={() => router.back()} className="btn-secondary">뒤로가기</button>}
+          <button onClick={() => setReloadKey((k) => k + 1)} className="btn-primary">다시 시도</button>
+        </div>
+      </div>
+    );
+  }
+
   if (!schedule) {
     return (
       <div className={`flex flex-col items-center justify-center bg-surface gap-3 ${isPage ? 'h-full flex-1' : 'p-20 rounded-2xl'}`}>
         <div className="size-10 rounded-full bg-raised flex items-center justify-center"><Calendar size={18} strokeWidth={1.5} className="text-ink-3" /></div>
         <p className="text-sm font-medium text-ink">일정을 찾을 수 없어요</p>
+        <p className="text-sm text-ink-3 text-center px-6">삭제됐거나 볼 수 있는 권한이 없는 일정이에요.</p>
         {isPage && (
           <button onClick={() => router.back()} className="btn-secondary">
             뒤로가기
@@ -167,7 +192,7 @@ export default function AppointmentDetailView({
       }
     } catch (error) {
       console.error('Failed to delete schedule:', error);
-      toast.error('일정 삭제에 실패했습니다.');
+      toast.error(getApiErrorMessage(error));
     } finally {
       setIsDeleting(false);
     }
@@ -180,11 +205,12 @@ export default function AppointmentDetailView({
 
   const startTime = parseISO(schedule.startTime);
   const endTime = parseISO(schedule.endTime);
+  const multiDay = isMultiDaySchedule(schedule);
 
   return (
-    <div className={`flex flex-col lg:flex-row bg-surface overflow-hidden ${isPage ? 'h-full' : 'w-full h-full rounded-2xl border border-line shadow-float'}`}>
+    <div className={`flex flex-col lg:flex-row bg-surface overflow-y-auto lg:overflow-hidden no-scrollbar ${isPage ? 'h-full' : 'w-full max-h-full rounded-t-2xl md:rounded-2xl border border-line shadow-float'}`}>
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col p-6 lg:p-8 overflow-y-auto no-scrollbar border-r border-line">
+      <div className="flex-none lg:flex-1 flex flex-col p-5 md:p-6 lg:p-8 lg:overflow-y-auto no-scrollbar border-b lg:border-b-0 lg:border-r border-line">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             {isPage && (
@@ -229,17 +255,30 @@ export default function AppointmentDetailView({
 
         <div className="space-y-3 mb-8">
           <div className="flex items-center gap-2">
-            <span className="rounded-md bg-raised px-2 py-0.5 text-xs text-ink-2">
-              {schedule.groupId ? '모임 일정' : '개인 일정'}
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-raised px-2 py-0.5 text-xs text-ink-2">
+              {schedule.groupId && <span className={`size-1.5 rounded-full ${getThemeColors(scheduleGroup?.colorTheme).dot}`} />}
+              {schedule.groupId ? (scheduleGroup ? scheduleGroup.name : '모임 일정') : '개인 일정'}
             </span>
           </div>
-          <h1 className="text-2xl font-semibold text-ink">
+          <h1 className="text-xl md:text-2xl font-semibold text-ink break-words">
             {schedule.title}
           </h1>
         </div>
 
         {/* Info Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+          {multiDay ? (
+          <div className="flex items-center gap-3 card px-4 py-3 sm:col-span-2">
+            <Calendar size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-ink-3">기간</p>
+              <p className="stamp !text-sm !text-ink">
+                {formatScheduleRange(schedule, tf)}
+              </p>
+            </div>
+          </div>
+          ) : (
+          <>
           <div className="flex items-center gap-3 card px-4 py-3">
             <Calendar size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
             <div className="min-w-0">
@@ -255,10 +294,12 @@ export default function AppointmentDetailView({
             <div className="min-w-0">
               <p className="text-xs text-ink-3">시간</p>
               <p className="stamp !text-sm !text-ink truncate">
-                {format(startTime, 'HH:mm')} - {format(endTime, 'HH:mm')}
+                {format(startTime, tf, { locale: ko })} – {format(endTime, tf, { locale: ko })}
               </p>
             </div>
           </div>
+          </>
+          )}
         </div>
 
         {/* Location Detail Section */}
@@ -333,7 +374,7 @@ export default function AppointmentDetailView({
       </div>
 
       {/* Sidebar Area */}
-      <div className="w-full lg:w-[360px] bg-canvas p-6 overflow-y-auto no-scrollbar flex flex-col gap-6 shrink-0 relative">
+      <div className="w-full lg:w-[360px] bg-canvas p-5 md:p-6 lg:overflow-y-auto no-scrollbar flex flex-col gap-6 shrink-0 relative">
         {!isPage && onClose && (
           <button
             onClick={onClose}
@@ -350,7 +391,7 @@ export default function AppointmentDetailView({
           </h3>
           <div className="flex items-center gap-3 card px-4 py-3">
             <div className="size-8 rounded-full bg-accent-soft flex items-center justify-center text-sm font-medium text-accent">
-              {schedule.authorNickname[0]}
+              {initialOf(schedule.authorNickname)}
             </div>
             <span className="text-sm font-medium text-ink">{schedule.authorNickname}</span>
           </div>
@@ -376,7 +417,7 @@ export default function AppointmentDetailView({
                         unoptimized
                       />
                     ) : (
-                      <span className="text-xs text-accent">{p.nickname[0]}</span>
+                      <span className="text-xs text-accent">{initialOf(p.nickname)}</span>
                     )}
                   </div>
                   <span className="text-sm text-ink">{p.nickname}</span>
@@ -415,7 +456,7 @@ export default function AppointmentDetailView({
         {/* Metadata */}
         <div className="mt-auto pt-6 border-t border-line flex flex-col gap-1 stamp">
           <span>ID {schedule.id.slice(0, 8)}</span>
-          <span>작성 {format(parseISO(schedule.createdAt), 'M.d EEE HH:mm', { locale: ko })}</span>
+          <span>작성 {formatStamp(schedule.createdAt, tf)}</span>
         </div>
       </div>
 

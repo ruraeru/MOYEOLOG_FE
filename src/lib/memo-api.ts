@@ -5,7 +5,24 @@ export interface MemoInsight {
   ocrText?: string;
   summary?: string;
   keywords: string[];
-  analyzedAt: string;
+  analyzedAt?: string;
+  /** 분석 뒤 메모가 바뀌었으면 true */
+  stale?: boolean;
+}
+
+/** 요청한 사용자 기준 권한 (계약 4절) */
+export interface MemoPermissions {
+  edit: boolean;
+  delete: boolean;
+  share: boolean;
+  tag: boolean;
+  analyze: boolean;
+}
+
+export interface MemoSharedUser {
+  id: string;
+  nickname: string;
+  profileImage?: string | null;
 }
 
 export interface MemoResponse {
@@ -24,9 +41,39 @@ export interface MemoResponse {
   taggedSchedules?: { id: string; title: string }[];
   insight?: MemoInsight;
   isFavorite: boolean;
+  /** 작성자에게만 채워짐 */
+  sharedWith?: MemoSharedUser[];
+  version?: number;
+  permissions?: MemoPermissions;
   createdAt: string;
   updatedAt: string;
 }
+
+/**
+ * 서버가 permissions 를 주지 않는 경우(구버전 응답)를 위한 보수적 기본값.
+ * 작성자: 모두 허용, 모임 메모 멤버: 수정·태그만, 그 밖(공유받음): 모두 불가.
+ */
+export function getMemoPermissions(memo: MemoResponse, userId?: string | null): MemoPermissions {
+  if (memo.permissions) return memo.permissions;
+  if (userId && memo.authorId === userId) {
+    return { edit: true, delete: true, share: true, tag: true, analyze: true };
+  }
+  if (memo.groupId) {
+    return { edit: true, delete: false, share: false, tag: true, analyze: false };
+  }
+  return { edit: false, delete: false, share: false, tag: false, analyze: false };
+}
+
+/** 메모 본문의 [@제목](/memo|schedule/id) 링크에서 id 를 뽑는다. */
+export function extractMentionIds(content: string, type: 'memo' | 'schedule'): string[] {
+  const regex = type === 'memo'
+    ? /\[@[^\]]+\]\(\/memo\/([a-zA-Z0-9-]+)\)/g
+    : /\[@[^\]]+\]\(\/schedule\/([a-zA-Z0-9-]+)\)/g;
+  return Array.from(new Set([...(content || '').matchAll(regex)].map(m => m[1])));
+}
+
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const IMAGE_TOO_LARGE_MESSAGE = '파일이 너무 커요. 10MB 이하로 올려 주세요.';
 
 /**
  * 메모 본문 내의 마크다운 멘션([@제목](/memo/id))을 최신 제목으로 치환합니다.
@@ -110,16 +157,19 @@ export const memoApi = {
     return processMemoResponse(response.data);
   },
 
-  async update(id: string, data: { title: string; content: string; imageFile?: File; tags?: string[]; taggedMemoIds?: string[]; taggedScheduleIds?: string[] }, session: Session | null): Promise<MemoResponse> {
+  async update(id: string, data: { title: string; content: string; imageFile?: File; removeImage?: boolean; version?: number; tags?: string[]; taggedMemoIds?: string[]; taggedScheduleIds?: string[] }, session: Session | null): Promise<MemoResponse> {
     const formData = new FormData();
 
-    const memoData = {
+    // taggedScheduleIds 를 보내지 않으면(undefined) 서버는 기존 연결을 유지한다.
+    const memoData: Record<string, unknown> = {
       title: data.title,
       content: data.content,
       tags: data.tags,
       taggedMemoIds: data.taggedMemoIds,
-      taggedScheduleIds: data.taggedScheduleIds
+      taggedScheduleIds: data.taggedScheduleIds,
     };
+    if (data.version !== undefined) memoData.version = data.version;
+    if (data.removeImage && !data.imageFile) memoData.removeImage = true;
     formData.append('memo', new Blob([JSON.stringify(memoData)], { type: 'application/json' }));
 
     if (data.imageFile) {
@@ -153,6 +203,28 @@ export const memoApi = {
     await axiosInstance.post(`/api/memos/${id}/share`, { friendIds }, {
       headers: getAuthHeaders(session),
     });
+  },
+
+  async unshare(id: string, targetUserId: string, session: Session | null): Promise<void> {
+    await axiosInstance.delete(`/api/memos/${id}/share/${targetUserId}`, {
+      headers: getAuthHeaders(session),
+    });
+  },
+
+  /** 내가 즐겨찾기했고 지금 볼 수 있는 모든 메모(내 메모·공유받은 메모·모임 메모) */
+  async getFavorites(session: Session | null): Promise<MemoResponse[]> {
+    const response = await axiosInstance.get<MemoResponse[]>('/api/memos/favorites', {
+      headers: getAuthHeaders(session),
+    });
+    return response.data.map(processMemoResponse);
+  },
+
+  /** 모임의 메모(다른 멤버가 쓴 것 포함) */
+  async getGroupMemos(groupId: string, session: Session | null): Promise<MemoResponse[]> {
+    const response = await axiosInstance.get<MemoResponse[]>(`/api/groups/${groupId}/memos`, {
+      headers: getAuthHeaders(session),
+    });
+    return response.data.map(processMemoResponse);
   },
 
   async getSharedMemos(session: Session | null): Promise<MemoResponse[]> {
@@ -192,3 +264,19 @@ export const memoApi = {
     return normalizeInsight(response.data);
   }
 };
+
+/**
+ * 커서 앞 글자에서 진행 중인 멘션(@검색어)을 찾는다. 제목에 공백이 있어도 이어서 검색할 수 있게
+ * 공백을 허용하고, 줄바꿈·이미 삽입된 링크 문법([ ] ( ))·40자를 넘으면 멘션이 끝난 것으로 본다.
+ */
+export function matchMentionQuery(textBeforeCursor: string): { query: string; index: number } | null {
+  const match = textBeforeCursor.match(/@([^\n@[\]()]{0,40})$/);
+  if (!match || match.index === undefined) return null;
+  return { query: match[1], index: match.index };
+}
+
+/** 멘션 후보 필터: 앞뒤 공백을 무시하고 대소문자 구분 없이 포함 검색 */
+export function mentionMatches(title: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  return !q || title.toLowerCase().includes(q);
+}

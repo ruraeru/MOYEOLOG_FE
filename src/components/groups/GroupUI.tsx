@@ -3,7 +3,9 @@
 import React from 'react';
 import { 
   LayoutGrid, 
-  List as ListIcon 
+  List as ListIcon,
+  AlertCircle,
+  RotateCw,
 } from 'lucide-react';
 
 // ─── Sub Components ─────────────────────────────────────────────
@@ -12,13 +14,13 @@ export function TabButton({ active, icon: IconComponent, label, onClick }: { act
   return (
     <button 
       onClick={onClick} 
-      className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg select-none border-0 no-outline transition-colors duration-150 ease-out ${
+      className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap shrink-0 select-none border-0 no-outline transition-colors duration-150 ease-out ${
         active 
           ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' 
           : 'text-ink-2 hover:text-ink'
       }`}
     >
-      {React.cloneElement(IconComponent, { size: 16, strokeWidth: 1.5 } as React.SVGAttributes<SVGElement>)}
+      {React.cloneElement(IconComponent, { size: 16, strokeWidth: 1.5, className: 'hidden sm:block shrink-0' } as React.SVGAttributes<SVGElement>)}
       {label}
     </button>
   );
@@ -28,7 +30,7 @@ export function FilterButton({ active, icon: IconComponent, label, onClick, isFa
   return (
     <button 
       onClick={onClick} 
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm border-0 transition-colors duration-150 ease-out no-outline ${
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm whitespace-nowrap border-0 transition-colors duration-150 ease-out no-outline ${
         active 
           ? 'bg-raised text-ink font-medium' 
           : 'text-ink-2 hover:bg-raised hover:text-ink'
@@ -52,7 +54,7 @@ export function TagBadge({ label, active, onClick }: { label: string, active: bo
   return (
     <button 
       onClick={onClick} 
-      className={`text-xs px-2 py-0.5 rounded-md transition-colors duration-150 ease-out no-outline border-0 ${
+      className={`text-xs px-2 py-0.5 rounded-md whitespace-nowrap transition-colors duration-150 ease-out no-outline border-0 ${
         active 
           ? 'bg-accent-soft text-accent' 
           : 'bg-raised text-ink-2 hover:text-ink'
@@ -68,12 +70,16 @@ export function ViewSelector({ current, onChange }: { current: 'grid' | 'list', 
     <div className="flex p-1 bg-raised rounded-[10px] no-outline border-0">
       <button 
         onClick={() => onChange('grid')} 
+        aria-label="카드로 보기"
+        aria-pressed={current === 'grid'}
         className={`p-2 rounded-lg transition-colors duration-150 ease-out border-0 no-outline ${current === 'grid' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 hover:text-ink'}`}
       >
         <LayoutGrid size={16} strokeWidth={1.5} />
       </button>
       <button 
         onClick={() => onChange('list')} 
+        aria-label="목록으로 보기"
+        aria-pressed={current === 'list'}
         className={`p-2 rounded-lg transition-colors duration-150 ease-out border-0 no-outline ${current === 'list' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 hover:text-ink'}`}
       >
         <ListIcon size={16} strokeWidth={1.5} />
@@ -82,14 +88,31 @@ export function ViewSelector({ current, onChange }: { current: 'grid' | 'list', 
   );
 }
 
-export function EmptyState({ icon: Icon, text }: { icon: React.ReactElement, text: string }) {
+export function EmptyState({ icon: Icon, text, subText = '첫 활동을 시작해 보세요' }: { icon: React.ReactElement, text: string, subText?: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
         {React.cloneElement(Icon, { size: 18, strokeWidth: 1.5, className: 'text-ink-3' } as React.SVGAttributes<SVGElement>)}
       </div>
       <p className="text-sm font-medium text-ink">{text}</p>
-      <p className="text-sm text-ink-3 mt-1">첫 활동을 시작해 보세요</p>
+      {subText && <p className="text-sm text-ink-3 mt-1">{subText}</p>}
+    </div>
+  );
+}
+
+/** 목록을 불러오지 못했을 때 빈 상태 대신 보여 주는 오류 상태 */
+export function ErrorState({ message, onRetry }: { message: string, onRetry?: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center gap-3">
+      <div className="size-10 rounded-full bg-raised flex items-center justify-center">
+        <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
+      </div>
+      <p className="text-sm text-ink">{message}</p>
+      {onRetry && (
+        <button type="button" onClick={onRetry} className="btn-secondary">
+          <RotateCw size={16} strokeWidth={1.5} /> 다시 시도
+        </button>
+      )}
     </div>
   );
 }

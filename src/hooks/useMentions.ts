@@ -36,6 +36,11 @@ export function useMentions({ allMemos, friends, userGroups, schedules = [], sel
         setShowParticipantMentions(true);
         setParticipantQuery('');
       }
+    } else if (!value.includes('@')) {
+      // @ 를 지웠거나(입력칸을 비운 경우 포함) 처음부터 없으면 목록을 닫아요.
+      if (type === 'memo') setShowMemoMentions(false);
+      else if (type === 'schedule') setShowScheduleMentions(false);
+      else setShowParticipantMentions(false);
     } else {
       const parts = value.split('@');
       const query = parts[parts.length - 1];
@@ -44,6 +49,13 @@ export function useMentions({ allMemos, friends, userGroups, schedules = [], sel
       if (type === 'participant' && showParticipantMentions) setParticipantQuery(query);
     }
   }, [showMemoMentions, showParticipantMentions, showScheduleMentions]);
+
+  /** 모든 멘션 목록을 닫아요(등록·전송 뒤 등). */
+  const closeMentions = useCallback(() => {
+    setShowMemoMentions(false);
+    setShowParticipantMentions(false);
+    setShowScheduleMentions(false);
+  }, []);
 
   const filteredMemos = useMemo(() => 
     allMemos.filter((m) => m.title.toLowerCase().includes(memoQuery.toLowerCase())),
@@ -69,6 +81,6 @@ export function useMentions({ allMemos, friends, userGroups, schedules = [], sel
     showMemoMentions, setShowMemoMentions, filteredMemos,
     showParticipantMentions, setShowParticipantMentions, filteredParticipants,
     showScheduleMentions, setShowScheduleMentions, filteredSchedules,
-    handleInputChange
+    handleInputChange, closeMentions
   };
 }

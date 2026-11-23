@@ -3,10 +3,9 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { stripMarkdown } from '@/lib/utils';
+import { stripMarkdown, getFileUrl } from '@/lib/utils';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { type MemoResponse } from '@/lib/memo-api';
-import { useSession } from 'next-auth/react';
 
 interface MemoCardProps {
   memo: MemoResponse;
@@ -15,31 +14,33 @@ interface MemoCardProps {
 }
 
 export function MemoCard({ memo, viewMode, onClick }: MemoCardProps) {
-  const { data: session } = useSession();
   const isList = viewMode === 'list';
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  const imageSrc = memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null;
-  
-  const userName = session?.user?.name || '나';
-  const userImage = session?.user?.image;
+  const imageSrc = getFileUrl(memo.imageUrl);
+
+  // 카드에는 보는 사람이 아니라 실제 작성자를 보여 준다
+  const authorName = memo.authorNickname || '알 수 없음';
+  const authorImage = getFileUrl(memo.authorProfileImage);
 
   return (
-    <div 
-      onClick={onClick} 
+    <div
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
+      role="button"
+      tabIndex={0}
       className={`card transition-colors duration-150 ease-out group flex overflow-hidden cursor-pointer hover:bg-raised ${
-        isList 
-          ? 'p-4 gap-4' 
+        isList
+          ? 'p-4 gap-4'
           : 'flex-col'
       }`}
     >
       {imageSrc && (
-        <ImageWithFallback 
-          src={imageSrc} 
-          alt={memo.title} 
-          fill 
-          containerClassName={isList ? "size-28 rounded-lg shrink-0 overflow-hidden" : "h-48 w-full bg-raised"} 
-          className="object-cover" 
-          unoptimized 
+        <ImageWithFallback
+          src={imageSrc}
+          alt={memo.title}
+          fill
+          containerClassName={isList ? "size-20 sm:size-28 rounded-lg shrink-0 overflow-hidden" : "h-48 w-full bg-raised"}
+          className="object-cover"
+          unoptimized
         />
       )}
       <div className={isList ? "flex flex-col gap-2 flex-1 min-w-0" : "p-5 flex flex-col gap-3 flex-1 min-w-0"}>
@@ -58,25 +59,25 @@ export function MemoCard({ memo, viewMode, onClick }: MemoCardProps) {
             </span>
           ))}
         </div>
-        <div className="flex items-center justify-between pt-3 border-t border-line">
-          <div className="flex items-center gap-2">
-             <div className="size-6 rounded-full bg-accent-soft flex items-center justify-center text-accent text-xs overflow-hidden relative">
-               {userImage ? (
-                 <ImageWithFallback 
-                   src={userImage} 
-                   alt={userName} 
-                   fill 
+        <div className="flex items-center justify-between gap-2 pt-3 border-t border-line">
+          <div className="flex items-center gap-2 min-w-0">
+             <div className="size-6 shrink-0 rounded-full bg-accent-soft flex items-center justify-center text-accent text-xs overflow-hidden relative">
+               {authorImage ? (
+                 <ImageWithFallback
+                   src={authorImage}
+                   alt={authorName}
+                   fill
                    containerClassName="w-full h-full"
                    className="object-cover"
                    unoptimized
                  />
                ) : (
-                 userName[0]
+                 [...authorName][0]
                )}
              </div>
-             <span className="text-xs text-ink-2">{userName}</span>
+             <span className="text-xs text-ink-2 truncate">{authorName}</span>
           </div>
-          <span className="stamp">{format(new Date(memo.createdAt), 'M.d EEE', { locale: ko })}</span>
+          <span className="stamp shrink-0">{format(new Date(memo.createdAt), 'M.d EEE', { locale: ko })}</span>
         </div>
       </div>
     </div>
