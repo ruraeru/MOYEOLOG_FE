@@ -23,18 +23,19 @@ import { useMentions } from '@/hooks/useMentions';
 import { useAlert } from '@/hooks/useAlert';
 import { Chip, MentionList } from './Mentions';
 import ImageWithFallback from './ImageWithFallback';
+import { Modal } from './ui';
 import {
-  X,
-  Calendar,
   Clock,
   MapPin,
   Star,
   Users,
+  UserPlus,
   FileText,
-  ChevronRight,
+  AlignLeft,
+  ChevronDown,
   Search,
   Loader2,
-  Check
+  type LucideIcon,
 } from 'lucide-react';
 
 interface AppointmentModalProps {
@@ -193,7 +194,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return toast.warning('제목을 입력해 주세요.');
     if (codePointLength(trimmedTitle) > SCHEDULE_TITLE_MAX) return toast.warning(`제목은 ${SCHEDULE_TITLE_MAX}자까지 쓸 수 있어요.`);
-    if (codePointLength(memo) > SCHEDULE_DESCRIPTION_MAX) return toast.warning('상세 메모는 5,000자까지 쓸 수 있어요.');
+    if (codePointLength(memo) > SCHEDULE_DESCRIPTION_MAX) return toast.warning('설명은 5,000자까지 쓸 수 있어요.');
     const start = toDateTime(date, time);
     const end = toDateTime(endDate, endTime);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
@@ -228,81 +229,101 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   const titleLength = codePointLength(title);
 
+  const footer = (
+    <>
+      <button onClick={onClose} disabled={isSaving} className="btn-secondary">취소</button>
+      <button onClick={handleSave} disabled={isSaving} className="btn-primary">
+        {isSaving && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
+        {isSaving ? '저장 중…' : '저장'}
+      </button>
+    </>
+  );
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-end md:items-center justify-center bg-black/40 p-0 md:p-4 overflow-hidden" onClick={onClose}>
-      <div className="bg-surface text-ink rounded-t-2xl md:rounded-2xl border border-line w-full max-w-xl flex flex-col shadow-float overflow-hidden max-h-[92dvh] md:max-h-[90vh] animate-slide-up md:animate-none" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="px-5 md:px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-semibold text-ink">{initialSchedule ? '일정 수정' : '새 일정'}</h2>
-          <button onClick={onClose} className="btn-ghost" aria-label="닫기"><X size={18} strokeWidth={1.5} /></button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto no-scrollbar p-5 md:p-6 space-y-6">
-          <Section label="일정 제목" aside={titleLength >= SCHEDULE_TITLE_MAX - 30 ? <span className="stamp">{titleLength}/{SCHEDULE_TITLE_MAX}</span> : undefined}>
-            <input type="text" value={title} onChange={(e) => setTitle(truncateCodePoints(e.target.value, SCHEDULE_TITLE_MAX))} placeholder="어떤 약속인가요" className="form-input text-base" />
-          </Section>
-
-          <div className="grid grid-cols-2 gap-3 md:gap-4">
-            <Section label="시작 날짜" icon={<Calendar size={16} strokeWidth={1.5} />}>
-              <input type="date" value={date} onChange={(e) => changeStart(e.target.value, time)} className="form-input" />
-            </Section>
-            <Section label="시작 시간" icon={<Clock size={16} strokeWidth={1.5} />}>
-              <input type="time" value={time} onChange={(e) => changeStart(date, e.target.value)} className="form-input" />
-            </Section>
-            <Section label="종료 날짜" icon={<Calendar size={16} strokeWidth={1.5} />}>
-              <input type="date" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} className="form-input" />
-            </Section>
-            <Section label="종료 시간" icon={<Clock size={16} strokeWidth={1.5} />}>
-              <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="form-input" />
-            </Section>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title={initialSchedule ? '일정 수정' : '새 일정'}
+      size="md"
+      zIndex="z-[120]"
+      footer={footer}
+      bodyClassName="space-y-6"
+    >
+          {/* 제목 (주아) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="appt-title" className="text-[13px] font-medium text-ink-2">일정 제목</label>
+              {titleLength >= SCHEDULE_TITLE_MAX - 30 && <span className="stamp">{titleLength}/{SCHEDULE_TITLE_MAX}</span>}
+            </div>
+            <input id="appt-title" type="text" value={title} onChange={(e) => setTitle(truncateCodePoints(e.target.value, SCHEDULE_TITLE_MAX))} placeholder="어떤 약속인가요" className="form-input h-11 font-display text-lg" />
           </div>
 
-          <Section label="모임 선택" icon={<Users size={16} strokeWidth={1.5} />}>
+          {/* 시간 */}
+          <Row icon={Clock} label="시간">
+            <div className="space-y-2">
+              <div className="grid grid-cols-[32px_minmax(0,1fr)_minmax(128px,40%)] items-center gap-2">
+                <span className="text-[13px] text-ink-3">시작</span>
+                <input type="date" aria-label="시작 날짜" value={date} onChange={(e) => changeStart(e.target.value, time)} className="form-input tabular-nums" />
+                <input type="time" aria-label="시작 시간" value={time} onChange={(e) => changeStart(date, e.target.value)} className="form-input tabular-nums" />
+              </div>
+              <div className="grid grid-cols-[32px_minmax(0,1fr)_minmax(128px,40%)] items-center gap-2">
+                <span className="text-[13px] text-ink-3">종료</span>
+                <input type="date" aria-label="종료 날짜" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} className="form-input tabular-nums" />
+                <input type="time" aria-label="종료 시간" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="form-input tabular-nums" />
+              </div>
+            </div>
+          </Row>
+
+          {/* 모임 */}
+          <Row icon={Users} label="모임">
             <div className="relative">
-              <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)} className="form-input appearance-none">
-                <option value="">모임을 선택하세요 (개인 일정)</option>
+              <select aria-label="모임" value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value)} className="form-input appearance-none pr-9">
+                <option value="">모임 없음 (개인 일정)</option>
                 {userGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
-              <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+              <ChevronDown size={16} strokeWidth={1.5} className="text-ink-3 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-          </Section>
+          </Row>
 
-          {/* Location Picker */}
-          <Section label="장소 지정" icon={<MapPin size={16} strokeWidth={1.5} />}>
+          {/* 장소 + 지도 */}
+          <Row icon={MapPin} label="장소">
             <div className="relative">
-              <input type="text" value={location} onChange={(e) => { const v = truncateCodePoints(e.target.value, SCHEDULE_LOCATION_MAX); setLocation(v); searchPlaces(v); }} placeholder="장소를 검색해요" className="form-input pr-10" />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">{isSearching ? <Loader2 size={16} strokeWidth={1.5} className="text-ink-3 animate-spin" /> : <Search size={16} strokeWidth={1.5} className="text-ink-3" />}</div>
+              <input type="text" aria-label="장소" value={location} onChange={(e) => { const v = truncateCodePoints(e.target.value, SCHEDULE_LOCATION_MAX); setLocation(v); searchPlaces(v); }} placeholder="장소를 검색해요" className="form-input pr-10" />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3">{isSearching ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Search size={16} strokeWidth={1.5} />}</div>
               {searchResults.length > 0 && (
-                <div className="absolute z-20 w-full top-full mt-2 bg-surface rounded-[10px] shadow-float border border-line overflow-hidden max-h-60 overflow-y-auto">
+                <div className="absolute z-20 w-full top-full mt-1 bg-surface rounded-[10px] shadow-float border border-line overflow-hidden max-h-60 overflow-y-auto">
                   {searchResults.map((r, i) => (
-                    <button key={i} type="button" onClick={() => handleLocationSelect(r)} className="w-full text-left px-4 py-3 hover:bg-raised transition-colors duration-150 ease-out border-b border-line last:border-0 font-medium text-sm text-ink">
-                      {r.place_name}<div className="text-xs text-ink-3 font-normal mt-0.5">{r.address_name}</div>
+                    <button key={i} type="button" onClick={() => handleLocationSelect(r)} className="w-full text-left px-3 py-2.5 hover:bg-raised transition-colors border-b border-line last:border-0">
+                      <span className="block text-sm font-medium text-ink">{r.place_name}</span>
+                      <span className="mt-0.5 block text-xs text-ink-3">{r.address_name}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            <div className="rounded-[10px] overflow-hidden border border-line bg-raised relative mt-3">
+            <div className="rounded-[10px] overflow-hidden border border-line bg-raised relative mt-2">
               <div ref={mapContainer} className="w-full h-[180px] md:h-[220px]" />
-              {isMapLoading && <div className="absolute inset-0 bg-surface/70 flex flex-col items-center justify-center z-10"><Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin mb-2" /><p className="text-xs text-ink-2">위치를 확인하는 중이에요</p></div>}
+              {isMapLoading && <div className="absolute inset-0 bg-surface/70 flex flex-col items-center justify-center gap-2 z-10"><Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" /><p className="text-xs text-ink-2">위치를 확인하는 중이에요</p></div>}
             </div>
-          </Section>
 
-          {/* Recommendations */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-ink-2 flex items-center gap-1.5"><Star size={16} strokeWidth={1.5} className="text-ink-3" /> 주변 장소 추천</h4>
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-              {isRecommending ? <div className="p-4 bg-raised rounded-[10px] w-full text-center"><Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3 mx-auto" /></div> : recommendations.map((rec, idx) => (
-                <RecommendationCard key={`${rec.id}-${idx}`} rec={rec} onClick={() => handleLocationSelect(rec)} />
-              ))}
-            </div>
-          </div>
+            {(isRecommending || recommendations.length > 0) && (
+              <div className="mt-4">
+                <p className="mb-2 text-[13px] font-medium text-ink-2">주변 추천</p>
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  {isRecommending ? (
+                    <div className="flex h-20 w-full items-center justify-center rounded-[10px] border border-line"><Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" /></div>
+                  ) : recommendations.map((rec, idx) => (
+                    <RecommendationCard key={`${rec.id}-${idx}`} rec={rec} onClick={() => handleLocationSelect(rec)} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </Row>
 
-          {/* Participants */}
-          <Section label="참여자" icon={<Users size={16} strokeWidth={1.5} />}>
+          {/* 참여자 */}
+          <Row icon={UserPlus} label="참여자">
             <div className="relative">
-              <input type="text" value={participantInput} onChange={(e) => { setParticipantInput(e.target.value); handleInputChange(e.target.value, 'participant'); }} placeholder="친구 이름을 입력하거나 @를 눌러요" className="form-input" />
+              <input type="text" aria-label="참여자" value={participantInput} onChange={(e) => { setParticipantInput(e.target.value); handleInputChange(e.target.value, 'participant'); }} placeholder="친구 이름을 입력하거나 @를 눌러요" className="form-input" />
               {showParticipantMentions && (
                 <MentionList
                   items={participantCandidates}
@@ -316,22 +337,24 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
                 />
               )}
             </div>
-            <div className="flex flex-wrap gap-2 mt-3">
-              {participants.map((p, i) => (
-                <Chip
-                  key={p.id || `p-${i}`}
-                  label={p.id && p.id === currentUserId ? '나' : p.nickname}
-                  image={p.profileImage}
-                  onRemove={p.id && p.id === currentUserId ? undefined : () => setParticipants(participants.filter(item => item !== p))}
-                />
-              ))}
-            </div>
-          </Section>
+            {participants.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {participants.map((p, i) => (
+                  <Chip
+                    key={p.id || `p-${i}`}
+                    label={p.id && p.id === currentUserId ? '나' : p.nickname}
+                    image={p.profileImage}
+                    onRemove={p.id && p.id === currentUserId ? undefined : () => setParticipants(participants.filter(item => item !== p))}
+                  />
+                ))}
+              </div>
+            )}
+          </Row>
 
-          {/* Memos */}
-          <Section label="관련 메모 언급 (@멘션)" icon={<FileText size={16} strokeWidth={1.5} />}>
+          {/* 연결할 메모 */}
+          <Row icon={FileText} label="연결할 메모">
             <div className="relative">
-              <input type="text" value={memoMentionInput} onChange={(e) => { setMemoMentionInput(e.target.value); handleInputChange(e.target.value, 'memo'); }} placeholder={selectedGroupId ? '내 메모나 모임 메모 제목을 입력하거나 @를 눌러요' : '메모 제목을 입력하거나 @를 눌러요'} className="form-input" />
+              <input type="text" aria-label="연결할 메모" value={memoMentionInput} onChange={(e) => { setMemoMentionInput(e.target.value); handleInputChange(e.target.value, 'memo'); }} placeholder={selectedGroupId ? '내 메모나 모임 메모 제목을 입력하거나 @를 눌러요' : '메모 제목을 입력하거나 @를 눌러요'} className="form-input" />
               {showMemoMentions && (
                 <MentionList
                   items={memoCandidates}
@@ -346,44 +369,40 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
                 />
               )}
             </div>
-            <div className="flex flex-wrap gap-2 mt-3">
-              {taggedMemos.map(m => <Chip key={m.id} label={m.title} icon={<FileText size={16} strokeWidth={1.5} />} onRemove={() => setTaggedMemos(taggedMemos.filter(item => item.id !== m.id))} />)}
-            </div>
-          </Section>
+            {taggedMemos.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {taggedMemos.map(m => <Chip key={m.id} label={m.title} icon={<FileText size={16} strokeWidth={1.5} />} onRemove={() => setTaggedMemos(taggedMemos.filter(item => item.id !== m.id))} />)}
+              </div>
+            )}
+          </Row>
 
-          <Section label="상세 메모" icon={<FileText size={16} strokeWidth={1.5} />}>
-            <textarea value={memo} onChange={(e) => setMemo(truncateCodePoints(e.target.value, SCHEDULE_DESCRIPTION_MAX))} placeholder="일정에 대한 메모를 남겨요" className="form-input min-h-[120px] resize-none leading-relaxed" />
-          </Section>
-        </div>
-
-        {/* Footer */}
-        <div className="px-5 md:px-6 py-4 border-t border-line flex justify-end gap-2 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <button onClick={onClose} disabled={isSaving} className="btn-secondary">취소</button>
-          <button onClick={handleSave} disabled={isSaving} className="btn-primary">{isSaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Check size={16} strokeWidth={1.5} />}{isSaving ? '저장 중…' : '저장'}</button>
-        </div>
-      </div>
-    </div>
+          {/* 설명 */}
+          <Row icon={AlignLeft} label="설명">
+            <textarea aria-label="설명" value={memo} onChange={(e) => setMemo(truncateCodePoints(e.target.value, SCHEDULE_DESCRIPTION_MAX))} placeholder="일정에 대한 설명을 남겨요" className="form-input min-h-[120px] resize-none leading-relaxed" />
+          </Row>
+    </Modal>
   );
 }
 
 // ─── Sub Components ─────────────────────────────────────────────
 
-function Section({ label, icon, aside, children }: { label: string, icon?: React.ReactNode, aside?: React.ReactNode, children: React.ReactNode }) {
+/** 아이콘 + 라벨 + 입력 행 */
+function Row({ icon: Icon, label, children }: { icon: LucideIcon, label: string, children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <label className="text-sm font-medium text-ink-2 flex items-center gap-1.5"><span className="text-ink-3">{icon}</span>{label}</label>
-        {aside}
+    <div className="grid grid-cols-[16px_minmax(0,1fr)] gap-x-3">
+      <Icon size={16} strokeWidth={1.5} className="mt-0.5 text-ink-3" aria-hidden />
+      <div className="min-w-0">
+        <p className="mb-1.5 text-[13px] font-medium text-ink-2">{label}</p>
+        {children}
       </div>
-      {children}
     </div>
   );
 }
 
 function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name: string, image: string, rating: string, category: string, distance: string, y: string, x: string, desc: string }, onClick: () => void }) {
   return (
-    <div onClick={onClick} className="flex-shrink-0 w-44 bg-surface border border-line rounded-[10px] overflow-hidden hover:bg-raised transition-colors duration-150 ease-out cursor-pointer">
-      <div className="relative h-24 w-full bg-raised">
+    <div onClick={onClick} className="w-40 shrink-0 cursor-pointer overflow-hidden rounded-[10px] border border-line bg-surface transition-colors hover:bg-raised">
+      <div className="relative h-20 w-full bg-raised">
         <ImageWithFallback 
           src={rec.image} 
           alt={rec.name} 
@@ -393,7 +412,7 @@ function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name
         />
         <div className="absolute top-1.5 right-1.5 z-10 bg-surface/90 text-ink text-xs tabular-nums px-1.5 py-0.5 rounded-md flex items-center gap-1"><Star size={12} strokeWidth={1.5} className="text-ink-3" /> {rec.rating}</div>
       </div>
-      <div className="p-3"><h4 className="font-medium text-ink text-xs truncate">{rec.name}</h4><p className="text-xs text-ink-3">{rec.category} · {rec.distance}</p></div>
+      <div className="px-3 py-2"><p className="truncate text-[13px] font-medium text-ink">{rec.name}</p><p className="truncate text-xs text-ink-3">{rec.category} · {rec.distance}</p></div>
     </div>
   );
 }

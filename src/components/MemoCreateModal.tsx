@@ -4,13 +4,11 @@ import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   X,
   Upload,
-  Users,
-  Tag as TagIcon,
-  Sparkles,
   Loader2,
   Calendar,
   FileText
 } from 'lucide-react';
+import { Modal } from '@/components/ui';
 import { fileToDataUrl, convertToWebP } from '@/lib/utils';
 import {
   memoApi,
@@ -201,236 +199,192 @@ export default function MemoCreateModal({
   const matchedSchedules = schedules.filter(s => mentionMatches(s.title, mentionState.query)).slice(0, 5);
 
   return (
-    <div
-      className="fixed inset-0 z-[110] flex items-stretch sm:items-center justify-center bg-black/40 p-0 sm:p-4"
-      onClick={handleClose}
-    >
-      <div
-        className="bg-surface border border-line sm:rounded-2xl w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-2rem)] flex flex-col shadow-float overflow-hidden relative"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-4 sm:px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-semibold text-ink">새 메모</h2>
-          <button
-            onClick={handleClose}
-            disabled={isSaving}
-            className="btn-ghost disabled:opacity-50"
-          >
-            <X size={18} strokeWidth={1.5} />
+    <Modal
+      open={isOpen}
+      onClose={handleClose}
+      title="새 메모"
+      size="lg"
+      footer={
+        <>
+          <button type="button" onClick={handleClose} disabled={isSaving} className="btn-secondary">
+            취소
           </button>
-        </div>
+          <button type="button" onClick={handleSave} disabled={isSaving} className="btn-primary">
+            {isSaving && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
+            {isSaving ? '저장 중…' : '저장'}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="제목"
+          aria-label="제목"
+          className="form-input h-11 font-display text-lg"
+        />
 
-        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden md:h-[600px] md:flex-none">
-          <div className="md:flex-1 flex flex-col p-4 sm:p-6 md:border-r border-line md:overflow-y-auto no-scrollbar relative min-w-0">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="제목"
-              className="text-2xl font-semibold text-ink bg-transparent placeholder:text-ink-3 border-none outline-none mb-4 w-full"
-            />
+        <div className={`grid gap-4 ${!groupId ? 'sm:grid-cols-2' : ''}`}>
+          {!groupId && (
+            <div className="space-y-1.5">
+              <label htmlFor="memo-create-group" className="block text-[13px] font-medium text-ink-2">
+                모임
+              </label>
+              <select
+                id="memo-create-group"
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+                className="form-input h-9 py-0"
+              >
+                <option value="">개인 메모</option>
+                {groups.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-ink-3">모임을 고르면 멤버가 함께 보고 고칠 수 있어요</p>
+            </div>
+          )}
 
-            <div
-              className="w-full border border-dashed border-line-strong rounded-2xl p-5 flex flex-col items-center justify-center gap-3 bg-canvas hover:bg-raised transition-colors duration-150 ease-out cursor-pointer mb-4 relative overflow-hidden min-h-[120px] shrink-0"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
+          <div className="space-y-1.5">
+            <label htmlFor="memo-create-tag" className="block text-[13px] font-medium text-ink-2">
+              태그
+            </label>
+            <div className="flex gap-2">
               <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/gif,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageSelect(file);
+                id="memo-create-tag"
+                type="text"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addTag();
+                  }
                 }}
+                placeholder="태그 입력 후 Enter"
+                className="form-input h-9 min-w-0 flex-1 py-0"
               />
-              {imagePreview ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imagePreview}
-                  alt="미리보기"
-                  className="max-h-40 rounded-[10px] object-contain"
-                />
-              ) : (
-                <>
-                  <Upload size={18} strokeWidth={1.5} className="text-ink-3" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-ink">
-                      이미지를 끌어다 놓거나 눌러서 올려요
-                    </p>
-                    <p className="text-xs text-ink-3 mt-1">PNG, JPG, GIF, WEBP (최대 10MB)</p>
-                  </div>
-                </>
-              )}
-              {imagePreview && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setImagePreview(null);
-                    setImageFile(null);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
-                  }}
-                  className="absolute top-3 right-3 text-xs text-negative bg-surface border border-line px-2 py-1 rounded-lg"
-                >
-                  제거
-                </button>
-              )}
+              <button type="button" onClick={addTag} className="btn-secondary shrink-0">
+                추가
+              </button>
             </div>
-
-            <div className="flex-1 min-h-[300px] relative" data-color-mode="light" onKeyUp={handleEditorKeyUp}>
-              <MDEditor
-                previewOptions={{ rehypePlugins: markdownRehypePlugins }}
-                value={content}
-                onChange={(val) => setContent(val || '')}
-                preview="live"
-                height="100%"
-                style={{ borderRadius: '0.75rem', border: '1px solid var(--color-line)' }}
-                textareaProps={{
-                  placeholder: '내용을 써 보세요. @를 누르면 일정이나 메모를 연결할 수 있어요'
-                }}
-              />
-
-              {/* 에디터 인라인 멘션 팝업 */}
-              {mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
-                <div className="absolute z-50 bottom-4 left-4 w-72 max-h-64 overflow-y-auto bg-surface border border-line shadow-float rounded-2xl p-2 no-scrollbar">
-                  {matchedSchedules.length > 0 && (
-                    <div className="mb-2">
-                      <div className="text-xs text-ink-3 px-2 py-1">일정</div>
-                      {matchedSchedules.map(s => (
-                        <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="w-full text-left px-3 py-2 hover:bg-raised rounded-lg text-sm text-ink flex items-center gap-2 transition-colors duration-150 ease-out">
-                          <Calendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                          <span className="truncate">{s.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {matchedMemos.length > 0 && (
-                    <div>
-                      <div className="text-xs text-ink-3 px-2 py-1">메모</div>
-                      {matchedMemos.map(m => (
-                        <button key={m.id} onClick={() => insertMention(m, 'memo')} className="w-full text-left px-3 py-2 hover:bg-raised rounded-lg text-sm text-ink flex items-center gap-2 transition-colors duration-150 ease-out">
-                          <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                          <span className="truncate">{m.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="w-full md:w-[340px] bg-canvas p-4 sm:p-6 flex flex-col gap-6 shrink-0 md:overflow-y-auto no-scrollbar border-t md:border-t-0 border-line">
-            {!groupId && (
-              <div className="space-y-2">
-                <label htmlFor="memo-create-group" className="flex items-center gap-2 text-sm font-medium text-ink">
-                  <Users size={16} strokeWidth={1.5} className="text-ink-3" />
-                  <span>모임</span>
-                </label>
-                <select
-                  id="memo-create-group"
-                  value={selectedGroupId}
-                  onChange={(e) => setSelectedGroupId(e.target.value)}
-                  className="form-input w-full text-sm"
-                >
-                  <option value="">개인 메모</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-ink-3">모임을 고르면 모임 멤버가 함께 보고 고칠 수 있어요</p>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="chip cursor-pointer gap-1 transition-colors hover:text-ink"
+                    onClick={() => setTags(tags.filter(t => t !== tag))}
+                  >
+                    #{tag} <X size={12} strokeWidth={1.5} className="text-ink-3" />
+                  </span>
+                ))}
               </div>
             )}
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-ink">
-                <TagIcon size={16} strokeWidth={1.5} className="text-ink-3" />
-                <span>태그</span>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addTag();
-                    }
-                  }}
-                  placeholder="태그 입력"
-                  className="form-input flex-1 min-w-0"
-                />
-                <button
-                  type="button"
-                  onClick={addTag}
-                  className="btn-secondary shrink-0"
-                >
-                  추가
-                </button>
-              </div>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-xs text-ink-2 bg-raised rounded-md px-2 py-0.5 flex items-center gap-1 cursor-pointer hover:text-ink transition-colors duration-150 ease-out"
-                      onClick={() => setTags(tags.filter(t => t !== tag))}
-                    >
-                      {tag} <X size={12} strokeWidth={1.5} className="text-ink-3" />
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-ink">
-                <Sparkles size={16} strokeWidth={1.5} className="text-ink-3" />
-                <span>자동 정리</span>
-              </div>
-              <p className="text-xs text-ink-2 leading-relaxed">
-                저장한 뒤 메모 화면에서 분석을 시작하면 이미지의 글자를 읽고 요약과 키워드를 추천해요
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-ink">쓰는 방법</div>
-              <ul className="text-xs text-ink-2 space-y-2 leading-relaxed">
-                <li>본문에 <span className="text-ink">@</span>를 입력하면 일정이나 다른 메모를 바로 연결할 수 있어요</li>
-                <li>연결한 항목은 저장할 때 서로 이어져요</li>
-              </ul>
-            </div>
           </div>
         </div>
 
-        {error && <p className="px-4 sm:px-6 pt-2 text-sm text-negative shrink-0">{error}</p>}
-
-        <div className="border-t border-line px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-end shrink-0">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={isSaving}
-              className="btn-secondary disabled:opacity-50"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="btn-primary disabled:opacity-70 flex items-center gap-2"
-            >
-              {isSaving && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
-              {isSaving ? '저장 중…' : '저장'}
-            </button>
+        <div className="space-y-1.5">
+          <p className="text-[13px] font-medium text-ink-2">사진</p>
+          <div
+            className="relative flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-line-strong bg-surface p-4 transition-colors hover:bg-raised"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageSelect(file);
+              }}
+            />
+            {imagePreview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imagePreview}
+                alt="미리보기"
+                className="max-h-40 rounded-lg object-contain"
+              />
+            ) : (
+              <>
+                <Upload size={16} strokeWidth={1.5} className="text-ink-3" />
+                <p className="text-sm text-ink-2">이미지를 끌어다 놓거나 눌러서 올려요</p>
+                <p className="text-xs text-ink-3">PNG, JPG, GIF, WEBP (최대 10MB)</p>
+              </>
+            )}
+            {imagePreview && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImagePreview(null);
+                  setImageFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+                className="btn-danger btn-sm absolute right-3 top-3"
+              >
+                제거
+              </button>
+            )}
           </div>
         </div>
+
+        <div className="space-y-1.5">
+          <p className="text-[13px] font-medium text-ink-2">내용</p>
+          <div className="relative" data-color-mode="light" onKeyUp={handleEditorKeyUp}>
+            <MDEditor
+              previewOptions={{ rehypePlugins: markdownRehypePlugins }}
+              value={content}
+              onChange={(val) => setContent(val || '')}
+              preview="live"
+              height={320}
+              style={{ borderRadius: '10px', border: '1px solid var(--line-strong)', boxShadow: 'none' }}
+              textareaProps={{
+                placeholder: '내용을 써 보세요. @를 누르면 일정이나 메모를 연결할 수 있어요'
+              }}
+            />
+
+            {/* 에디터 인라인 멘션 팝업 */}
+            {mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
+              <div className="absolute bottom-4 left-4 z-50 max-h-64 w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float no-scrollbar">
+                {matchedSchedules.length > 0 && (
+                  <div className="mb-1">
+                    <div className="px-2.5 py-1 text-xs font-medium text-ink-3">일정</div>
+                    {matchedSchedules.map(s => (
+                      <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-ink transition-colors hover:bg-raised">
+                        <Calendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
+                        <span className="truncate">{s.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {matchedMemos.length > 0 && (
+                  <div>
+                    <div className="px-2.5 py-1 text-xs font-medium text-ink-3">메모</div>
+                    {matchedMemos.map(m => (
+                      <button key={m.id} onClick={() => insertMention(m, 'memo')} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-ink transition-colors hover:bg-raised">
+                        <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
+                        <span className="truncate">{m.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="text-xs leading-relaxed text-ink-3">
+            @로 연결한 일정·메모는 저장할 때 서로 이어져요. 저장한 뒤 메모 화면에서 분석을 시작하면 이미지 글자를 읽고 요약과 키워드를 추천해요.
+          </p>
+        </div>
+
+        {error && <p className="text-sm text-negative">{error}</p>}
       </div>
-    </div>
+    </Modal>
   );
 }

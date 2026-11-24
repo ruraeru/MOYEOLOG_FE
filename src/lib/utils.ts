@@ -157,6 +157,8 @@ export const stripMarkdown = (markdown: string): string => {
     .replace(/^>\s+/gm, '')
     // 리스트 마커 제거 (- text, * text, 1. text)
     .replace(/^[-*+]\s+/gm, '')
+    // 체크리스트 칸 제거 ([ ] 할 일, [x] 한 일)
+    .replace(/^\[[ xX]\]\s+/gm, '')
     .replace(/^\d+\.\s+/gm, '')
     // 수평선 제거
     .replace(/^---$/gm, '')

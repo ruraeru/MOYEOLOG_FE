@@ -16,9 +16,9 @@ export function SettingsGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <div>
-        <h3 className="text-base font-semibold text-ink">{title}</h3>
+        <h3 className="font-display text-xl leading-7 text-ink">{title}</h3>
         {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
       </div>
       <div className="card divide-y divide-line">{children}</div>
@@ -39,16 +39,16 @@ export function SettingsRow({
   htmlFor?: string;
 }) {
   return (
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-h-16 flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 lg:px-6">
       <div className="min-w-0">
         {htmlFor ? (
-          <label htmlFor={htmlFor} className="text-sm font-medium text-ink">
+          <label htmlFor={htmlFor} className="text-[15px] font-medium text-ink">
             {label}
           </label>
         ) : (
-          <p className="text-sm font-medium text-ink">{label}</p>
+          <p className="text-[15px] font-medium text-ink">{label}</p>
         )}
-        {description && <div className="mt-0.5 text-sm text-ink-3">{description}</div>}
+        {description && <div className="mt-0.5 text-[13px] text-ink-3">{description}</div>}
       </div>
       {children && <div className="shrink-0">{children}</div>}
     </div>
@@ -83,7 +83,7 @@ export function Toggle({
       }`}
     >
       <span
-        className={`inline-block size-5 rounded-full bg-white shadow-sm transition-transform ${
+        className={`inline-block size-5 rounded-full bg-white shadow-[0_1px_2px_rgb(0_0_0/0.16)] transition-transform ${
           checked ? 'translate-x-[22px]' : 'translate-x-0.5'
         }`}
       />
@@ -104,7 +104,7 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-[10px] border border-line bg-raised p-0.5">
+    <div role="radiogroup" aria-label={label} className="inline-flex h-9 items-center gap-0.5 rounded-[10px] bg-raised p-[3px]">
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -114,8 +114,8 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(option.value)}
-            className={`h-8 rounded-lg px-3 text-sm transition-colors ${
-              active ? 'bg-surface text-ink font-medium shadow-sm' : 'text-ink-2 hover:text-ink'
+            className={`h-[30px] rounded-lg px-3 text-[13px] transition-colors ${
+              active ? 'bg-surface font-medium text-ink shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:text-ink'
             }`}
           >
             {option.label}
@@ -129,10 +129,11 @@ export function Segmented<T extends string>({
 /** 불러오기에 실패했을 때 (빈 상태 대신) 보여 주는 안내와 다시 시도 버튼 */
 export function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-3 px-5 py-8 text-center">
-      <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
-      <p className="text-sm text-ink-2">{message}</p>
-      <button type="button" onClick={onRetry} className="btn-secondary">
+    <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+      <AlertCircle size={20} strokeWidth={1.5} className="text-negative" aria-hidden />
+      <p className="font-display text-base text-ink">불러오지 못했어요</p>
+      <p className="text-sm text-ink-3">{message}</p>
+      <button type="button" onClick={onRetry} className="btn-secondary mt-2">
         <RotateCw size={16} strokeWidth={1.5} />
         다시 시도
       </button>

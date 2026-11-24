@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Navbar from '@/components/Navbar';
-import { User as UserIcon, Bell, Lock, Eye, Globe, LogOut, ChevronRight, Loader2 } from 'lucide-react';
+import { User as UserIcon, Bell, Lock, Monitor, Globe, LogOut, Loader2 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { userApi } from '@/lib/user-api';
@@ -18,7 +18,7 @@ const menuItems = [
   { id: 'profile', label: '프로필', icon: UserIcon },
   { id: 'notif', label: '알림', icon: Bell },
   { id: 'security', label: '계정 및 보안', icon: Lock },
-  { id: 'display', label: '화면', icon: Eye },
+  { id: 'display', label: '화면', icon: Monitor },
   { id: 'language', label: '언어 및 지역', icon: Globe },
 ] as const;
 
@@ -49,7 +49,7 @@ export default function SettingsPage() {
         return (
           <div className="card">
             <LoadError
-              message={getApiErrorMessage(userQuery.error, '내 정보를 불러오지 못했어요.')}
+              message={getApiErrorMessage(userQuery.error, '내 정보를 불러오지 못했어요')}
               onRetry={() => userQuery.refetch()}
             />
           </div>
@@ -76,74 +76,78 @@ export default function SettingsPage() {
       <Navbar />
 
       <main className="flex-1 overflow-hidden flex flex-col lg:flex-row">
-        {/* 넓은 화면: 왼쪽 메뉴 */}
-        <aside className="w-72 bg-surface border-r border-line p-6 flex-col gap-6 hidden lg:flex shrink-0">
-          <div>
-            <h2 className="text-2xl font-semibold text-ink">설정</h2>
-            <p className="text-sm text-ink-2 mt-1">앱 환경을 원하는 대로 바꿔 보세요.</p>
-          </div>
+        {/* 넓은 화면: 왼쪽 메뉴 (폭 264, 오른쪽 hairline) */}
+        <aside className="hidden w-[264px] shrink-0 flex-col border-r border-line px-4 py-8 lg:flex">
+          <h2 className="px-3 font-display text-2xl leading-8 text-ink">설정</h2>
 
-          <nav className="flex flex-col gap-1" aria-label="설정 메뉴">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveMenu(item.id)}
-                aria-current={activeMenu === item.id ? 'page' : undefined}
-                className={`flex h-9 items-center justify-between px-3 rounded-lg text-sm transition-colors ${activeMenu === item.id ? 'bg-raised text-ink font-medium' : 'text-ink-2 hover:bg-raised hover:text-ink'}`}
-              >
-                <div className="flex items-center gap-3">
-                  <item.icon size={16} strokeWidth={1.5} className={activeMenu === item.id ? 'text-accent' : 'text-ink-3'} />
-                  <span>{item.label}</span>
-                </div>
-                <ChevronRight size={16} strokeWidth={1.5} className={`text-ink-3 ${activeMenu === item.id ? 'opacity-100' : 'opacity-0'}`} />
-              </button>
-            ))}
+          <nav className="mt-5 flex flex-col gap-1" aria-label="설정 메뉴">
+            {menuItems.map((item) => {
+              const active = activeMenu === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveMenu(item.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-sm transition-colors ${
+                    active ? 'bg-surface font-medium text-ink shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:bg-raised hover:text-ink'
+                  }`}
+                >
+                  <item.icon size={16} strokeWidth={1.5} className={active ? 'text-ink' : 'text-ink-3'} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                </button>
+              );
+            })}
           </nav>
 
           <button
             type="button"
             onClick={() => signOut({ callbackUrl: '/' })}
-            className="mt-auto flex h-9 items-center gap-3 px-3 text-negative hover:bg-negative-soft rounded-lg transition-colors"
+            className="mt-auto flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm text-ink-2 transition-colors hover:bg-raised hover:text-ink"
           >
-            <LogOut size={16} strokeWidth={1.5} />
-            <span className="text-sm">로그아웃</span>
+            <LogOut size={16} strokeWidth={1.5} className="text-ink-3" aria-hidden />
+            로그아웃
           </button>
         </aside>
 
         {/* 좁은 화면: 위쪽 가로 메뉴 */}
         <nav
-          className="lg:hidden shrink-0 border-b border-line bg-surface px-4 pt-4"
+          className="lg:hidden shrink-0 border-b border-line px-4 pt-5"
           aria-label="설정 메뉴"
         >
-          <h2 className="text-xl font-semibold text-ink">설정</h2>
-          <div className="no-scrollbar -mx-4 mt-3 flex gap-1 overflow-x-auto px-4 pb-2">
-            {menuItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveMenu(item.id)}
-                aria-current={activeMenu === item.id ? 'page' : undefined}
-                className={`flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm transition-colors ${activeMenu === item.id ? 'bg-raised text-ink font-medium' : 'text-ink-2'}`}
-              >
-                <item.icon size={16} strokeWidth={1.5} className={activeMenu === item.id ? 'text-accent' : 'text-ink-3'} />
-                {item.label}
-              </button>
-            ))}
+          <h2 className="font-display text-2xl leading-8 text-ink">설정</h2>
+          <div className="no-scrollbar -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-3">
+            {menuItems.map((item) => {
+              const active = activeMenu === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveMenu(item.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors ${
+                    active ? 'bg-accent font-medium text-white' : 'bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line)]'
+                  }`}
+                >
+                  <item.icon size={16} strokeWidth={1.5} aria-hidden />
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </nav>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar p-4 pb-24 sm:p-6 lg:p-12">
-          <div className="max-w-2xl mx-auto">
-            <div className="animate-in fade-in duration-200">{renderContent()}</div>
+        <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-6 pb-24 sm:px-6 lg:px-12 lg:py-10">
+          <div className="max-w-[720px]">
+            {renderContent()}
 
-            <div className="mt-10 flex justify-center lg:hidden">
+            <div className="mt-10 flex lg:hidden">
               <button
                 type="button"
                 onClick={() => signOut({ callbackUrl: '/' })}
-                className="btn-ghost !text-negative"
+                className="btn-secondary w-full"
               >
-                <LogOut size={16} strokeWidth={1.5} />
+                <LogOut size={16} strokeWidth={1.5} aria-hidden />
                 로그아웃
               </button>
             </div>

@@ -12,7 +12,6 @@ import {
   Users,
   UserPlus,
   Bell,
-  Settings,
   MessageCircle
 } from 'lucide-react';
 import ProfileModal from './ProfileModal';
@@ -26,8 +25,8 @@ const navItems = [
   { name: '모임', href: '/groups', icon: Users },
   { name: '친구', href: '/friends', icon: UserPlus },
   { name: '메시지', href: '/messages', icon: MessageCircle },
-  { name: '설정', href: '/settings', icon: Settings },
 ];
+// 설정은 오른쪽 위 내 프로필 메뉴에서 연다
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -36,20 +35,16 @@ export default function Navbar() {
   const unread = useUnreadCounts();
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-line bg-surface">
-      <div className="mx-auto flex h-14 w-full items-center justify-between px-4 lg:px-8">
-        {/* Left: Logo */}
-        <div className="flex items-center gap-8">
-          <Link href="/home" className="flex items-center gap-2 shrink-0">
-            <div className="size-8 rounded-lg bg-accent flex items-center justify-center">
-              <Calendar size={16} strokeWidth={1.5} className="text-white" />
-            </div>
-            <span className="text-base font-semibold text-ink">모여로그</span>
-          </Link>
-        </div>
+    <nav className="sticky top-0 z-50 w-full border-b border-line bg-canvas/95 backdrop-blur supports-[backdrop-filter]:bg-canvas/85">
+      <div className="mx-auto flex h-14 w-full items-center justify-between px-4 lg:h-16 lg:px-8">
+        {/* 로고: 주황 띠 + 주아 */}
+        <Link href="/home" className="flex shrink-0 items-center gap-2.5">
+          <span aria-hidden className="h-[18px] w-[3px] rounded-full bg-mark" />
+          <span className="font-display text-[20px] leading-none text-ink lg:text-[22px]">모여로그</span>
+        </Link>
 
-        {/* Center: Menu (Visible from LG screens) */}
-        <div className="hidden lg:flex items-center gap-1">
+        {/* 가운데 메뉴 (넓은 화면): 글자만, 선택은 주아 + 주황 밑줄 */}
+        <div className="hidden h-full items-stretch gap-7 lg:flex">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const count = item.href === '/messages' ? unread.messages : 0;
@@ -57,53 +52,58 @@ export default function Navbar() {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex h-9 items-center gap-2 px-3 rounded-lg text-sm transition-colors duration-150 ${isActive
-                  ? 'bg-raised text-ink font-medium'
-                  : 'text-ink-2 hover:text-ink hover:bg-raised'
-                  }`}
+                aria-current={isActive ? 'page' : undefined}
+                className="relative flex items-center gap-1.5"
               >
-                <item.icon size={16} strokeWidth={1.5} className={isActive ? 'text-accent' : 'text-ink-3'} />
-                <span>{item.name}</span>
+                <span className={isActive ? 'font-display text-[15px] text-ink' : 'text-sm text-ink-2 transition-colors hover:text-ink'}>
+                  {item.name}
+                </span>
                 {count > 0 && (
-                  <span className="min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] leading-4 text-center tabular-nums">
+                  <span className="min-w-4 h-4 rounded-full bg-mark px-1 text-center text-[10px] leading-4 text-white tabular-nums">
                     {badgeText(count)}
                   </span>
                 )}
+                <span
+                  aria-hidden
+                  className={`absolute bottom-0 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-mark ${isActive ? 'opacity-100' : 'opacity-0'}`}
+                />
               </Link>
             );
           })}
         </div>
 
-        {/* Right: User */}
-        <div className="flex items-center gap-2">
+        {/* 오른쪽: (좁은 화면) 메시지 · 알림 · 내 프로필 */}
+        <div className="flex items-center gap-1 lg:gap-2">
+          <Link
+            href="/messages"
+            aria-label={unread.messages > 0 ? `메시지, 안 읽음 ${unread.messages}개` : '메시지'}
+            className={`btn-icon size-9 relative lg:hidden ${pathname.startsWith('/messages') ? 'bg-raised text-ink' : ''}`}
+          >
+            <MessageCircle size={20} strokeWidth={1.5} />
+            {unread.messages > 0 && <span aria-hidden className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-mark" />}
+          </Link>
           <Link
             href="/notifications"
-            aria-label={unread.total > 0 ? `알림, 안 읽은 알림과 메시지 ${unread.total}개` : '알림'}
-            className={`btn-ghost size-9 !px-0 relative ${pathname.startsWith('/notifications') ? 'bg-raised text-ink' : ''}`}
+            aria-label={unread.notifications > 0 ? `알림, 안 읽음 ${unread.notifications}개` : '알림'}
+            className={`btn-icon size-9 relative ${pathname.startsWith('/notifications') ? 'bg-surface text-ink shadow-[inset_0_0_0_1px_var(--line)]' : ''}`}
           >
-            <Bell size={18} strokeWidth={1.5} />
-            {unread.total > 0 && (
-              <span
-                aria-hidden
-                className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 rounded-full bg-accent text-white text-[10px] leading-4 text-center tabular-nums"
-              >
-                {badgeText(unread.total)}
-              </span>
-            )}
+            <Bell size={19} strokeWidth={1.5} />
+            {unread.notifications > 0 && <span aria-hidden className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-mark" />}
           </Link>
 
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="size-9 rounded-full bg-raised border border-line flex items-center justify-center text-sm font-medium text-ink-2 hover:border-line-strong transition-colors overflow-hidden"
+            aria-label="내 프로필과 설정"
+            className="ml-1 flex size-8 items-center justify-center overflow-hidden rounded-full bg-raised text-[13px] font-medium text-ink-2 shadow-[inset_0_0_0_1px_var(--line)] transition-shadow hover:shadow-[inset_0_0_0_1px_var(--line-strong)]"
           >
             {session?.user?.image ? (
-              <ImageWithFallback 
-                src={session.user.image} 
-                alt="User" 
-                width={36} 
-                height={36} 
+              <ImageWithFallback
+                src={session.user.image}
+                alt="내 프로필"
+                width={32}
+                height={32}
                 containerClassName="w-full h-full"
-                className="object-cover" 
+                className="object-cover"
               />
             ) : (
               <span>{initialOf(session?.user?.name, '나')}</span>

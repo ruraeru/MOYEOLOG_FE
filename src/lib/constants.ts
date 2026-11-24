@@ -1,14 +1,16 @@
 /**
  * 공통 테마 색상 정의
  */
+// 모임 색. 띠(ribbon)·점으로만 쓴다. 배경 워시로 깔지 않는다. 키는 DB 에 저장된 값이라 바꾸지 않는다
+// hex: 띠·점 인라인 색, dot: 점 클래스, text: 글자로 쓸 때(진한 톤), soft: 아주 옅은 바탕(선택 표시 등 꼭 필요할 때만)
 export const THEME_COLORS = {
-  indigo: { bg: 'bg-indigo-100', text: 'text-indigo-600', light: 'bg-indigo-50/50', border: 'border-indigo-200', soft: 'text-indigo-500', dot: 'bg-accent' },
-  blue: { bg: 'bg-sky-100', text: 'text-sky-600', light: 'bg-sky-50/50', border: 'border-sky-200', soft: 'text-sky-500', dot: 'bg-sky-500' },
-  emerald: { bg: 'bg-emerald-100', text: 'text-emerald-600', light: 'bg-emerald-50/50', border: 'border-emerald-200', soft: 'text-emerald-500', dot: 'bg-emerald-500' },
-  orange: { bg: 'bg-orange-100', text: 'text-orange-600', light: 'bg-orange-50/50', border: 'border-orange-200', soft: 'text-orange-500', dot: 'bg-orange-500' },
-  rose: { bg: 'bg-rose-100', text: 'text-rose-600', light: 'bg-rose-50/50', border: 'border-rose-200', soft: 'text-rose-500', dot: 'bg-rose-500' },
-  amber: { bg: 'bg-amber-100', text: 'text-amber-600', light: 'bg-amber-50/50', border: 'border-amber-200', soft: 'text-amber-500', dot: 'bg-amber-500' },
-  purple: { bg: 'bg-purple-100', text: 'text-purple-600', light: 'bg-purple-50/50', border: 'border-purple-200', soft: 'text-purple-500', dot: 'bg-purple-500' },
+  indigo: { hex: '#573c2d', dot: 'bg-[#573c2d]', text: 'text-[#573c2d]', soft: 'bg-[#573c2d]/10', bg: 'bg-[#573c2d]/10', light: 'bg-[#573c2d]/5', border: 'border-[#573c2d]/30' },
+  blue: { hex: '#6f9fc9', dot: 'bg-[#6f9fc9]', text: 'text-[#3f6f99]', soft: 'bg-[#6f9fc9]/12', bg: 'bg-[#6f9fc9]/12', light: 'bg-[#6f9fc9]/6', border: 'border-[#6f9fc9]/40' },
+  emerald: { hex: '#8db478', dot: 'bg-[#8db478]', text: 'text-[#4f7a3a]', soft: 'bg-[#8db478]/15', bg: 'bg-[#8db478]/15', light: 'bg-[#8db478]/8', border: 'border-[#8db478]/40' },
+  orange: { hex: '#fe804d', dot: 'bg-[#fe804d]', text: 'text-[#b4501f]', soft: 'bg-[#fe804d]/12', bg: 'bg-[#fe804d]/12', light: 'bg-[#fe804d]/6', border: 'border-[#fe804d]/40' },
+  rose: { hex: '#e58a8a', dot: 'bg-[#e58a8a]', text: 'text-[#a84848]', soft: 'bg-[#e58a8a]/15', bg: 'bg-[#e58a8a]/15', light: 'bg-[#e58a8a]/8', border: 'border-[#e58a8a]/40' },
+  amber: { hex: '#f4c679', dot: 'bg-[#f4c679]', text: 'text-[#8a6416]', soft: 'bg-[#f4c679]/20', bg: 'bg-[#f4c679]/20', light: 'bg-[#f4c679]/10', border: 'border-[#f4c679]/50' },
+  purple: { hex: '#a58fc9', dot: 'bg-[#a58fc9]', text: 'text-[#6a5596]', soft: 'bg-[#a58fc9]/15', bg: 'bg-[#a58fc9]/15', light: 'bg-[#a58fc9]/8', border: 'border-[#a58fc9]/40' },
 } as const;
 
 export type ThemeKey = keyof typeof THEME_COLORS;

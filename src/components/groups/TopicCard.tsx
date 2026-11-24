@@ -1,76 +1,43 @@
 'use client';
 
 import React from 'react';
-import { MessageSquare } from 'lucide-react';
-import { format } from 'date-fns';
-import { ko } from 'date-fns/locale';
-import { stripMarkdown, initialOf } from '@/lib/utils';
-import ImageWithFallback from '@/components/ImageWithFallback';
+import { Image as ImageIcon, MessageSquare } from 'lucide-react';
+import { stripMarkdown } from '@/lib/utils';
 import { type TopicResponse } from '@/types/topic';
+import { Avatar, relativeStamp } from './GroupUI';
 
 interface TopicCardProps {
   topic: TopicResponse;
-  viewMode: 'grid' | 'list';
   onClick: () => void;
 }
 
-export function TopicCard({ topic, viewMode, onClick }: TopicCardProps) {
-  const isList = viewMode === 'list';
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  
+/** 토픽 카드: 주아 제목, 한 줄 요약, 작성자·시각·댓글 수·사진 */
+export function TopicCard({ topic, onClick }: TopicCardProps) {
+  const summary = stripMarkdown(topic.content);
   return (
-    <div 
-      onClick={onClick} 
-      className={`card transition-colors duration-150 ease-out group flex overflow-hidden cursor-pointer hover:bg-raised ${
-        isList 
-          ? 'p-4 gap-4' 
-          : 'flex-col'
-      }`}
+    <div
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
+      role="button"
+      tabIndex={0}
+      className="card flex cursor-pointer flex-col gap-2 px-4 py-4 transition-colors duration-150 hover:bg-raised md:px-5"
     >
-      {topic.imageUrl && (
-        <ImageWithFallback 
-          src={topic.imageUrl.startsWith('/uploads/') ? `${apiUrl}${topic.imageUrl}` : topic.imageUrl} 
-          alt={topic.title} 
-          fill 
-          containerClassName={isList ? "size-28 rounded-lg shrink-0 overflow-hidden" : "h-48 w-full bg-raised"} 
-          className="object-cover" 
-          unoptimized 
-        />
-      )}
-      <div className={isList ? "flex flex-col gap-2 flex-1 min-w-0" : "p-5 flex flex-col gap-3 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between gap-3">
-          <h4 className="font-semibold text-ink text-base truncate">
-            {topic.title}
-          </h4>
-          <div className="flex items-center gap-1 text-ink-3 text-xs tabular-nums shrink-0">
-            <MessageSquare size={16} strokeWidth={1.5} /> 
-            {topic.commentCount}
-          </div>
-        </div>
-        <p className="text-sm text-ink-2 line-clamp-2 leading-relaxed flex-1">
-          {stripMarkdown(topic.content)}
-        </p>
-        <div className="flex items-center justify-between pt-3 border-t border-line mt-auto">
-          <div className="flex items-center gap-2">
-            <div className="size-6 rounded-full overflow-hidden relative bg-accent-soft">
-              {topic.authorProfileImage ? (
-                <ImageWithFallback 
-                  src={topic.authorProfileImage.startsWith('/uploads/') ? `${apiUrl}${topic.authorProfileImage}` : topic.authorProfileImage} 
-                  alt="" 
-                  fill 
-                  containerClassName="w-full h-full"
-                  className="object-cover" 
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs text-accent">
-                  {initialOf(topic.authorNickname)}
-                </div>
-              )}
-            </div>
-            <span className="text-xs text-ink-2">{topic.authorNickname}</span>
-          </div>
-          <span className="stamp">{format(new Date(topic.createdAt), 'M.d EEE', { locale: ko })}</span>
-        </div>
+      <h4 className="truncate font-display text-[17px] leading-6 text-ink">{topic.title}</h4>
+      {summary && <p className="hidden text-sm leading-relaxed text-ink-2 line-clamp-1 md:block">{summary}</p>}
+      <div className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
+        <Avatar name={topic.authorNickname} src={topic.authorProfileImage} size="size-5" />
+        <span className="truncate text-ink-2">{topic.authorNickname}</span>
+        <span className="stamp shrink-0">{relativeStamp(topic.createdAt)}</span>
+        <span className="ml-1.5 inline-flex shrink-0 items-center gap-1">
+          <MessageSquare size={14} strokeWidth={1.5} aria-hidden />
+          <span className="tabular-nums">댓글 {topic.commentCount}</span>
+        </span>
+        {topic.imageUrl && (
+          <span className="ml-1.5 inline-flex shrink-0 items-center gap-1">
+            <ImageIcon size={14} strokeWidth={1.5} aria-hidden />
+            사진 1
+          </span>
+        )}
       </div>
     </div>
   );

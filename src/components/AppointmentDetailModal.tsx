@@ -36,8 +36,9 @@ export default function AppointmentDetailModal({
       className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-black/40 p-0 md:p-4"
       onClick={onClose}
     >
+      {/* Modal(ui.tsx)과 같은 모양. 안에서 수정 창(fixed)이 열리므로 transform 애니메이션은 넣지 않는다 */}
       <div
-        className="w-full max-w-5xl max-h-[92dvh] md:max-h-[90vh] flex flex-col"
+        className="w-full md:max-w-[720px] max-h-[92dvh] md:max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <AppointmentDetailView 

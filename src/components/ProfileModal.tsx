@@ -4,13 +4,10 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  User,
   Settings,
   HelpCircle,
   LogOut,
   X,
-  ChevronRight,
-  ShieldCheck,
   Copy,
   Check
 } from 'lucide-react';
@@ -45,80 +42,66 @@ export default function ProfileModal({ isOpen, onClose, user }: ProfileModalProp
   };
 
   return (
-    <div className="absolute top-14 right-4 z-[100] w-80 animate-in fade-in slide-in-from-top-4 duration-200">
-      {/* Backdrop for closing */}
+    <div className="absolute top-14 right-4 z-[100] w-80 animate-slide-down">
+      {/* 바깥을 누르면 닫힘 */}
       <div className="fixed inset-0" onClick={onClose} />
 
-      <div className="relative bg-surface rounded-2xl shadow-float border border-line overflow-hidden">
-        {/* Header/User Profile */}
-        <div className="p-5 border-b border-line">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-xs text-ink-3 flex items-center gap-1.5">
-              <ShieldCheck size={16} strokeWidth={1.5} />
-              인증된 계정
-            </span>
-            <button onClick={onClose} className="btn-ghost size-8 !h-8 !px-0">
-              <X size={18} strokeWidth={1.5} />
-            </button>
+      <div className="relative overflow-hidden rounded-xl border border-line bg-surface shadow-float">
+        {/* 내 정보 */}
+        <div className="flex items-start gap-3 border-b border-line p-4">
+          <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-raised">
+            {user?.image ? (
+              <Image
+                src={user.image}
+                alt={user.name || 'User Avatar'}
+                fill
+                sizes="40px"
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm text-ink-2">
+                {initialOf(user?.name, '나')}
+              </div>
+            )}
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="size-12 rounded-full overflow-hidden border border-line relative bg-raised shrink-0">
-              {user?.image ? (
-                <Image
-                  src={user.image}
-                  alt={user.name || 'User Avatar'}
-                  fill
-                  sizes="48px"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-ink-2 font-medium text-lg">
-                  {initialOf(user?.name, '나')}
-                </div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-base font-semibold text-ink truncate">{user?.name || '게스트'}</h3>
-              <p className="text-xs text-ink-2 tabular-nums">ID: {user?.customId || '--------'}</p>
-              <p className="text-xs text-ink-3 truncate w-full">{user?.email || '등록된 이메일이 없어요'}</p>
-            </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-display text-base leading-6 text-ink">{user?.name || '게스트'}</h3>
+            <p className="stamp">ID {user?.customId || '--------'}</p>
+            <p className="mt-0.5 truncate text-xs text-ink-3">{user?.email || '등록된 이메일이 없어요'}</p>
           </div>
+          <button onClick={onClose} className="btn-icon -mr-1 -mt-1 shrink-0" aria-label="닫기">
+            <X size={16} strokeWidth={1.5} />
+          </button>
         </div>
 
-        {/* Invite Link Section */}
-        <div className="p-4 border-b border-line">
-          <p className="text-xs text-ink-2 mb-2">내 친구 초대 링크</p>
+        {/* 친구 초대 링크 */}
+        <div className="border-b border-line p-4">
+          <p className="mb-2 text-xs font-medium text-ink-2">내 친구 초대 링크</p>
           <div className="flex gap-2">
-            <div className="flex-1 bg-raised border border-line rounded-lg px-3 h-9 flex items-center text-xs text-ink-3 truncate">
+            <div className="flex h-9 min-w-0 flex-1 items-center rounded-[10px] border border-line-strong bg-surface px-3 text-xs text-ink-3">
               <span className="truncate">{inviteLink || '로그인 후 이용할 수 있어요'}</span>
             </div>
             <button
               onClick={handleCopyInviteLink}
               disabled={!inviteLink}
-              className="btn-secondary size-9 !h-9 !px-0"
+              className="btn-secondary size-9 !px-0"
+              title={copied ? '복사했어요' : '링크 복사'}
             >
-              {copied ? (
-                <Check size={16} strokeWidth={1.5} className="text-positive" />
-              ) : (
-                <Copy size={16} strokeWidth={1.5} className="text-ink-2" />
-              )}
+              {copied ? <Check size={16} strokeWidth={1.5} /> : <Copy size={16} strokeWidth={1.5} />}
             </button>
           </div>
         </div>
 
-        {/* Menu Items */}
-        <div className="p-2">
-          <ProfileMenuItem href="/settings" icon={User} label="프로필 관리" onClose={onClose} />
-          <ProfileMenuItem href="/settings" icon={Settings} label="앱 설정" onClose={onClose} />
-          <ProfileMenuItem href="/help" icon={HelpCircle} label="고객센터와 도움말" onClose={onClose} />
+        {/* 메뉴 */}
+        <div className="p-1.5">
+          <ProfileMenuItem href="/settings" icon={Settings} label="설정" onClose={onClose} />
+          <ProfileMenuItem href="/help" icon={HelpCircle} label="도움말" onClose={onClose} />
         </div>
 
-        {/* Footer */}
-        <div className="p-2 border-t border-line">
+        <div className="border-t border-line p-1.5">
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
-            className="w-full flex h-9 items-center gap-3 px-3 text-sm text-negative rounded-lg hover:bg-negative-soft transition-colors"
+            className="flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-sm text-negative transition-colors hover:bg-negative-soft"
           >
             <LogOut size={16} strokeWidth={1.5} />
             로그아웃
@@ -141,11 +124,10 @@ function ProfileMenuItem({ href, icon: Icon, label, onClose }: ProfileMenuItemPr
     <Link
       href={href}
       onClick={onClose}
-      className="flex h-9 items-center gap-3 px-3 rounded-lg text-sm text-ink hover:bg-raised transition-colors"
+      className="flex h-9 items-center gap-2.5 rounded-lg px-3 text-sm text-ink transition-colors hover:bg-raised"
     >
       <Icon size={16} strokeWidth={1.5} className="text-ink-3" />
       <span className="flex-1">{label}</span>
-      <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3" />
     </Link>
   );
 }

@@ -8,7 +8,7 @@ import axios from 'axios';
 import { format, isSameDay } from 'date-fns';
 import { useTimeFormat } from '@/lib/schedule-utils';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Users } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, User } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { messageApi, MESSAGE_MAX_LENGTH, type ConversationResponse, type MessageResponse } from '@/lib/message-api';
@@ -17,6 +17,7 @@ import { getApiErrorMessage } from '@/lib/axios';
 import { refreshUnreadCounts, badgeText } from '@/lib/notification-api';
 import { useAlert } from '@/hooks/useAlert';
 import { initialOf } from '@/lib/utils';
+import { EmptyState } from '@/components/ui';
 
 const POLL_MS = 5000;
 const PAGE_SIZE = 50;
@@ -76,7 +77,7 @@ function Avatar({ src, name, className = 'size-10' }: { src?: string | null; nam
           unoptimized
         />
       ) : (
-        <span className="text-sm font-medium text-ink-2">{initialOf(name)}</span>
+        <span className="text-sm text-ink-2">{initialOf(name)}</span>
       )}
     </div>
   );
@@ -89,6 +90,7 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
   const [conversations, setConversations] = useState<ConversationResponse[]>([]);
   const [convLoading, setConvLoading] = useState(true);
   const [convError, setConvError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -128,69 +130,86 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
 
   const current = friendId ? conversations.find((c) => c.friend.id === friendId) : undefined;
   const myId = session?.user?.id;
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? conversations.filter((c) => c.friend.nickname.toLowerCase().includes(q) || c.friend.customId.toLowerCase().includes(q))
+    : conversations;
 
   return (
     <div className="h-[calc(100dvh-4rem)] lg:h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
-      <main className="flex-1 min-h-0 flex max-w-6xl w-full mx-auto lg:p-6 lg:gap-4">
-        {/* Conversation list */}
+      <main className="flex-1 min-h-0 flex w-full">
+        {/* 대화 목록 */}
         <aside
-          className={`${friendId ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 shrink-0 flex-col min-h-0 bg-surface lg:rounded-2xl lg:border lg:border-line lg:overflow-hidden`}
+          className={`${friendId ? 'hidden lg:flex' : 'flex'} w-full lg:w-[360px] shrink-0 flex-col min-h-0 lg:border-r lg:border-line`}
         >
-          <div className="px-4 py-4 border-b border-line">
-            <h2 className="text-lg font-semibold text-ink">메시지</h2>
-            <p className="text-xs text-ink-3 mt-0.5">친구와 1:1로 이야기해요</p>
+          <div className="px-4 pt-5 pb-3 lg:px-5 lg:pt-6 space-y-3">
+            <h1 className="font-display text-2xl leading-8 text-ink lg:text-[26px]">메시지</h1>
+            <div className="relative">
+              <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="이름으로 찾기"
+                aria-label="대화 찾기"
+                className="form-input h-9 py-0 pl-9"
+              />
+            </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+          <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 pb-4 lg:px-3">
             {convLoading || status !== 'authenticated' ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3">
                 <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
                 <p className="text-sm text-ink-3">대화 목록을 불러오는 중…</p>
               </div>
             ) : convError ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                <AlertCircle size={18} strokeWidth={1.5} className="text-negative mb-3" />
-                <p className="text-sm font-medium text-ink">대화 목록을 불러오지 못했어요</p>
-                <p className="text-sm text-ink-3 mt-1 mb-5">{convError}</p>
-                <button onClick={() => fetchConversations()} className="btn-secondary">
-                  <RotateCw size={16} strokeWidth={1.5} />
-                  다시 시도
-                </button>
-              </div>
+              <EmptyState
+                icon={AlertCircle}
+                title="대화 목록을 불러오지 못했어요"
+                description={convError}
+                action={
+                  <button onClick={() => fetchConversations()} className="btn-secondary">
+                    <RotateCw size={16} strokeWidth={1.5} />
+                    다시 시도
+                  </button>
+                }
+              />
             ) : conversations.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-                <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
-                  <Users size={18} strokeWidth={1.5} className="text-ink-3" />
-                </div>
-                <p className="text-sm font-medium text-ink">아직 대화가 없어요</p>
-                <p className="text-sm text-ink-3 mt-1 mb-5">친구 카드의 &apos;메시지 보내기&apos;로 대화를 시작해요</p>
-                <Link href="/friends" className="btn-secondary">친구 목록으로</Link>
-              </div>
+              <EmptyState
+                title="아직 대화가 없어요"
+                description="친구 목록의 '메시지'로 대화를 시작해요"
+                action={<Link href="/friends" className="btn-secondary">친구 목록으로</Link>}
+              />
+            ) : shown.length === 0 ? (
+              <EmptyState title="찾는 대화가 없어요" description="이름을 다시 확인해 주세요" />
             ) : (
-              <ul className="divide-y divide-line">
-                {conversations.map((c) => {
+              <ul className="space-y-0.5">
+                {shown.map((c) => {
                   const active = c.friend.id === friendId;
                   const last = c.lastMessage;
+                  const unreadNow = c.unreadCount > 0;
                   return (
                     <li key={c.friend.id}>
                       <Link
                         href={`/messages/${c.friend.id}`}
-                        className={`flex items-center gap-3 px-4 py-3 transition-colors ${active ? 'bg-raised' : 'hover:bg-raised'}`}
+                        aria-current={active ? 'page' : undefined}
+                        className={`flex min-h-16 items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+                          active ? 'bg-surface shadow-[inset_0_0_0_1px_var(--line)]' : 'hover:bg-raised'
+                        }`}
                       >
                         <Avatar src={c.friend.profileImage} name={c.friend.nickname} />
                         <span className="flex-1 min-w-0">
                           <span className="flex items-center justify-between gap-2">
-                            <span className={`text-sm truncate ${c.unreadCount > 0 ? 'text-ink font-medium' : 'text-ink'}`}>
-                              {c.friend.nickname}
-                            </span>
+                            <span className="font-display text-[15px] leading-5 text-ink truncate">{c.friend.nickname}</span>
                             {last && <span className="stamp shrink-0">{listStamp(last.createdAt, tf)}</span>}
                           </span>
-                          <span className="flex items-center justify-between gap-2 mt-0.5">
-                            <span className={`text-xs truncate ${c.unreadCount > 0 ? 'text-ink-2' : 'text-ink-3'}`}>
+                          <span className="flex items-center justify-between gap-2 mt-1">
+                            <span className={`text-[13px] truncate ${unreadNow ? 'text-ink' : 'text-ink-2'}`}>
                               {last ? `${last.senderId === myId ? '나: ' : ''}${last.content}` : '아직 주고받은 메시지가 없어요'}
                             </span>
-                            {c.unreadCount > 0 && (
-                              <span className="min-w-4 h-4 px-1 shrink-0 rounded-full bg-accent text-white text-[10px] leading-4 text-center tabular-nums">
+                            {unreadNow && (
+                              <span className="min-w-[18px] h-[18px] px-1 shrink-0 rounded-full bg-mark text-white text-[11px] leading-[18px] text-center tabular-nums">
                                 {badgeText(c.unreadCount)}
                               </span>
                             )}
@@ -205,8 +224,8 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
           </div>
         </aside>
 
-        {/* Chat */}
-        <section className={`${friendId ? 'flex' : 'hidden lg:flex'} flex-1 min-w-0 min-h-0 flex-col bg-surface lg:rounded-2xl lg:border lg:border-line lg:overflow-hidden`}>
+        {/* 대화 */}
+        <section className={`${friendId ? 'flex' : 'hidden lg:flex'} flex-1 min-w-0 min-h-0 flex-col`}>
           {friendId && status === 'authenticated' ? (
             <ChatPanel
               key={friendId}
@@ -216,12 +235,8 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
               onSent={pollConversations}
             />
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
-              <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
-                <MessageCircle size={18} strokeWidth={1.5} className="text-ink-3" />
-              </div>
-              <p className="text-sm font-medium text-ink">대화를 골라 주세요</p>
-              <p className="text-sm text-ink-3 mt-1">왼쪽 목록에서 친구를 고르면 대화가 열려요</p>
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState icon={MessageCircle} title="대화를 골라 주세요" description="왼쪽 목록에서 친구를 고르면 대화가 열려요" />
             </div>
           )}
         </section>
@@ -398,47 +413,57 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
 
   return (
     <>
-      <header className="flex items-center gap-3 px-3 sm:px-4 h-14 border-b border-line shrink-0">
-        <Link href="/messages" className="btn-ghost size-9 !px-0 lg:hidden" aria-label="대화 목록으로">
+      <header className="flex items-center gap-3 px-3 sm:px-4 lg:px-7 h-16 lg:h-[72px] border-b border-line shrink-0">
+        <Link href="/messages" className="btn-icon size-9 lg:hidden" aria-label="대화 목록으로">
           <ArrowLeft size={18} strokeWidth={1.5} />
         </Link>
         {friendInfo ? (
-          <Link href={`/profile/${friendInfo.id}`} className="flex items-center gap-3 min-w-0 rounded-lg">
-            <Avatar src={friendInfo.profileImage} name={friendInfo.nickname} className="size-8" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-ink truncate">{friendInfo.nickname}</span>
-              <span className="block text-xs text-ink-3 tabular-nums">ID: {friendInfo.customId}</span>
-            </span>
-          </Link>
+          <>
+            <Link href={`/profile/${friendInfo.id}`} className="flex flex-1 items-center gap-3 min-w-0 rounded-lg">
+              <Avatar src={friendInfo.profileImage} name={friendInfo.nickname} className="size-9" />
+              <span className="min-w-0">
+                <span className="block font-display text-[17px] leading-6 text-ink truncate">{friendInfo.nickname}</span>
+                <span className="block text-xs text-ink-3 truncate">@{friendInfo.customId}</span>
+              </span>
+            </Link>
+            <Link href={`/profile/${friendInfo.id}`} className="btn-secondary shrink-0 hidden sm:inline-flex">
+              <User size={16} strokeWidth={1.5} />
+              프로필
+            </Link>
+          </>
         ) : (
           <span className="text-sm text-ink-3">{profileMissing ? '알 수 없는 사용자' : '불러오는 중…'}</span>
         )}
       </header>
 
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-4">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 lg:px-7 py-5">
         {loading ? (
           <div className="h-full flex items-center justify-center">
             <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
           </div>
         ) : error ? (
-          <div className="h-full flex flex-col items-center justify-center text-center px-4">
-            <AlertCircle size={18} strokeWidth={1.5} className="text-negative mb-3" />
-            <p className="text-sm font-medium text-ink">메시지를 불러오지 못했어요</p>
-            <p className="text-sm text-ink-3 mt-1 mb-5">{error}</p>
-            <button onClick={() => fetchLatest(true)} className="btn-secondary">
-              <RotateCw size={16} strokeWidth={1.5} />
-              다시 시도
-            </button>
+          <div className="h-full flex items-center justify-center">
+            <EmptyState
+              icon={AlertCircle}
+              title="메시지를 불러오지 못했어요"
+              description={error}
+              action={
+                <button onClick={() => fetchLatest(true)} className="btn-secondary">
+                  <RotateCw size={16} strokeWidth={1.5} />
+                  다시 시도
+                </button>
+              }
+            />
           </div>
         ) : messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center">
-            <p className="text-sm text-ink-3">첫 메시지를 보내 보세요</p>
+          <div className="h-full flex items-center justify-center">
+            <EmptyState title="아직 메시지가 없어요" description="첫 메시지를 보내 보세요" />
           </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {hasOlder && (
               <div className="flex justify-center pb-2">
-                <button onClick={loadOlder} disabled={loadingOlder} className="btn-ghost text-xs">
+                <button onClick={loadOlder} disabled={loadingOlder} className="btn-ghost btn-sm">
                   {loadingOlder && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
                   이전 메시지 보기
                 </button>
@@ -453,25 +478,25 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
               return (
                 <React.Fragment key={m.id}>
                   {newDay && d && (
-                    <div className="flex justify-center py-2">
-                      <span className="stamp">{format(d, 'yyyy.M.d EEE', { locale: ko })}</span>
+                    <div className="flex justify-center py-3">
+                      <span className="text-xs font-medium text-ink-3">{format(d, 'M월 d일 EEEE', { locale: ko })}</span>
                     </div>
                   )}
-                  <div className={`flex items-end gap-1.5 ${mine ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
                     {mine && (
                       <span className="flex flex-col items-end shrink-0">
-                        {isLastMine && m.read && <span className="text-[10px] text-ink-3">읽음</span>}
-                        <span className="stamp">{d ? format(d, tf, { locale: ko }) : ''}</span>
+                        {isLastMine && m.read && <span className="text-[11px] text-ink-3">읽음</span>}
+                        <span className="stamp text-[11px]">{d ? format(d, tf, { locale: ko }) : ''}</span>
                       </span>
                     )}
                     <p
-                      className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                        mine ? 'bg-accent-soft text-ink' : 'bg-raised text-ink'
+                      className={`max-w-[75%] lg:max-w-[60%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                        mine ? 'bg-accent text-white' : 'bg-surface text-ink border border-line'
                       }`}
                     >
                       {m.content}
                     </p>
-                    {!mine && <span className="stamp shrink-0">{d ? format(d, tf, { locale: ko }) : ''}</span>}
+                    {!mine && <span className="stamp text-[11px] shrink-0">{d ? format(d, tf, { locale: ko }) : ''}</span>}
                   </div>
                 </React.Fragment>
               );
@@ -480,7 +505,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
         )}
       </div>
 
-      <div className="border-t border-line p-3 shrink-0">
+      <div className="border-t border-line px-3 sm:px-4 lg:px-7 py-3 shrink-0">
         {blocked ? (
           <p className="text-sm text-ink-3 text-center py-2">{blocked}</p>
         ) : (
@@ -502,9 +527,9 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
                   }
                 }}
                 rows={1}
-                placeholder="메시지를 입력해요 (줄바꿈은 Shift+Enter)"
+                placeholder="메시지 쓰기 (줄바꿈은 Shift+Enter)"
                 aria-label="메시지 입력"
-                className="form-input resize-none max-h-32 min-h-10 py-2"
+                className="form-input block resize-none max-h-32 min-h-9 py-[7px] leading-5"
               />
               {length > MESSAGE_MAX_LENGTH - 200 && (
                 <p className={`text-xs mt-1 tabular-nums ${tooLong ? 'text-negative' : 'text-ink-3'}`}>
@@ -513,8 +538,9 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
                 </p>
               )}
             </div>
-            <button type="submit" disabled={!canSend} className="btn-primary size-10 !px-0 shrink-0" aria-label="보내기">
+            <button type="submit" disabled={!canSend} className="btn-primary shrink-0" aria-label="보내기">
               {sending ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}
+              <span className="hidden sm:inline">보내기</span>
             </button>
           </form>
         )}

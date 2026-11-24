@@ -22,7 +22,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     const memo = await memoApi.getById(id, session);
     return {
       title: `${memo.title} | MOYEOLOG`,
-      description: memo.content ? memo.content.slice(0, 100) : '일정, 메모, 모임을 한곳에서 관리하는 스마트 협업 플랫폼',
+      description: memo.content ? memo.content.slice(0, 100) : '일정, 메모, 모임을 한곳에서 모아 보는 모여로그',
     };
   } catch {
     return { title: '메모 상세 | MOYEOLOG' };
@@ -39,7 +39,7 @@ export default async function MemoDetailPage(props: Props) {
     <div className="flex flex-col h-[100dvh] bg-canvas">
       <Navbar />
       <main className="flex-1 overflow-hidden relative">
-        <div className="h-full max-w-7xl mx-auto bg-surface overflow-hidden">
+        <div className="mx-auto h-full max-w-7xl overflow-hidden bg-surface xl:border-x xl:border-line">
           <MemoDetailView memoId={id} isPage={true} />
         </div>
       </main>

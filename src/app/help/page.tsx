@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { PageHeader } from '@/components/ui';
 
 export const metadata: Metadata = {
   title: '도움말 | 모여로그',
@@ -21,7 +22,7 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
         q: '닉네임과 프로필 사진은 어디서 바꾸나요?',
         a: (
           <>
-            오른쪽 위 프로필 메뉴의 &apos;프로필 관리&apos;나 <Link href="/settings" className="text-accent underline-offset-2 hover:underline">설정</Link>에서 바꿀 수 있어요. 닉네임은 2~20자예요.
+            오른쪽 위 프로필 메뉴의 &apos;설정&apos;이나 <Link href="/settings" className="text-accent underline-offset-2 hover:underline">설정</Link>에서 바꿀 수 있어요. 닉네임은 2~20자예요.
           </>
         ),
       },
@@ -44,11 +45,11 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
       },
       {
         q: '잘못 보낸 친구 요청을 취소할 수 있나요?',
-        a: '친구 화면의 \'보낸 친구 요청\'에서 \'요청 취소\'를 누르면 돼요. 상대가 수락하기 전까지만 취소할 수 있어요.',
+        a: '친구 화면의 \'보낸 요청\'에서 \'요청 취소\'를 누르면 돼요. 상대가 수락하기 전까지만 취소할 수 있어요.',
       },
       {
         q: '메시지는 누구에게 보낼 수 있나요?',
-        a: '친구에게만 1:1로 보낼 수 있어요. 친구 카드의 \'메시지 보내기\'나 메시지 화면에서 대화를 열어요. 친구를 끊으면 지난 대화는 남지만 새 메시지는 보낼 수 없어요.',
+        a: '친구에게만 1:1로 보낼 수 있어요. 친구 목록의 \'메시지\'나 메시지 화면에서 대화를 열어요. 친구를 끊으면 지난 대화는 남지만 새 메시지는 보낼 수 없어요.',
       },
       {
         q: '친구에게 내 이메일이 보이나요?',
@@ -68,7 +69,7 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
         a: '참여자로 넣은 친구의 일정 화면에도 그 일정이 보이고, 친구에게 알림이 가요.',
       },
       {
-        q: 'AI 분석은 무엇을 해 주나요?',
+        q: '메모·토픽 분석은 무엇을 해 주나요?',
         a: '메모나 토픽의 글과 사진을 읽고 요약과 키워드를 만들어 줘요. 분석은 시간이 조금 걸릴 수 있고, 결과는 참고용이에요. 분석한 뒤 내용을 고치면 다시 분석할 수 있어요.',
       },
     ],
@@ -90,7 +91,7 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
     title: '알림과 계정',
     items: [
       {
-        q: '알림이 너무 많아요.',
+        q: '알림이 너무 많아요',
         a: '설정의 \'알림\'에서 친구 요청, 모임 초대, 메모 공유, 토픽 댓글, 일정 참여, 메시지 알림을 종류별로 끌 수 있어요.',
       },
       {
@@ -109,20 +110,21 @@ export default function HelpPage() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-ink">
       <Navbar />
-      <main className="flex-1 p-4 sm:p-8">
+      <main className="flex-1 px-4 pt-6 pb-24 lg:px-8 lg:pt-10 lg:pb-12">
         <div className="max-w-3xl mx-auto space-y-8">
-          <div>
-            <h1 className="text-2xl font-semibold text-ink">도움말</h1>
-            <p className="text-sm text-ink-2 mt-1">모여로그를 쓰면서 자주 묻는 질문을 모았어요</p>
-          </div>
+          <PageHeader
+            title="도움말"
+            description="모여로그를 쓰면서 자주 묻는 질문을 모았어요"
+            actions={<Link href="/settings" className="btn-secondary">설정 열기</Link>}
+          />
 
           {SECTIONS.map((section) => (
-            <section key={section.title} className="space-y-3">
-              <h2 className="text-base font-semibold text-ink">{section.title}</h2>
+            <section key={section.title} className="space-y-2">
+              <h2 className="px-1 text-[13px] font-medium text-ink-3">{section.title}</h2>
               <div className="card divide-y divide-line overflow-hidden">
                 {section.items.map((item) => (
                   <details key={item.q} className="group">
-                    <summary className="flex items-center justify-between gap-3 px-4 py-3.5 cursor-pointer list-none text-sm text-ink hover:bg-raised transition-colors [&::-webkit-details-marker]:hidden">
+                    <summary className="flex min-h-14 items-center justify-between gap-3 px-5 py-3 cursor-pointer list-none text-[15px] font-medium text-ink hover:bg-raised transition-colors [&::-webkit-details-marker]:hidden">
                       <span>{item.q}</span>
                       <ChevronDown
                         size={16}
@@ -130,7 +132,7 @@ export default function HelpPage() {
                         className="text-ink-3 shrink-0 transition-transform group-open:rotate-180"
                       />
                     </summary>
-                    <div className="px-4 pb-4 text-sm text-ink-2 leading-relaxed">{item.a}</div>
+                    <div className="px-5 pb-5 text-sm text-ink-2 leading-relaxed">{item.a}</div>
                   </details>
                 ))}
               </div>

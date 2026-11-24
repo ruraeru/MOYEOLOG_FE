@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Search, UserPlus, Loader2 } from 'lucide-react';
+import { Search, UserPlus, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi } from '@/lib/friend-api';
+import { Modal } from '@/components/ui';
 
 interface FriendSearchModalProps {
   isOpen: boolean;
@@ -42,51 +43,48 @@ export default function FriendSearchModal({ isOpen, onClose, onSuccess }: Friend
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-line bg-surface shadow-float overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-ink">친구 추가</h2>
-          <button onClick={onClose} className="btn-ghost">
-            <X size={18} strokeWidth={1.5} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSendRequest} className="p-6 space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-ink">사용자 ID로 찾기</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={customId}
-                // 복사할 때 딸려 온 공백을 먼저 지운 뒤 8자로 맞춰요(maxLength 는 공백까지 세어 ID 를 잘라 버림).
-                onChange={(e) => setCustomId(e.target.value.replace(/\s+/g, '').slice(0, 8))}
-                placeholder="친구의 8자리 ID를 입력해요"
-                className="form-input pl-10"
-                required
-                autoCapitalize="off"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-              <Search size={16} strokeWidth={1.5} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
-            </div>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title="친구 추가"
+      subtitle="친구의 8자리 아이디로 친구 신청을 보내요"
+      size="sm"
+    >
+      <form onSubmit={handleSendRequest} className="space-y-4">
+        <div className="space-y-1.5">
+          <label htmlFor="friend-custom-id" className="text-[13px] font-medium text-ink-2">
+            사용자 아이디
+          </label>
+          <div className="relative">
+            <input
+              id="friend-custom-id"
+              type="text"
+              value={customId}
+              // 복사할 때 딸려 온 공백을 먼저 지운 뒤 8자로 맞춰요(maxLength 는 공백까지 세어 ID 를 잘라 버림).
+              onChange={(e) => setCustomId(e.target.value.replace(/\s+/g, '').slice(0, 8))}
+              placeholder="8자리 아이디"
+              className="form-input pl-9"
+              required
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
           </div>
-
           {error && <p className="text-xs text-negative">{error}</p>}
           {success && <p className="text-xs text-positive">친구 요청을 보냈어요</p>}
+        </div>
 
-          <button
-            type="submit"
-            disabled={isSending || success}
-            className="btn-primary w-full"
-          >
-            {isSending ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <UserPlus size={16} strokeWidth={1.5} />}
-            {isSending ? '보내는 중…' : '친구 요청 보내기'}
-          </button>
-        </form>
-      </div>
-    </div>
+        <button
+          type="submit"
+          disabled={isSending || success}
+          className="btn-primary w-full"
+        >
+          {isSending ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <UserPlus size={16} strokeWidth={1.5} />}
+          {isSending ? '보내는 중…' : '친구 요청 보내기'}
+        </button>
+      </form>
+    </Modal>
   );
 }

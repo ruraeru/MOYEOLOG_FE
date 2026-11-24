@@ -9,12 +9,12 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Calendar as CalendarIcon,
-  CheckCircle2,
+  User,
   Plus,
   Loader2,
-  X,
-  MapPin
+  X
 } from 'lucide-react';
 import {
   format,
@@ -22,6 +22,7 @@ import {
   subMonths,
   addWeeks,
   subWeeks,
+  addDays,
   startOfMonth,
   endOfMonth,
   startOfWeek,
@@ -40,19 +41,32 @@ import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { getThemeColors } from '@/lib/utils';
+import { Ribbon, Segmented, SideItem, SideLabel, EmptyState } from '@/components/ui';
 import {
   type ScheduleView,
   formatScheduleRange,
   formatTimeOnDay,
   useTimeFormat,
   scheduleCoversDay,
-  scheduleDotClass,
   schedulesOnDay,
   sortSchedules,
+  isMultiDaySchedule,
   useDefaultScheduleView,
   useWeekStartsOn,
   weekdayHeaders
 } from '@/lib/schedule-utils';
+
+/** 일정 띠 색: 모임 일정은 모임 색, 개인 일정은 중립색 */
+const scheduleHex = (s: ScheduleResponse, groups: GroupResponse[]) => {
+  if (!s.groupId) return 'var(--ink-3)';
+  return getThemeColors(groups.find((g) => g.id === s.groupId)?.colorTheme).hex;
+};
+
+const VIEW_ITEMS: { key: ScheduleView; label: string }[] = [
+  { key: 'month', label: '월' },
+  { key: 'week', label: '주' },
+  { key: 'list', label: '목록' },
+];
 
 export default function SchedulePage() {
   const { data: session } = useSession();
@@ -130,8 +144,6 @@ export default function SchedulePage() {
 
   const goNext = () => setCurrentDate(view === 'week' ? addWeeks(currentDate, 1) : addMonths(currentDate, 1));
   const goPrev = () => setCurrentDate(view === 'week' ? subWeeks(currentDate, 1) : subMonths(currentDate, 1));
-  const nextMonth = () => setCurrentDate(addMonths(currentDate, 1));
-  const prevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const goToToday = () => {
     setCurrentDate(new Date());
     setSearchQuery('');
@@ -178,10 +190,6 @@ export default function SchedulePage() {
 
   const headers = weekdayHeaders(weekStartsOn);
 
-  const toolbarTitle = view === 'week'
-    ? `${format(weekDays[0], 'yyyy.M.d')} – ${format(weekDays[6], isSameMonth(weekDays[0], weekDays[6]) ? 'd' : 'M.d')}`
-    : format(currentDate, 'yyyy년 M월');
-
   const filterValue = activeFilter.type === 'group' ? `group:${activeFilter.id}` : activeFilter.type;
   const onFilterSelect = (value: string) => {
     if (value.startsWith('group:')) setActiveFilter({ type: 'group', id: value.slice(6) });
@@ -195,14 +203,14 @@ export default function SchedulePage() {
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="일정 검색"
-        className="form-input w-full pl-10 pr-9"
+        className="form-input h-9 w-full pl-9 pr-9"
       />
-      <Search size={16} strokeWidth={1.5} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" />
+      <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
       {searchQuery && (
         <button
           onClick={() => setSearchQuery('')}
           aria-label="검색어 지우기"
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink-2 transition-colors duration-150 ease-out"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-3 hover:text-ink transition-colors duration-150 ease-out"
         >
           <X size={16} strokeWidth={1.5} />
         </button>
@@ -210,140 +218,103 @@ export default function SchedulePage() {
     </div>
   );
 
+  const myCount = schedules.filter((s) => !s.groupId).length;
+
   return (
     <div className="h-[calc(100dvh-4rem)] lg:h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
       <div className="flex-1 flex overflow-hidden">
 
-        {/* Sidebar */}
-        <aside className="w-[300px] bg-surface border-r border-line flex-col p-6 gap-8 overflow-y-auto no-scrollbar hidden lg:flex relative z-10">
-
-          {/* Mini Calendar (Quick Date Selection) */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-base font-semibold text-ink">
-              <CalendarIcon size={16} strokeWidth={1.5} className="text-ink-3" />
-              <span>빠른 날짜 선택</span>
-            </div>
-
-            <div className="rounded-2xl border border-line bg-surface p-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-ink tabular-nums">{format(currentDate, 'yyyy년 M월')}</span>
-                <div className="flex gap-1">
-                  <button onClick={prevMonth} aria-label="이전 달" className="btn-ghost size-8 p-0 text-ink-3"><ChevronLeft size={16} strokeWidth={1.5} /></button>
-                  <button onClick={nextMonth} aria-label="다음 달" className="btn-ghost size-8 p-0 text-ink-3"><ChevronRight size={16} strokeWidth={1.5} /></button>
-                </div>
-              </div>
-              <div className="grid grid-cols-7 gap-y-1 text-center">
-                {headers.map(({ label, dayIndex }) => (
-                  <span key={label} className={`text-xs pb-1 ${dayIndex === 0 ? 'text-negative' : 'text-ink-3'}`}>{label}</span>
-                ))}
-                {monthDays.map((day, i) => {
-                  const hasSchedule = filteredSchedules.some(s => scheduleCoversDay(s, day));
-                  const isTodayDay = isToday(day);
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => {
-                        setCurrentDate(day);
-                        handleOpenListModal(day);
-                      }}
-                      className={`text-xs tabular-nums size-8 flex flex-col items-center justify-center mx-auto rounded-lg transition-colors duration-150 ease-out relative
-                        ${!isSameMonth(day, currentDate) ? 'text-ink-3 opacity-50' : 'text-ink'}
-                        ${isTodayDay ? 'bg-accent text-white' : 'hover:bg-raised'}
-                        ${isSameDay(day, currentDate) && !isTodayDay ? 'bg-raised' : ''}`}
-                    >
-                      {format(day, 'd')}
-                      {hasSchedule && (
-                        <span className={`size-1 rounded-full absolute bottom-1 ${isTodayDay ? 'bg-white' : 'bg-accent'}`} />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+        {/* 왼쪽 메뉴: 보기 · 모임 */}
+        <aside className="hidden lg:flex w-[264px] shrink-0 flex-col border-r border-line px-4 py-6 overflow-y-auto no-scrollbar">
+          <SideLabel>보기</SideLabel>
+          <div className="space-y-0.5">
+            <SideItem label="전체 일정" icon={CalendarIcon} count={schedules.length} active={activeFilter.type === 'all'} onClick={() => setActiveFilter({ type: 'all' })} />
+            <SideItem label="내 일정" icon={User} count={myCount} active={activeFilter.type === 'my'} onClick={() => setActiveFilter({ type: 'my' })} />
           </div>
 
-          {/* Schedule Filter */}
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-ink">일정 필터</h3>
-            <div className="space-y-1">
-              <FilterItem label="전체 일정" isActive={activeFilter.type === 'all'} onClick={() => setActiveFilter({ type: 'all' })} />
-              <FilterItem label="내 일정" isActive={activeFilter.type === 'my'} onClick={() => setActiveFilter({ type: 'my' })} />
-            </div>
-          </div>
-
-          {/* Participating Groups */}
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-ink">참여 그룹</h3>
-            <div className="space-y-1">
-              {userGroups.length > 0 ? userGroups.map((group) => (
-                <GroupFilterItem
+          <SideLabel>모임</SideLabel>
+          {userGroups.length > 0 ? (
+            <div className="space-y-0.5">
+              {userGroups.map((group) => (
+                <SideItem
                   key={group.id}
-                  isActive={activeFilter.type === 'group' && activeFilter.id === group.id}
-                  onClick={() => setActiveFilter({ type: 'group', id: group.id })}
-                  color={getThemeColors(group.colorTheme).dot}
-                  name={group.name}
+                  label={group.name}
+                  ribbon={getThemeColors(group.colorTheme).hex}
                   count={schedules.filter(s => s.groupId === group.id).length}
+                  active={activeFilter.type === 'group' && activeFilter.id === group.id}
+                  onClick={() => setActiveFilter({ type: 'group', id: group.id })}
                 />
-              )) : (
-                <p className="text-sm text-ink-3">참여 중인 모임이 없어요</p>
-              )}
+              ))}
             </div>
-          </div>
+          ) : (
+            <p className="px-3 text-[13px] text-ink-3">참여 중인 모임이 없어요</p>
+          )}
         </aside>
 
-        {/* Main Calendar Section */}
-        <main className="flex-1 flex flex-col bg-surface overflow-hidden relative min-w-0">
-          {/* Toolbar */}
-          <div className="border-b border-line flex flex-wrap items-center gap-x-3 gap-y-2 px-4 md:px-6 py-3 shrink-0 bg-surface z-20">
-            <div className="flex items-center gap-2 md:gap-4 min-w-0">
-              <button onClick={goToToday} className="btn-secondary h-9 shrink-0 whitespace-nowrap">오늘</button>
-              <div className="flex items-center gap-1 md:gap-2 min-w-0">
-                <button onClick={goPrev} aria-label={view === 'week' ? '이전 주' : '이전 달'} className="btn-ghost size-9 p-0 text-ink-2 shrink-0"><ChevronLeft size={18} strokeWidth={1.5} /></button>
-                <h2 className="text-lg md:text-2xl font-semibold text-ink tabular-nums whitespace-nowrap text-center md:min-w-40">{toolbarTitle}</h2>
-                <button onClick={goNext} aria-label={view === 'week' ? '다음 주' : '다음 달'} className="btn-ghost size-9 p-0 text-ink-2 shrink-0"><ChevronRight size={18} strokeWidth={1.5} /></button>
-              </div>
+        {/* 달력 */}
+        <main className="flex-1 flex flex-col overflow-hidden min-w-0 px-4 pt-4 pb-4 lg:px-8 lg:pt-6 lg:pb-6">
+          {/* 머리: 제목 ‹ › 오늘 | 검색 · 보기 · 일정 추가 */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-3 shrink-0">
+            <div className="flex items-center gap-1 min-w-0">
+              <h1 className="font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9 whitespace-nowrap tabular-nums mr-2">
+                {view === 'week' ? (
+                  <>
+                    {format(weekDays[0], 'M.d')} – {format(weekDays[6], isSameMonth(weekDays[0], weekDays[6]) ? 'd' : 'M.d')}
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">{format(currentDate, 'yyyy년 ')}</span>
+                    {format(currentDate, 'M월')}
+                  </>
+                )}
+              </h1>
+              <button onClick={goPrev} aria-label={view === 'week' ? '이전 주' : '이전 달'} className="btn-icon"><ChevronLeft size={18} strokeWidth={1.5} /></button>
+              <button onClick={goNext} aria-label={view === 'week' ? '다음 주' : '다음 달'} className="btn-icon"><ChevronRight size={18} strokeWidth={1.5} /></button>
+              <button onClick={goToToday} className="btn-secondary btn-sm ml-1 hidden sm:inline-flex lg:h-9 lg:px-3.5 lg:text-[13px]">오늘</button>
             </div>
 
-            <div className="ml-auto flex items-center gap-2 md:gap-3 shrink-0">
-              {searchInput('hidden xl:block w-72')}
-              <ViewSelector currentView={view} onViewChange={setViewOverride} />
+            <div className="ml-auto flex items-center gap-2 lg:gap-3 shrink-0">
+              {searchInput('hidden xl:block w-50')}
+              <Segmented items={VIEW_ITEMS} active={view} onChange={setViewOverride} size="sm" ariaLabel="보기 전환" />
               <button
                 onClick={() => handleOpenCreate(isSameMonth(new Date(), currentDate) ? new Date() : currentDate)}
-                aria-label="새 일정"
-                className="btn-primary size-9 md:size-10 p-0 shrink-0"
+                className="btn-primary h-8 px-3 lg:h-9 lg:px-3.5"
               >
-                <Plus size={18} strokeWidth={1.5} />
+                <Plus size={16} strokeWidth={1.5} />
+                <span><span className="hidden sm:inline">일정 </span>추가</span>
               </button>
             </div>
 
-            {/* 작은 화면: 검색과 필터 */}
+            {/* 작은 화면: 오늘 · 검색 · 필터 */}
             <div className="w-full flex gap-2 xl:hidden">
+              <button onClick={goToToday} className="btn-secondary shrink-0 sm:hidden">오늘</button>
               {searchInput('flex-1 min-w-0')}
               <div className="relative lg:hidden shrink-0 w-36">
-                <select value={filterValue} onChange={(e) => onFilterSelect(e.target.value)} aria-label="일정 필터" className="form-input appearance-none pr-8 truncate">
+                <select value={filterValue} onChange={(e) => onFilterSelect(e.target.value)} aria-label="일정 필터" className="form-input h-9 appearance-none pr-8 truncate">
                   <option value="all">전체 일정</option>
                   <option value="my">내 일정</option>
                   {userGroups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
                 </select>
-                <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3 absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                <ChevronDown size={16} strokeWidth={1.5} className="text-ink-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
           </div>
 
-          {/* Calendar View Container */}
-          <div className="flex-1 overflow-hidden flex flex-col bg-surface">
+          {/* 보기 */}
+          <div className="mt-4 lg:mt-5 flex-1 min-h-0 flex flex-col">
             {loading && schedules.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3">
                 <Loader2 size={20} strokeWidth={1.5} className="animate-spin text-ink-3" />
                 <p className="text-sm text-ink-3">일정을 불러오는 중이에요</p>
               </div>
             ) : loadError && schedules.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
-                <p className="text-sm font-medium text-ink">일정을 불러오지 못했어요</p>
-                <p className="text-sm text-ink-3">{loadError}</p>
-                <button onClick={fetchSchedules} className="btn-secondary">다시 시도</button>
-              </div>
+              <EmptyState
+                className="flex-1"
+                title="일정을 불러오지 못했어요"
+                description={loadError}
+                action={<button onClick={fetchSchedules} className="btn-secondary">다시 시도</button>}
+              />
             ) : view === 'week' ? (
               <WeekView
                 days={weekDays}
@@ -362,19 +333,20 @@ export default function SchedulePage() {
                 onScheduleClick={handleOpenDetail}
               />
             ) : (
-              <>
+              <div className="card flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div className="grid grid-cols-7 border-b border-line shrink-0">
-                  {headers.map(({ label, dayIndex }) => (
-                    <div key={label} className={`py-2 md:py-3 text-center text-xs ${dayIndex === 0 ? 'text-negative' : 'text-ink-3'}`}>{label}</div>
+                  {headers.map(({ label }) => (
+                    <div key={label} className="px-1.5 py-2 text-xs text-ink-3 md:px-3 md:py-2.5">{label}</div>
                   ))}
                 </div>
 
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-hidden">
                   <div className="grid grid-cols-7 h-full" style={{ gridAutoRows: '1fr' }}>
                     {monthDays.map((day, i) => (
                       <CalendarDay
                         key={i}
                         day={day}
+                        lastCol={i % 7 === 6}
                         currentDate={currentDate}
                         schedules={filteredSchedules}
                         userGroups={userGroups}
@@ -384,7 +356,7 @@ export default function SchedulePage() {
                     ))}
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </main>
@@ -407,85 +379,25 @@ export default function SchedulePage() {
 
 // ─── Sub Components ─────────────────────────────────────────────
 
-interface FilterItemProps {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-function FilterItem({ label, isActive, onClick }: FilterItemProps) {
-  return (
-    <div 
-      onClick={onClick} 
-      className={`flex items-center justify-between cursor-pointer px-3 h-10 rounded-[10px] transition-colors duration-150 ease-out ${
-        isActive 
-          ? 'bg-accent-soft text-accent' 
-          : 'text-ink-2 hover:bg-raised'
-      }`}
-    >
-      <span className="text-sm font-medium">{label}</span>
-      {isActive && <CheckCircle2 size={16} strokeWidth={1.5} />}
-    </div>
-  );
-}
-
-interface GroupFilterItemProps {
-  color: string;
-  name: string;
-  count: number;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-function GroupFilterItem({ color, name, count, isActive, onClick }: GroupFilterItemProps) {
-  return (
-    <div 
-      onClick={onClick} 
-      className={`flex items-center justify-between cursor-pointer px-3 h-10 rounded-[10px] transition-colors duration-150 ease-out ${
-        isActive 
-          ? 'bg-accent-soft text-accent' 
-          : 'text-ink-2 hover:bg-raised'
-      }`}
-    >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className={`size-2 rounded-full shrink-0 ${color}`} />
-        <span className="text-sm font-medium truncate">{name}</span>
-      </div>
-      <span className="text-xs tabular-nums text-ink-3">
-        {count}
+/** 오늘이면 주황 알약, 아니면 숫자만 */
+function DayNumber({ day, muted, className = '' }: { day: Date; muted?: boolean; className?: string }) {
+  if (isToday(day)) {
+    return (
+      <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-mark px-1.5 text-[13px] font-medium tabular-nums text-white ${className}`}>
+        {format(day, 'd')}
       </span>
-    </div>
-  );
-}
-
-interface ViewSelectorProps {
-  currentView: ScheduleView;
-  onViewChange: (view: ScheduleView) => void;
-}
-
-function ViewSelector({ currentView, onViewChange }: ViewSelectorProps) {
+    );
+  }
   return (
-    <div className="flex bg-raised rounded-[10px] p-1" role="group" aria-label="보기 전환">
-      {(['month', 'week', 'list'] as const).map(v => (
-        <button
-          key={v}
-          onClick={() => onViewChange(v)}
-          aria-pressed={currentView === v}
-          className={`px-2 md:px-3 h-7 text-sm whitespace-nowrap rounded-lg transition-colors duration-150 ease-out ${
-            currentView === v
-              ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]'
-              : 'text-ink-2 hover:text-ink'
-          }`}
-        >
-          {v === 'month' ? '월' : v === 'week' ? '주' : '목록'}
-        </button>
-      ))}
-    </div>
+    <span className={`inline-flex h-6 items-center text-[13px] tabular-nums ${muted ? 'text-ink-3' : 'text-ink'} ${className}`}>
+      {format(day, 'd')}
+    </span>
   );
 }
 
 interface CalendarDayProps {
   day: Date;
+  lastCol: boolean;
   currentDate: Date;
   schedules: ScheduleResponse[];
   userGroups: GroupResponse[];
@@ -493,38 +405,33 @@ interface CalendarDayProps {
   onScheduleClick: (e: React.MouseEvent, schedule: ScheduleResponse) => void;
 }
 
-function CalendarDay({ day, currentDate, schedules, userGroups, onDayClick, onScheduleClick }: CalendarDayProps) {
+function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, onDayClick, onScheduleClick }: CalendarDayProps) {
   const tf = useTimeFormat();
   // 여러 날 일정은 걸친 모든 날짜 칸에 나온다.
   const daySchedules = schedulesOnDay(schedules, day);
   const isCurrMonth = isSameMonth(day, currentDate);
-  const isTodayDay = isToday(day);
 
   return (
     <div
       onClick={() => onDayClick(day)}
-      className={`border-r border-b border-line p-1 md:p-2 min-h-0 min-w-0 flex flex-col gap-1 transition-colors duration-150 ease-out hover:bg-raised relative group cursor-pointer ${
-        isTodayDay ? 'bg-accent-soft hover:bg-accent-soft' : isCurrMonth ? 'bg-surface' : 'bg-canvas'
+      className={`${lastCol ? '' : 'border-r'} border-b border-line p-1 md:p-2 min-h-0 min-w-0 flex flex-col gap-1 relative group cursor-pointer transition-colors duration-150 ease-out ${
+        isCurrMonth ? 'bg-surface hover:bg-canvas' : 'bg-canvas'
       }`}
     >
       <div className="flex items-center justify-between shrink-0">
-        <span className={`text-xs md:text-sm tabular-nums size-5 md:size-6 flex items-center justify-center rounded-full ${
-          isTodayDay ? 'bg-accent text-white font-medium' : isCurrMonth ? 'text-ink' : 'text-ink-3 opacity-60'
-        }`}>
-          {format(day, 'd')}
-        </span>
+        <DayNumber day={day} muted={!isCurrMonth} />
         <button
           onClick={(e) => {
             e.stopPropagation();
             onDayClick(day);
           }}
           aria-label="이 날 일정 보기"
-          className="hidden md:block opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out text-ink-3 hover:text-ink hover:bg-surface p-1 rounded-md"
+          className="hidden md:inline-flex size-6 items-center justify-center rounded-md text-ink-3 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-ink transition-opacity duration-150 ease-out"
         >
           <Plus size={16} strokeWidth={1.5} />
         </button>
       </div>
-      <div className={`flex-1 flex flex-col gap-0.5 overflow-hidden min-h-0 ${isCurrMonth ? '' : 'opacity-60'}`}>
+      <div className={`flex-1 flex flex-col gap-1 overflow-hidden min-h-0 ${isCurrMonth ? '' : 'opacity-70'}`}>
         {daySchedules.slice(0, 3).map((s, idx) => (
           <div
             key={s.id}
@@ -533,15 +440,15 @@ function CalendarDay({ day, currentDate, schedules, userGroups, onDayClick, onSc
               onScheduleClick(e, s);
             }}
             title={`${s.title} · ${formatScheduleRange(s, tf)}`}
-            className={`${idx === 2 ? 'hidden md:flex' : 'flex'} items-center gap-1 md:gap-1.5 px-0.5 md:px-1.5 h-5 md:h-6 rounded-md text-[11px] md:text-xs text-ink hover:bg-surface cursor-pointer transition-colors duration-150 ease-out shrink-0 min-w-0`}
+            className={`${idx === 2 ? 'hidden md:flex' : 'flex'} items-center gap-1 md:gap-1.5 h-5 md:h-6 px-1 md:px-1.5 rounded-md bg-raised text-[11px] md:text-xs text-ink hover:bg-line cursor-pointer transition-colors duration-150 ease-out shrink-0 min-w-0`}
           >
-            <span className={`size-1.5 rounded-full shrink-0 ${scheduleDotClass(s, userGroups)}`} />
+            <Ribbon color={scheduleHex(s, userGroups)} className="h-3" />
             <span className="stamp shrink-0 hidden md:inline">{formatTimeOnDay(s, day, tf)}</span>
             <span className="truncate min-w-0">{s.title}</span>
           </div>
         ))}
         {daySchedules.length > 2 && (
-          <div className="md:hidden text-[11px] text-ink-3 tabular-nums px-0.5 shrink-0">
+          <div className="md:hidden text-[11px] text-ink-3 tabular-nums px-1 shrink-0">
             +{daySchedules.length - 2}
           </div>
         )}
@@ -552,42 +459,6 @@ function CalendarDay({ day, currentDate, schedules, userGroups, onDayClick, onSc
         )}
       </div>
     </div>
-  );
-}
-
-interface ScheduleRowProps {
-  schedule: ScheduleResponse;
-  userGroups: GroupResponse[];
-  timeText: string;
-  onClick: (schedule: ScheduleResponse) => void;
-  compact?: boolean;
-}
-
-function ScheduleRow({ schedule, userGroups, timeText, onClick, compact }: ScheduleRowProps) {
-  const group = schedule.groupId ? userGroups.find((g) => g.id === schedule.groupId) : undefined;
-  return (
-    <button
-      type="button"
-      onClick={() => onClick(schedule)}
-      className="w-full text-left flex items-start gap-2.5 rounded-[10px] border border-line bg-surface px-3 py-2.5 hover:bg-raised transition-colors duration-150 ease-out"
-    >
-      <span className={`mt-1.5 size-1.5 rounded-full shrink-0 ${scheduleDotClass(schedule, userGroups)}`} />
-      <span className="flex-1 min-w-0">
-        <span className="stamp block">{timeText}</span>
-        <span className={`block text-sm text-ink ${compact ? 'line-clamp-2 break-words' : 'truncate'}`}>{schedule.title}</span>
-        {(schedule.location || group) && (
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-xs text-ink-3 min-w-0">
-            {group && <span className="truncate max-w-full">{group.name}</span>}
-            {schedule.location && (
-              <span className="flex items-center gap-1 min-w-0 max-w-full">
-                <MapPin size={12} strokeWidth={1.5} className="shrink-0" />
-                <span className="truncate">{schedule.location}</span>
-              </span>
-            )}
-          </span>
-        )}
-      </span>
-    </button>
   );
 }
 
@@ -603,25 +474,36 @@ interface WeekViewProps {
 function WeekView({ days, schedules, userGroups, onDayClick, onAddClick, onScheduleClick }: WeekViewProps) {
   const tf = useTimeFormat();
   return (
-    <div className="flex-1 overflow-y-auto no-scrollbar">
+    <div className="card flex-1 min-h-0 overflow-y-auto no-scrollbar">
       <div className="grid grid-cols-1 md:grid-cols-7 md:min-h-full md:divide-x divide-line">
         {days.map((day) => {
           const items = schedulesOnDay(schedules, day);
-          const todayDay = isToday(day);
           return (
-            <div key={day.toISOString()} className="flex flex-col border-b md:border-b-0 border-line min-w-0">
+            <div key={day.toISOString()} className="flex flex-col border-b md:border-b-0 border-line last:border-b-0 min-w-0">
               <div className="flex items-center justify-between gap-2 px-3 py-2 md:sticky md:top-0 bg-surface border-b border-line">
-                <button type="button" onClick={() => onDayClick(day)} className="flex items-baseline gap-1.5 md:flex-col md:items-start md:gap-0 text-left">
-                  <span className={`text-xs ${day.getDay() === 0 ? 'text-negative' : 'text-ink-3'}`}>{format(day, 'EEE', { locale: ko })}</span>
-                  <span className={`text-base md:text-lg tabular-nums ${todayDay ? 'text-accent font-semibold' : 'text-ink'}`}>{format(day, 'd')}</span>
+                <button type="button" onClick={() => onDayClick(day)} className="flex items-center gap-1.5 text-left">
+                  <span className="text-xs text-ink-3">{format(day, 'EEE', { locale: ko })}</span>
+                  <DayNumber day={day} />
                 </button>
-                <button type="button" onClick={() => onAddClick(day)} aria-label={`${format(day, 'M월 d일', { locale: ko })}에 일정 추가`} className="btn-ghost size-8 p-0 text-ink-3">
+                <button type="button" onClick={() => onAddClick(day)} aria-label={`${format(day, 'M월 d일', { locale: ko })}에 일정 추가`} className="btn-icon text-ink-3">
                   <Plus size={16} strokeWidth={1.5} />
                 </button>
               </div>
-              <div className={`flex flex-col gap-1.5 p-2 flex-1 ${todayDay ? 'bg-accent-soft' : ''}`}>
+              <div className="flex flex-col gap-1.5 p-2 flex-1">
                 {items.map((s) => (
-                  <ScheduleRow key={s.id} schedule={s} userGroups={userGroups} timeText={formatTimeOnDay(s, day, tf)} onClick={onScheduleClick} compact />
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onScheduleClick(s)}
+                    title={`${s.title} · ${formatScheduleRange(s, tf)}`}
+                    className="w-full text-left flex items-stretch gap-2 rounded-lg bg-raised px-2 py-1.5 hover:bg-line transition-colors duration-150 ease-out"
+                  >
+                    <Ribbon color={scheduleHex(s, userGroups)} className="h-auto" />
+                    <span className="flex-1 min-w-0">
+                      <span className="stamp block">{formatTimeOnDay(s, day, tf)}</span>
+                      <span className="block text-[13px] text-ink line-clamp-2 break-words">{s.title}</span>
+                    </span>
+                  </button>
                 ))}
                 {items.length === 0 && <p className="text-xs text-ink-3 px-1 py-1 md:hidden">일정 없음</p>}
               </div>
@@ -639,6 +521,14 @@ interface ListViewProps {
   userGroups: GroupResponse[];
   onAddClick: () => void;
   onScheduleClick: (schedule: ScheduleResponse) => void;
+}
+
+/** 날짜 머리: 오늘 · 11.23 월 / 내일 · 11.24 화 / 11.26 목 */
+function dayHeading(day: Date) {
+  const base = format(day, 'M.d EEE', { locale: ko });
+  if (isToday(day)) return `오늘 · ${base}`;
+  if (isSameDay(day, addDays(new Date(), 1))) return `내일 · ${base}`;
+  return base;
 }
 
 function ListView({ currentDate, schedules, userGroups, onAddClick, onScheduleClick }: ListViewProps) {
@@ -662,27 +552,44 @@ function ListView({ currentDate, schedules, userGroups, onAddClick, onScheduleCl
 
   if (groups.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
-        <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-1"><CalendarIcon size={18} strokeWidth={1.5} className="text-ink-3" /></div>
-        <p className="text-sm font-medium text-ink">이 달에는 일정이 없어요</p>
-        <p className="text-sm text-ink-3">새 일정을 추가하면 날짜순으로 모여요</p>
-        <button onClick={onAddClick} className="btn-secondary mt-2"><Plus size={16} strokeWidth={1.5} />새 일정</button>
-      </div>
+      <EmptyState
+        className="flex-1"
+        title="이 달에는 일정이 없어요"
+        description="새 일정을 추가하면 날짜순으로 모여요"
+        action={<button onClick={onAddClick} className="btn-secondary"><Plus size={16} strokeWidth={1.5} />일정 추가</button>}
+      />
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto no-scrollbar">
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-4 md:py-6 space-y-6">
+    <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
+      <div className="max-w-3xl space-y-5 pb-4">
         {groups.map(({ day, items }) => (
-          <section key={day.toISOString()} className="space-y-2">
-            <h3 className={`stamp ${isToday(day) ? '!text-accent' : ''}`}>
-              {format(day, 'M.d EEE', { locale: ko })}{isToday(day) ? ' · 오늘' : ''}
-            </h3>
+          <section key={day.toISOString()}>
+            <h3 className="font-display text-[15px] leading-6 text-ink-2 mb-2">{dayHeading(day)}</h3>
             <div className="space-y-2">
-              {items.map((s) => (
-                <ScheduleRow key={s.id} schedule={s} userGroups={userGroups} timeText={formatScheduleRange(s, tf)} onClick={onScheduleClick} />
-              ))}
+              {items.map((s) => {
+                const group = s.groupId ? userGroups.find((g) => g.id === s.groupId) : undefined;
+                const meta = [group ? group.name : '내 일정', s.location].filter(Boolean).join(' · ');
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => onScheduleClick(s)}
+                    className="card w-full text-left flex items-center gap-4 px-4 py-3 min-h-16 hover:bg-raised transition-colors duration-150 ease-out"
+                  >
+                    <span className="w-14 shrink-0 text-[13px] font-medium tabular-nums text-ink-2">{formatTimeOnDay(s, day, tf)}</span>
+                    <Ribbon color={scheduleHex(s, userGroups)} className="h-9" />
+                    <span className="flex-1 min-w-0">
+                      <span className="block font-display text-base leading-6 text-ink truncate">{s.title}</span>
+                      <span className="block text-[13px] text-ink-3 truncate">
+                        {meta}
+                        {isMultiDaySchedule(s) && <span className="tabular-nums"> · {formatScheduleRange(s, tf)}</span>}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </section>
         ))}

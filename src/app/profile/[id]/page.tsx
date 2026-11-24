@@ -9,6 +9,7 @@ import { Loader2, AlertCircle, RotateCw, UserX } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { friendApi, type UserProfileResponse } from '@/lib/friend-api';
 import { getApiErrorMessage } from '@/lib/axios';
+import { EmptyState } from '@/components/ui';
 import UserProfileCard from '../UserProfileCard';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -75,7 +76,7 @@ export default function ProfileIdPage() {
   return (
     <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
-      <main className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-8">
+      <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-6 pb-24 lg:px-8 lg:pt-10 lg:pb-12">
         <div className="max-w-lg mx-auto">
           {loading || status !== 'authenticated' ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -83,27 +84,23 @@ export default function ProfileIdPage() {
               <p className="text-sm text-ink-3">프로필을 불러오는 중…</p>
             </div>
           ) : error ? (
-            <div className="card flex flex-col items-center justify-center py-16 px-4 text-center">
-              <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
-                {error.notFound ? (
-                  <UserX size={18} strokeWidth={1.5} className="text-ink-3" />
-                ) : (
-                  <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
-                )}
-              </div>
-              <h1 className="text-sm font-medium text-ink">{error.notFound ? '사용자를 찾을 수 없어요' : '프로필을 불러오지 못했어요'}</h1>
-              <p className="text-sm text-ink-3 mt-1 mb-5">
-                {error.notFound ? '탈퇴했거나 주소가 잘못됐을 수 있어요.' : error.message}
-              </p>
-              <div className="flex gap-2">
-                {!error.notFound && (
-                  <button onClick={() => fetchProfile()} className="btn-secondary">
-                    <RotateCw size={16} strokeWidth={1.5} />
-                    다시 시도
-                  </button>
-                )}
-                <Link href="/friends" className="btn-secondary">친구 목록으로</Link>
-              </div>
+            <div className="card">
+              <EmptyState
+                icon={error.notFound ? UserX : AlertCircle}
+                title={error.notFound ? '사용자를 찾을 수 없어요' : '프로필을 불러오지 못했어요'}
+                description={error.notFound ? '탈퇴했거나 주소가 잘못됐을 수 있어요' : error.message}
+                action={
+                  <div className="flex gap-2">
+                    {!error.notFound && (
+                      <button onClick={() => fetchProfile()} className="btn-secondary">
+                        <RotateCw size={16} strokeWidth={1.5} />
+                        다시 시도
+                      </button>
+                    )}
+                    <Link href="/friends" className="btn-secondary">친구 목록으로</Link>
+                  </div>
+                }
+              />
             </div>
           ) : profile ? (
             <UserProfileCard profile={profile} onChanged={() => fetchProfile(true)} />

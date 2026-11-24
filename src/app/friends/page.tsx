@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
-import { UserPlus, MessageCircle, Loader2, UserX, Users, AlertCircle, RotateCw } from 'lucide-react';
+import { UserPlus, MessageCircle, Loader2, Users, AlertCircle, RotateCw, Search, MoreHorizontal, Link2, Check, Inbox, Send } from 'lucide-react';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { useSession } from 'next-auth/react';
 import { friendApi, resolveImageUrl, type FriendResponse } from '@/lib/friend-api';
@@ -14,12 +14,15 @@ import axios from 'axios';
 
 import { useAlert } from '@/hooks/useAlert';
 import { initialOf } from '@/lib/utils';
+import { PageHeader, UnderlineTabs, EmptyState } from '@/components/ui';
 
-function Avatar({ src, name, size }: { src?: string | null; name: string; size: 'sm' | 'lg' }) {
-  const px = size === 'sm' ? 40 : 64;
+type Tab = 'friends' | 'received' | 'sent';
+
+function Avatar({ src, name, size = 'md' }: { src?: string | null; name: string; size?: 'sm' | 'md' }) {
+  const px = size === 'sm' ? 32 : 40;
   return (
     <div
-      className={`relative shrink-0 rounded-full bg-raised flex items-center justify-center overflow-hidden ${size === 'sm' ? 'size-10' : 'size-16'}`}
+      className={`relative shrink-0 rounded-full bg-raised flex items-center justify-center overflow-hidden ${size === 'sm' ? 'size-8' : 'size-10'}`}
     >
       {src ? (
         <ImageWithFallback
@@ -32,9 +35,25 @@ function Avatar({ src, name, size }: { src?: string | null; name: string; size: 
           unoptimized
         />
       ) : (
-        <span className={`font-medium text-ink-2 ${size === 'sm' ? 'text-base' : 'text-xl'}`}>{initialOf(name)}</span>
+        <span className={`text-ink-2 ${size === 'sm' ? 'text-xs' : 'text-sm'}`}>{initialOf(name)}</span>
       )}
     </div>
+  );
+}
+
+/** 사람 행의 왼쪽: 아바타 + 주아 이름 + @아이디 (+ 한 줄 설명) */
+function PersonLink({ person, sub }: { person: FriendResponse; sub?: React.ReactNode }) {
+  return (
+    <Link href={`/profile/${person.userId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg">
+      <Avatar src={person.profileImage} name={person.nickname} />
+      <span className="min-w-0">
+        <span className="flex items-baseline gap-2">
+          <span className="font-display text-base leading-6 text-ink truncate">{person.nickname}</span>
+          <span className="text-xs text-ink-3 truncate">@{person.customId}</span>
+        </span>
+        {sub && <span className="block text-xs text-ink-3 truncate mt-0.5">{sub}</span>}
+      </span>
+    </Link>
   );
 }
 
@@ -48,6 +67,10 @@ export default function FriendsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>('friends');
+  const [query, setQuery] = useState('');
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const fetchFriendsData = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!session) return;
@@ -113,180 +136,258 @@ export default function FriendsPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
+    setMenuId(null);
     if (!(await confirm(`${name}님을 친구 목록에서 삭제할까요?`, undefined, '삭제'))) return;
     runAction(id, () => friendApi.deleteFriendship(id, session), '친구 목록에서 삭제했어요', '친구를 삭제하지 못했어요.');
+  };
+
+  // 초대 링크는 오른쪽 위 내 프로필 메뉴와 같은 주소예요.
+  const myCustomId = session?.user?.customId;
+  const inviteLink =
+    myCustomId && typeof window !== 'undefined' ? `${window.location.origin}/invite/friend?code=${myCustomId}` : '';
+
+  const handleCopyInviteLink = () => {
+    if (!inviteLink) return;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const q = query.trim().toLowerCase();
+  const matches = (p: FriendResponse) =>
+    !q || p.nickname.toLowerCase().includes(q) || p.customId.toLowerCase().includes(q);
+  const list = (tab === 'friends' ? friends : tab === 'received' ? friendRequests : sentRequests).filter(matches);
+
+  const searchInput = (
+    <div className="relative w-full">
+      <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="이름이나 아이디로 찾기"
+        aria-label="친구 찾기"
+        className="form-input h-9 py-0 pl-9"
+      />
+    </div>
+  );
+
+  const emptyText: Record<Tab, { title: string; description: string }> = {
+    friends: { title: '아직 친구가 없어요', description: '친구를 추가하면 메모와 일정을 함께 쓸 수 있어요' },
+    received: { title: '받은 요청이 없어요', description: '누군가 친구 신청을 보내면 여기에 보여요' },
+    sent: { title: '보낸 요청이 없어요', description: '수락을 기다리는 친구 신청이 여기에 보여요' },
   };
 
   return (
     <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
 
-      <main className="flex-1 overflow-y-auto no-scrollbar p-4 sm:p-8">
-        <div className="max-w-5xl mx-auto space-y-8">
+      <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-6 pb-24 lg:px-8 lg:pt-8 lg:pb-12">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* 왼쪽: 머리 + 탭 + 목록 */}
+          <div className="min-w-0 space-y-5">
+            <PageHeader
+              title="친구"
+              count={loading || loadError ? undefined : `${friends.length}명`}
+              actions={
+                <>
+                  <div className="hidden w-64 md:block">{searchInput}</div>
+                  <button onClick={() => setIsSearchModalOpen(true)} className="btn-primary shrink-0">
+                    <UserPlus size={16} strokeWidth={1.5} />
+                    친구 추가
+                  </button>
+                </>
+              }
+            />
 
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
-              <h2 className="text-2xl font-semibold text-ink">친구</h2>
-              <p className="text-sm text-ink-2 mt-1">친구와 연결하면 메모와 일정을 함께 쓸 수 있어요</p>
-            </div>
+            <div className="md:hidden">{searchInput}</div>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsSearchModalOpen(true)}
-                className="btn-primary shrink-0"
-              >
-                <UserPlus size={16} strokeWidth={1.5} />
-                친구 추가
-              </button>
-            </div>
-          </div>
+            <UnderlineTabs<Tab>
+              items={[
+                { key: 'friends', label: '친구', count: loading ? undefined : friends.length },
+                { key: 'received', label: '받은 요청', count: loading ? undefined : friendRequests.length },
+                { key: 'sent', label: '보낸 요청', count: loading ? undefined : sentRequests.length },
+              ]}
+              active={tab}
+              onChange={(k) => {
+                setTab(k);
+                setMenuId(null);
+              }}
+            />
 
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
-              <p className="text-sm text-ink-3">친구 목록을 불러오는 중…</p>
-            </div>
-          ) : loadError ? (
-            <div className="card flex flex-col items-center justify-center py-16 text-center px-4">
-              <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
-                <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                <p className="text-sm text-ink-3">친구 목록을 불러오는 중…</p>
               </div>
-              <h3 className="text-sm font-medium text-ink">친구 목록을 불러오지 못했어요</h3>
-              <p className="text-sm text-ink-3 mt-1 mb-5">{loadError}</p>
-              <button onClick={() => fetchFriendsData()} className="btn-secondary">
-                <RotateCw size={16} strokeWidth={1.5} />
-                다시 시도
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* Received requests */}
-              {friendRequests.length > 0 && (
-                <section className="space-y-3">
-                  <div className="flex items-baseline gap-2">
-                    <h3 className="text-base font-semibold text-ink">받은 친구 요청</h3>
-                    <span className="text-xs text-ink-3 tabular-nums">{friendRequests.length}</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {friendRequests.map(req => (
-                      <div key={req.id} className="card px-4 py-3 flex items-center justify-between gap-3">
-                        <Link href={`/profile/${req.userId}`} className="flex items-center gap-3 min-w-0 rounded-lg">
-                          <Avatar src={req.profileImage} name={req.nickname} size="sm" />
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-medium text-ink truncate">{req.nickname}</h4>
-                            <p className="text-xs text-ink-3 truncate tabular-nums">ID: {req.customId}</p>
-                          </div>
+            ) : loadError ? (
+              <div className="card">
+                <EmptyState
+                  icon={AlertCircle}
+                  title="친구 목록을 불러오지 못했어요"
+                  description={loadError}
+                  action={
+                    <button onClick={() => fetchFriendsData()} className="btn-secondary">
+                      <RotateCw size={16} strokeWidth={1.5} />
+                      다시 시도
+                    </button>
+                  }
+                />
+              </div>
+            ) : list.length === 0 ? (
+              <div className="card">
+                {q ? (
+                  <EmptyState icon={Search} title="찾는 사람이 없어요" description="이름이나 아이디를 다시 확인해 주세요" />
+                ) : (
+                  <EmptyState
+                    icon={tab === 'friends' ? Users : tab === 'received' ? Inbox : Send}
+                    title={emptyText[tab].title}
+                    description={emptyText[tab].description}
+                    action={
+                      tab === 'friends' ? (
+                        <button onClick={() => setIsSearchModalOpen(true)} className="btn-secondary">
+                          친구 찾기
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                )}
+              </div>
+            ) : (
+              <ul className="card divide-y divide-line">
+                {list.map((p) => (
+                  <li key={p.id} className="flex min-h-16 items-center gap-3 px-4 py-3 lg:px-5">
+                    {tab === 'friends' ? (
+                      <>
+                        <PersonLink person={p} sub={p.email || undefined} />
+                        <Link href={`/messages/${p.userId}`} className="btn-secondary btn-sm shrink-0">
+                          <MessageCircle size={16} strokeWidth={1.5} />
+                          <span className="hidden sm:inline">메시지</span>
+                          <span className="sr-only sm:hidden">메시지</span>
                         </Link>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="relative shrink-0">
                           <button
-                            onClick={() => handleAccept(req.id)}
-                            disabled={pendingId === req.id}
-                            className="btn-primary h-9 px-3"
+                            onClick={() => setMenuId(menuId === p.id ? null : p.id)}
+                            disabled={pendingId === p.id}
+                            aria-label={`${p.nickname}님 더보기`}
+                            aria-expanded={menuId === p.id}
+                            className="btn-icon"
                           >
-                            수락
+                            <MoreHorizontal size={16} strokeWidth={1.5} />
                           </button>
-                          <button
-                            onClick={() => handleReject(req.id)}
-                            disabled={pendingId === req.id}
-                            className="btn-ghost"
-                          >
-                            거절
-                          </button>
+                          {menuId === p.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setMenuId(null)} />
+                              <div className="absolute right-0 top-full z-20 mt-1 w-36 rounded-[10px] border border-line bg-surface p-1 shadow-float">
+                                <Link
+                                  href={`/profile/${p.userId}`}
+                                  className="flex h-9 w-full items-center rounded-lg px-3 text-sm text-ink hover:bg-raised"
+                                >
+                                  프로필 보기
+                                </Link>
+                                <button
+                                  onClick={() => handleDelete(p.id, p.nickname)}
+                                  aria-label={`${p.nickname}님 친구 삭제`}
+                                  className="flex h-9 w-full items-center rounded-lg px-3 text-left text-sm text-negative hover:bg-negative-soft"
+                                >
+                                  친구 삭제
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Sent requests */}
-              {sentRequests.length > 0 && (
-                <section className="space-y-3">
-                  <div className="flex items-baseline gap-2">
-                    <h3 className="text-base font-semibold text-ink">보낸 친구 요청</h3>
-                    <span className="text-xs text-ink-3 tabular-nums">{sentRequests.length}</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {sentRequests.map(req => (
-                      <div key={req.id} className="card px-4 py-3 flex items-center justify-between gap-3">
-                        <Link href={`/profile/${req.userId}`} className="flex items-center gap-3 min-w-0 rounded-lg">
-                          <Avatar src={req.profileImage} name={req.nickname} size="sm" />
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-medium text-ink truncate">{req.nickname}</h4>
-                            <p className="text-xs text-ink-3 truncate tabular-nums">ID: {req.customId} · 수락을 기다리고 있어요</p>
-                          </div>
-                        </Link>
+                      </>
+                    ) : tab === 'received' ? (
+                      <>
+                        <PersonLink person={p} sub="나에게 친구 신청을 보냈어요" />
                         <button
-                          onClick={() => handleCancel(req.id, req.nickname)}
-                          disabled={pendingId === req.id}
-                          className="btn-ghost shrink-0"
+                          onClick={() => handleReject(p.id)}
+                          disabled={pendingId === p.id}
+                          className="btn-ghost btn-sm shrink-0"
+                        >
+                          거절
+                        </button>
+                        <button
+                          onClick={() => handleAccept(p.id)}
+                          disabled={pendingId === p.id}
+                          className="btn-primary btn-sm shrink-0"
+                        >
+                          수락
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <PersonLink person={p} sub="수락을 기다리고 있어요" />
+                        <button
+                          onClick={() => handleCancel(p.id, p.nickname)}
+                          disabled={pendingId === p.id}
+                          className="btn-ghost btn-sm shrink-0"
                         >
                           요청 취소
                         </button>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-              {/* Friends list */}
-              <section className="space-y-3">
+          {/* 오른쪽: 받은 요청 · 초대 링크 */}
+          <aside className="space-y-4 lg:pt-1">
+            {!loading && !loadError && friendRequests.length > 0 && (
+              <section className="card p-5">
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-base font-semibold text-ink">내 친구</h3>
-                  <span className="text-xs text-ink-3 tabular-nums">{friends.length}</span>
+                  <h2 className="font-display text-lg text-ink">받은 요청</h2>
+                  <span className="stamp">{friendRequests.length}</span>
                 </div>
-
-                {friends.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {friends.map(friend => (
-                      <div key={friend.id} className="card p-5 flex flex-col items-center text-center relative">
-                        <button
-                          onClick={() => handleDelete(friend.id, friend.nickname)}
-                          disabled={pendingId === friend.id}
-                          aria-label={`${friend.nickname}님 친구 삭제`}
-                          title="친구 삭제"
-                          className="btn-ghost absolute top-3 right-3 size-9 px-0 hover:text-negative"
-                        >
-                          <UserX size={16} strokeWidth={1.5} />
-                        </button>
-
-                        <Link href={`/profile/${friend.userId}`} className="flex flex-col items-center max-w-full rounded-lg">
-                          <div className="mb-4">
-                            <Avatar src={friend.profileImage} name={friend.nickname} size="lg" />
-                          </div>
-                          <h4 className="text-base font-medium text-ink mb-0.5 max-w-full truncate">{friend.nickname}</h4>
-                          <p className="text-xs text-ink-3 max-w-full truncate tabular-nums">ID: {friend.customId}</p>
-                          {friend.email && <p className="text-xs text-ink-3 max-w-full truncate">{friend.email}</p>}
-                        </Link>
-
-                        <div className="w-full pt-4 mt-4 border-t border-line">
-                          <Link href={`/messages/${friend.userId}`} className="btn-secondary w-full">
-                            <MessageCircle size={16} strokeWidth={1.5} className="text-ink-3" />
-                            메시지 보내기
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="card flex flex-col items-center justify-center py-16 text-center">
-                    <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
-                      <Users size={18} strokeWidth={1.5} className="text-ink-3" />
-                    </div>
-                    <h3 className="text-sm font-medium text-ink">아직 친구가 없어요</h3>
-                    <p className="text-sm text-ink-3 mt-1 mb-5">친구를 찾아 추가하면 일정을 함께 볼 수 있어요</p>
-                    <button
-                      onClick={() => setIsSearchModalOpen(true)}
-                      className="btn-secondary"
-                    >
-                      친구 찾기
-                    </button>
-                  </div>
+                <ul className="mt-3 space-y-1">
+                  {friendRequests.slice(0, 5).map((req) => (
+                    <li key={req.id} className="flex items-center gap-3 py-2">
+                      <Link href={`/profile/${req.userId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg">
+                        <Avatar src={req.profileImage} name={req.nickname} size="sm" />
+                        <span className="min-w-0">
+                          <span className="block font-display text-[15px] leading-5 text-ink truncate">{req.nickname}</span>
+                          <span className="block text-xs text-ink-3 truncate">@{req.customId}</span>
+                        </span>
+                      </Link>
+                      <button
+                        onClick={() => handleReject(req.id)}
+                        disabled={pendingId === req.id}
+                        className="btn-ghost btn-sm shrink-0"
+                      >
+                        거절
+                      </button>
+                      <button
+                        onClick={() => handleAccept(req.id)}
+                        disabled={pendingId === req.id}
+                        className="btn-primary btn-sm shrink-0"
+                      >
+                        수락
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {friendRequests.length > 5 && (
+                  <button onClick={() => setTab('received')} className="btn-ghost btn-sm mt-2 -ml-3">
+                    모두 보기
+                  </button>
                 )}
               </section>
-            </>
-          )}
+            )}
+
+            {inviteLink && (
+              <section className="card p-5">
+                <h2 className="font-display text-lg text-ink">초대 링크</h2>
+                <p className="mt-1 text-[13px] text-ink-2">링크를 받은 사람이 열면 바로 친구 신청을 보낼 수 있어요</p>
+                <p className="mt-3 truncate rounded-[10px] bg-raised px-3 py-2.5 text-[13px] text-ink-2">{inviteLink}</p>
+                <button onClick={handleCopyInviteLink} className="btn-secondary mt-3">
+                  {copied ? <Check size={16} strokeWidth={1.5} /> : <Link2 size={16} strokeWidth={1.5} />}
+                  {copied ? '복사했어요' : '링크 복사'}
+                </button>
+              </section>
+            )}
+          </aside>
         </div>
       </main>
 

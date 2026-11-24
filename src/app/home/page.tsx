@@ -3,32 +3,40 @@
 import React, { useState, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
-import { format, parseISO } from 'date-fns';
+import { addDays, format, isSameDay, parseISO, startOfDay, startOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ImageWithFallback from '@/components/ImageWithFallback';
-import {
-  Plus,
-  Share2,
-  ChevronRight,
-  Loader2,
-  Users
-} from 'lucide-react';
+import { Plus, Loader2, CalendarDays, FileText, Users } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentListModal from '@/components/AppointmentListModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
-import { memoApi } from '@/lib/memo-api';
+import { PageHeader, Ribbon, Dot, EmptyState } from '@/components/ui';
+import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
-import { stripMarkdown, initialOf } from '@/lib/utils';
+import { stripMarkdown, initialOf, getThemeColors, getFileUrl } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
-import { formatStamp, scheduleDotClass, schedulesOnDay, useTimeFormat, useWeekStartsOn } from '@/lib/schedule-utils';
+import { formatTimeOnDay, schedulesOnDay, sortSchedules, useTimeFormat, useWeekStartsOn } from '@/lib/schedule-utils';
 
 const emptySubscribe = () => () => { };
+
+/** 개인 일정·메모는 중립색 띠 */
+const NEUTRAL_RIBBON = 'var(--line-strong)';
+
+const groupHex = (groupId: string | undefined, groups: GroupResponse[]) => {
+  if (!groupId) return NEUTRAL_RIBBON;
+  return getThemeColors(groups.find((g) => g.id === groupId)?.colorTheme).hex;
+};
+
+/** 오늘·내일은 말로, 나머지는 요일 이름 */
+const dayLabel = (day: Date, today: Date) => {
+  if (isSameDay(day, today)) return '오늘';
+  if (isSameDay(day, addDays(today, 1))) return '내일';
+  return format(day, 'EEEE', { locale: ko });
+};
 
 export default function HomePage() {
   const tf = useTimeFormat();
@@ -70,11 +78,11 @@ export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  
+
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [currentDate, setCurrentDate] = useState(new Date());
 
+  // 날짜는 브라우저 시간대로 그린다(서버 렌더링과 어긋나지 않게 마운트 뒤에만)
   const isMounted = useSyncExternalStore(
     emptySubscribe,
     () => true,
@@ -108,147 +116,163 @@ export default function HomePage() {
     router.push(`/memo/${memoId}`);
   };
 
-  const getTileContent = ({ date, view }: { date: Date, view: string }) => {
-    if (view !== 'month') return null;
-
-    // 여러 날 일정은 걸친 모든 날짜에, 시간순으로
-    const daySchedules = schedulesOnDay(schedules, date);
-
-    return (
-      <div className="mt-1 flex flex-col gap-0.5 w-full">
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <div
-            role="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenCreateModal(date);
-            }}
-            className="bg-raised text-ink-2 p-1 rounded-md hover:bg-line cursor-pointer transition-colors"
-          >
-            <Plus size={12} strokeWidth={1.5} />
-          </div>
-        </div>
-        {daySchedules.slice(0, 2).map(s => (
-          <div key={s.id} className="flex items-center gap-1 text-ink text-xs px-1 py-0.5 rounded-md w-full text-left min-w-0">
-            <span className={`size-1.5 rounded-full shrink-0 ${scheduleDotClass(s, userGroups)}`} />
-            <span className="truncate">{s.title}</span>
-          </div>
-        ))}
-        {daySchedules.length > 2 && (
-          <div className="text-xs text-ink-3 tabular-nums">+{daySchedules.length - 2}</div>
-        )}
-      </div>
-    );
-  };
+  // 이번 주 7칸과 오늘부터 이번 주 끝까지의 일정 기록
+  const today = isMounted ? startOfDay(new Date()) : null;
+  const weekDays = today
+    ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(today, { weekStartsOn }), i))
+    : [];
+  const weekSchedules = weekDays.map((day) => ({ day, items: schedulesOnDay(schedules, day) }));
+  const weekCount = new Set(weekSchedules.flatMap((d) => d.items.map((s) => s.id))).size;
+  const todayCount = today ? schedulesOnDay(schedules, today).length : 0;
+  const upcoming = today ? weekSchedules.filter((d) => d.day >= today && d.items.length > 0) : [];
 
   return (
-    <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden font-sans">
+    <div className="min-h-screen flex flex-col bg-canvas text-ink font-sans">
       <Navbar />
-      <main className="flex-1 w-full flex flex-col lg:grid lg:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_320px] gap-6 p-4 lg:p-6 overflow-y-auto lg:overflow-hidden no-scrollbar">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 grid grid-cols-1 gap-8 px-4 pt-5 pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:px-8 lg:pt-8 lg:pb-8 xl:grid-cols-[minmax(0,1fr)_464px]">
 
-        {/* Left Section: Memo */}
-        <section className="order-2 lg:order-1 flex flex-col gap-3 lg:overflow-hidden lg:h-full">
-          <div className="flex items-center justify-between shrink-0">
-            <h2 className="text-base font-semibold text-ink">최근 메모 <span className="ml-1 text-xs font-normal text-ink-3 tabular-nums">{recentMemos.length}</span></h2>
-            <Link href="/memo" className="text-xs text-ink-3 hover:text-ink transition-colors">전체 보기</Link>
-          </div>
+        {/* 왼쪽: 날짜 머리 + 이번 주 + 일정 기록 */}
+        <section className="flex flex-col gap-5 lg:rounded-xl lg:border lg:border-line lg:bg-surface lg:p-8 lg:self-start">
+          <PageHeader
+            title={today ? format(today, 'M월 d일 EEEE', { locale: ko }) : '오늘'}
+            description={today && !schedulesLoading ? `이번 주 일정 ${weekCount}개 · 오늘 ${todayCount}개` : undefined}
+            actions={
+              <button onClick={() => handleOpenCreateModal(today ?? new Date())} className="btn-primary">
+                <Plus size={16} strokeWidth={1.5} aria-hidden />
+                일정 추가
+              </button>
+            }
+          />
 
-          <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar min-h-0">
-            {loading ? (
-              <div className="py-16 flex flex-col items-center gap-3">
-                <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
-                <span className="text-sm text-ink-3">불러오는 중</span>
+          {schedulesError && !scheduleData && (
+            <div className="flex items-center justify-between gap-3 rounded-[10px] bg-negative-soft px-3 py-2">
+              <p className="text-sm text-negative min-w-0">일정을 불러오지 못했어요. {getApiErrorMessage(schedulesError)}</p>
+              <button onClick={() => refetchSchedules()} className="btn-secondary btn-sm shrink-0">다시 시도</button>
+            </div>
+          )}
+
+          {!today ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+            </div>
+          ) : (
+            <>
+              {/* 이번 주 7칸. 누르면 그 날 일정 목록 */}
+              <div className="grid grid-cols-7 gap-1.5 lg:gap-2">
+                {weekSchedules.map(({ day, items }) => {
+                  const isToday = isSameDay(day, today);
+                  const first = items[0];
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      type="button"
+                      onClick={() => handleOpenListModal(day)}
+                      aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })}, 일정 ${items.length}개`}
+                      aria-current={isToday ? 'date' : undefined}
+                      className={`flex h-16 flex-col items-center justify-center gap-0.5 rounded-[10px] transition-colors lg:h-[72px] ${
+                        isToday
+                          ? 'bg-accent-soft text-accent'
+                          : 'border border-line bg-surface text-ink hover:bg-raised lg:border-0 lg:bg-raised lg:hover:bg-line'
+                      }`}
+                    >
+                      <span className={`text-xs ${isToday ? 'text-accent' : 'text-ink-3'}`}>{format(day, 'EEEEE', { locale: ko })}</span>
+                      <span className="text-lg leading-6 tabular-nums">{format(day, 'd')}</span>
+                      {first ? <Dot color={groupHex(first.groupId, userGroups)} /> : <span aria-hidden className="size-1.5" />}
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* 일정 기록 */}
+              {schedulesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                </div>
+              ) : upcoming.length === 0 ? (
+                <div className="rounded-xl border border-line bg-surface lg:border-0">
+                  <EmptyState
+                    icon={CalendarDays}
+                    title="이번 주 남은 일정이 없어요"
+                    description="일정을 추가하면 여기에 날짜순으로 모여요"
+                  />
+                </div>
+              ) : (
+                <ul className="divide-y divide-line rounded-xl border border-line bg-surface px-4 lg:rounded-none lg:border-0 lg:border-y lg:px-0">
+                  {upcoming.flatMap(({ day, items }) =>
+                    items.map((s, i) => (
+                      <li key={`${day.toISOString()}-${s.id}`}>
+                        <ScheduleRow
+                          schedule={s}
+                          day={day}
+                          label={i === 0 ? dayLabel(day, today) : ''}
+                          time={formatTimeOnDay(s, day, tf)}
+                          groups={userGroups}
+                          onClick={() => handleScheduleClick(s)}
+                        />
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </>
+          )}
+        </section>
+
+        {/* 오른쪽: 최근 메모 · 내 모임 */}
+        <div className="flex flex-col gap-8">
+          <section className="flex flex-col gap-3">
+            <SectionHead title="최근 메모" href="/memo" />
+            {loading ? (
+              <LoadingCard />
             ) : memosError && !memoData ? (
               <LoadError message={getApiErrorMessage(memosError)} onRetry={() => refetchMemos()} />
             ) : recentMemos.length === 0 ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
-                <div className="size-10 rounded-full bg-raised flex items-center justify-center">
-                  <Plus size={18} strokeWidth={1.5} className="text-ink-3" />
-                </div>
-                <p className="text-sm font-medium text-ink">아직 메모가 없어요</p>
-                <p className="text-sm text-ink-3">새 메모를 쓰면 여기에 모여요</p>
+              <div className="card">
+                <EmptyState icon={FileText} title="아직 메모가 없어요" description="새 메모를 쓰면 여기에 모여요" />
               </div>
             ) : (
-              recentMemos.map((memo) => (
-                <MemoCard
-                  key={memo.id}
-                  title={memo.title}
-                  description={stripMarkdown(memo.content)}
-                  author={session?.user?.name || '나'}
-                  date={formatStamp(memo.createdAt, tf)}
-                  tags={memo.tags.map((t) => `#${t}`)}
-                  onClick={() => handleMemoClick(memo.id)}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Center Section: Calendar */}
-        <section className="order-1 lg:order-2 card p-5 lg:p-6 flex flex-col h-fit lg:h-full lg:overflow-hidden relative group">
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-base font-semibold text-ink">오늘</h2>
-            <span className="stamp">{format(new Date(), 'M.d EEE', { locale: ko })}</span>
-          </div>
-          {schedulesError && !scheduleData && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-[10px] bg-negative-soft px-3 py-2">
-              <p className="text-sm text-negative min-w-0">일정을 불러오지 못했어요. {getApiErrorMessage(schedulesError)}</p>
-              <button onClick={() => refetchSchedules()} className="btn-secondary h-8 shrink-0">다시 시도</button>
-            </div>
-          )}
-          {isMounted ? (
-            <div className="flex-1 min-h-[440px]">
-              <Calendar
-                onChange={(val) => val instanceof Date && setCurrentDate(val)}
-                value={currentDate}
-                className="w-full h-full border-none font-sans"
-                tileContent={getTileContent}
-                formatDay={(locale, date) => format(date, 'd')}
-                calendarType={weekStartsOn === 1 ? 'iso8601' : 'gregory'}
-                onClickDay={handleOpenListModal}
-              />
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center min-h-[440px]">
-              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
-            </div>
-          )}
-        </section>
-
-        {/* Right Section: Groups */}
-        <section className="order-3 lg:order-3 flex flex-col gap-3 lg:h-full lg:overflow-hidden">
-          <div className="flex items-center justify-between shrink-0">
-            <h2 className="text-base font-semibold text-ink">내 모임 <span className="ml-1 text-xs font-normal text-ink-3 tabular-nums">{userGroups.length}</span></h2>
-            <Link href="/groups" className="text-xs text-ink-3 hover:text-ink transition-colors">전체 보기</Link>
-          </div>
-          <div className="flex-1 flex flex-col gap-2 overflow-y-auto no-scrollbar min-h-0">
-            {loading ? (
-              <div className="py-16 flex flex-col items-center gap-3">
-                <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
-                <span className="text-sm text-ink-3">불러오는 중</span>
+              <div className="flex flex-col gap-3">
+                {recentMemos.map((memo, i) => (
+                  <MemoCard
+                    key={memo.id}
+                    memo={memo}
+                    groupName={userGroups.find((g) => g.id === memo.groupId)?.name}
+                    ribbon={groupHex(memo.groupId, userGroups)}
+                    author={memo.authorNickname || session?.user?.name || '나'}
+                    className={i >= 2 ? 'max-lg:hidden' : ''}
+                    onClick={() => handleMemoClick(memo.id)}
+                  />
+                ))}
               </div>
+            )}
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <SectionHead title="내 모임" href="/groups" />
+            {loading ? (
+              <LoadingCard />
             ) : groupsError && !groupData ? (
               <LoadError message={getApiErrorMessage(groupsError)} onRetry={() => refetchGroups()} />
             ) : userGroups.length === 0 ? (
-              <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
-                <div className="size-10 rounded-full bg-raised flex items-center justify-center">
-                  <Users size={18} strokeWidth={1.5} className="text-ink-3" />
-                </div>
-                <p className="text-sm font-medium text-ink">참여 중인 모임이 없어요</p>
-                <p className="text-sm text-ink-3">친구를 초대해 모임을 만들어 보세요</p>
+              <div className="card">
+                <EmptyState icon={Users} title="참여 중인 모임이 없어요" description="친구를 초대해 모임을 만들어 보세요" />
               </div>
             ) : (
-              userGroups.map((group) => (
-                <GroupCard 
-                  key={group.id}
-                  group={group}
-                  onClick={() => router.push(`/groups/${group.id}`)}
-                />
-              ))
+              <ul className="card divide-y divide-line overflow-hidden">
+                {userGroups.map((group) => (
+                  <li key={group.id}>
+                    <GroupRow
+                      group={group}
+                      next={today ? nextScheduleOf(group.id, schedules, today) : undefined}
+                      tf={tf}
+                      onClick={() => router.push(`/groups/${group.id}`)}
+                    />
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
-        </section>
+          </section>
+        </div>
 
       </main>
 
@@ -281,104 +305,173 @@ export default function HomePage() {
   );
 }
 
-function MemoCard({ title, description, author, date, tags, onClick }: { title: string, description: string, author: string, date: string, tags: string[], onClick: () => void }) {
-  const { data: session } = useSession();
-  const userImage = session?.user?.image;
-  const userName = session?.user?.name || author;
+/** 모임의 다음 일정(오늘 이후 시작) */
+function nextScheduleOf(groupId: string, schedules: ScheduleResponse[], today: Date) {
+  return sortSchedules(schedules.filter((s) => s.groupId === groupId && parseISO(s.startTime) >= today))[0];
+}
+
+function SectionHead({ title, href }: { title: string; href: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <h2 className="font-display text-lg leading-7 text-ink">{title}</h2>
+      <Link href={href} className="text-[13px] text-ink-3 transition-colors hover:text-ink">전체 보기</Link>
+    </div>
+  );
+}
+
+function LoadingCard() {
+  return (
+    <div className="card flex items-center justify-center gap-2 py-12">
+      <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" />
+      <span className="text-sm text-ink-3">불러오는 중</span>
+    </div>
+  );
+}
+
+function ScheduleRow({
+  schedule,
+  day,
+  label,
+  time,
+  groups,
+  onClick,
+}: {
+  schedule: ScheduleResponse;
+  day: Date;
+  label: string;
+  time: string;
+  groups: GroupResponse[];
+  onClick: () => void;
+}) {
+  const groupName = schedule.groupId ? groups.find((g) => g.id === schedule.groupId)?.name : '내 일정';
+  const meta = [groupName, schedule.location].filter(Boolean).join(' · ');
+  const people = schedule.participants ?? [];
 
   return (
-    <div onClick={onClick} className="card px-4 py-3 hover:bg-raised transition-colors cursor-pointer group">
-      <div className="flex items-start justify-between gap-2 mb-1">
-        <h3 className="font-medium text-ink text-sm line-clamp-1">{title}</h3>
-        <Share2 size={16} strokeWidth={1.5} className="text-ink-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 py-3 text-left lg:gap-4 lg:py-3.5"
+    >
+      {/* 넓은 화면: 날짜 칸 */}
+      <div className="hidden w-24 shrink-0 lg:block">
+        {label && (
+          <>
+            <p className="font-display text-[15px] leading-5 text-ink">{label}</p>
+            <p className="stamp mt-0.5">{format(day, 'M.d EEE', { locale: ko })}</p>
+          </>
+        )}
       </div>
-      <p className="text-sm text-ink-2 line-clamp-2 leading-relaxed mb-3">{description}</p>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="size-5 rounded-full bg-raised flex items-center justify-center text-ink-2 text-xs overflow-hidden relative shrink-0">
-            {userImage ? (
-              <ImageWithFallback
-                src={userImage}
-                alt={userName}
-                fill
-                containerClassName="w-full h-full"
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              initialOf(userName)
-            )}
-          </div>
-          <span className="text-xs text-ink-3 truncate">{userName}</span>
+      {/* 시각 (좁은 화면은 아래에 날짜 말) */}
+      <div className="w-14 shrink-0 lg:w-16">
+        <p className="text-sm tabular-nums text-ink-2">{time}</p>
+        {label && <p className="mt-0.5 text-xs text-ink-3 lg:hidden">{label}</p>}
+      </div>
+      <Ribbon color={groupHex(schedule.groupId, groups)} className="h-10" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-display text-[15px] leading-5 text-ink group-hover:text-accent">{schedule.title}</p>
+        {meta && <p className="mt-1 truncate text-[13px] text-ink-3">{meta}</p>}
+      </div>
+      {people.length > 0 && (
+        <div className="hidden shrink-0 -space-x-1.5 sm:flex" aria-label={`참여자 ${people.length}명`}>
+          {people.slice(0, 4).map((p) => (
+            <Avatar key={p.id} name={p.nickname} image={p.profileImage} />
+          ))}
+          {people.length > 4 && (
+            <span className="relative flex size-6 items-center justify-center rounded-full border-2 border-surface bg-raised text-[11px] tabular-nums text-ink-2">
+              +{people.length - 4}
+            </span>
+          )}
         </div>
-        <span className="stamp shrink-0">{date}</span>
+      )}
+    </button>
+  );
+}
+
+function Avatar({ name, image }: { name: string; image?: string }) {
+  const src = getFileUrl(image);
+  return (
+    <span title={name} className="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-surface bg-raised text-[11px] text-ink-2">
+      {src ? (
+        <ImageWithFallback src={src} alt={name} fill containerClassName="w-full h-full" className="object-cover" fallbackIcon={initialOf(name)} />
+      ) : (
+        initialOf(name)
+      )}
+    </span>
+  );
+}
+
+function MemoCard({
+  memo,
+  groupName,
+  ribbon,
+  author,
+  className = '',
+  onClick,
+}: {
+  memo: MemoResponse;
+  groupName?: string;
+  ribbon: string;
+  author: string;
+  className?: string;
+  onClick: () => void;
+}) {
+  const created = parseISO(memo.createdAt);
+  const description = stripMarkdown(memo.content);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`card flex w-full gap-3 px-4 py-4 text-left transition-colors hover:bg-raised lg:px-5 ${className}`}
+    >
+      <Ribbon color={ribbon} className="self-stretch" />
+      <div className="min-w-0 flex-1">
+        <h3 className="line-clamp-1 font-display text-base leading-6 text-ink">{memo.title}</h3>
+        {description && <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-ink-2">{description}</p>}
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-xs text-ink-3">{[groupName, author].filter(Boolean).join(' · ')}</span>
+          {!Number.isNaN(created.getTime()) && <span className="stamp shrink-0">{format(created, 'M.d')}</span>}
+        </div>
       </div>
-    </div>
+    </button>
+  );
+}
+
+function GroupRow({
+  group,
+  next,
+  tf,
+  onClick,
+}: {
+  group: GroupResponse;
+  next?: ScheduleResponse;
+  tf: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-raised lg:px-5"
+    >
+      <Ribbon color={getThemeColors(group.colorTheme).hex} className="h-5" />
+      <span className="min-w-0 truncate font-display text-[15px] text-ink">{group.name}</span>
+      <span className="shrink-0 text-[13px] tabular-nums text-ink-3">{group.memberCount}명</span>
+      {next && (
+        <span className="ml-auto min-w-0 truncate pl-2 text-xs tabular-nums text-ink-3">
+          {format(parseISO(next.startTime), `EEEEE ${tf}`, { locale: ko })} {next.title}
+        </span>
+      )}
+    </button>
   );
 }
 
 function LoadError({ message, onRetry }: { message: string, onRetry: () => void }) {
   return (
-    <div className="py-12 flex flex-col items-center justify-center gap-2 text-center px-6">
-      <p className="text-sm font-medium text-ink">불러오지 못했어요</p>
+    <div className="card flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
+      <p className="font-display text-base text-ink">불러오지 못했어요</p>
       <p className="text-sm text-ink-3">{message}</p>
-      <button onClick={onRetry} className="btn-secondary mt-1">다시 시도</button>
-    </div>
-  );
-}
-
-interface GroupCardProps {
-  group: GroupResponse;
-  onClick: () => void;
-}
-
-function GroupCard({ group, onClick }: GroupCardProps) {
-  const initial = initialOf(group.name);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  const profileSrc = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
-
-  return (
-    <div onClick={onClick} className="card px-4 py-3 hover:bg-raised transition-colors cursor-pointer group flex items-center gap-3">
-      {profileSrc ? (
-        <ImageWithFallback
-          src={profileSrc}
-          alt={group.name}
-          fill
-          containerClassName="size-10 bg-raised rounded-[10px] flex items-center justify-center text-ink-2 text-base font-medium shrink-0 relative"
-          className="object-cover"
-          fallbackIcon={initial}
-        />
-      ) : (
-        <div className="size-10 bg-raised rounded-[10px] flex items-center justify-center text-ink-2 text-base font-medium shrink-0 relative overflow-hidden">
-          {initial}
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-medium text-ink truncate">{group.name}</h3>
-        <div className="flex items-center gap-1.5 mt-1">
-          <div className="flex -space-x-1.5">
-            {group.members.slice(0, 3).map((member) => (
-              <div
-                key={member.id}
-                className="size-5 rounded-full bg-raised text-ink-2 border border-surface flex items-center justify-center text-xs overflow-hidden shrink-0 relative"
-                title={member.nickname}
-              >
-                {member.profileImage ? (
-                  <ImageWithFallback
-                    src={member.profileImage.startsWith('/uploads/') ? `${apiUrl}${member.profileImage}` : member.profileImage}
-                    alt={member.nickname}
-                    fill
-                    containerClassName="w-full h-full"
-                    className="object-cover"
-                  />
-                ) : initialOf(member.nickname)}
-              </div>
-            ))}
-          </div>
-          <span className="text-xs text-ink-3 ml-1 tabular-nums">{group.memberCount}명</span>
-        </div>
-      </div>
-      <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3" />
+      <button onClick={onRetry} className="btn-secondary mt-2">다시 시도</button>
     </div>
   );
 }

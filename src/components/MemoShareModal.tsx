@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Users, Check, Loader2, Search, RefreshCw } from 'lucide-react';
+import { Check, Loader2, Search, RefreshCw } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { memoApi, type MemoSharedUser } from '@/lib/memo-api';
@@ -9,6 +9,7 @@ import { getApiErrorMessage } from '@/lib/axios';
 import ImageWithFallback from './ImageWithFallback';
 import { useAlert } from '@/hooks/useAlert';
 import { initialOf } from '@/lib/utils';
+import { Modal } from './ui';
 
 interface MemoShareModalProps {
   isOpen: boolean;
@@ -102,145 +103,131 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
     )
   );
 
-  if (!isOpen) return null;
+  const avatar = (name: string, image: string | null | undefined, size: string, text: string) => (
+    <div className={`relative ${size} rounded-full overflow-hidden bg-raised shrink-0`}>
+      {image ? (
+        <ImageWithFallback
+          src={String(image).startsWith('/uploads/') ? `${apiUrl}${image}` : image}
+          alt={name}
+          fill
+          containerClassName="w-full h-full"
+          className="object-cover"
+          unoptimized
+        />
+      ) : (
+        <div className={`w-full h-full bg-raised flex items-center justify-center text-ink-2 font-medium ${text}`}>
+          {initialOf(name)}
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-surface border border-line rounded-2xl w-full max-w-md shadow-float overflow-hidden flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b border-line flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">메모 공유</h2>
-            <p className="text-sm text-ink-3 mt-0.5 line-clamp-1">{memoTitle}</p>
-          </div>
-          <button onClick={onClose} className="btn-ghost">
-            <X size={18} strokeWidth={1.5} />
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      size="sm"
+      title="메모 공유"
+      subtitle={<span className="line-clamp-1">{memoTitle}</span>}
+      bodyClassName="px-3! py-3! md:px-3!"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn-secondary">
+            취소
           </button>
-        </div>
-
-        <div className="p-4 border-b border-line shrink-0">
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder="친구 검색" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-input w-full pl-10"
-            />
-            <Search size={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-2 no-scrollbar">
-          {sharedWith.length > 0 && (
-            <div className="mb-2">
-              <p className="text-xs text-ink-3 px-4 pt-2 pb-1">공유 중 {sharedWith.length}명</p>
-              <div className="grid grid-cols-1 gap-1">
-                {sharedWith.map(user => (
-                  <div key={user.id} className="flex items-center justify-between px-4 py-2.5 rounded-[10px]">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="relative size-8 rounded-full overflow-hidden bg-raised shrink-0">
-                        {user.profileImage ? (
-                          <ImageWithFallback
-                            src={String(user.profileImage).startsWith('/uploads/') ? `${apiUrl}${user.profileImage}` : user.profileImage}
-                            alt={user.nickname}
-                            fill
-                            containerClassName="w-full h-full"
-                            className="object-cover"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-accent-soft flex items-center justify-center text-accent font-medium text-xs">
-                            {initialOf(user.nickname)}
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-sm text-ink truncate">{user.nickname}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleUnshare(user)}
-                      disabled={unsharingId === user.id}
-                      className="btn-secondary text-xs shrink-0 flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      {unsharingId === user.id && <Loader2 size={12} strokeWidth={1.5} className="animate-spin" />}
-                      공유 해제
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-ink-3 px-4 pt-3 pb-1">다른 친구에게 공유</p>
-            </div>
-          )}
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-2">
-              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
-              <p className="text-sm text-ink-3">친구 목록을 불러오고 있어요</p>
-            </div>
-          ) : loadError ? (
-            <div className="py-10 flex flex-col items-center gap-2 text-center">
-              <p className="text-sm text-ink">친구 목록을 불러오지 못했어요</p>
-              <p className="text-xs text-ink-3">{loadError}</p>
-              <button type="button" onClick={() => setReloadKey(k => k + 1)} className="btn-secondary mt-2 flex items-center gap-1.5">
-                <RefreshCw size={16} strokeWidth={1.5} />
-                다시 시도
-              </button>
-            </div>
-          ) : filteredFriends.length > 0 ? (
-            <div className="grid grid-cols-1 gap-1">
-              {filteredFriends.map(friend => (
-                <div 
-                  key={friend.userId} 
-                  onClick={() => toggleFriend(friend.userId)}
-                  className={`flex items-center justify-between px-4 py-3 rounded-[10px] cursor-pointer transition-colors duration-150 ease-out ${selectedFriendIds.includes(friend.userId) ? 'bg-raised' : 'hover:bg-raised'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="relative size-10 rounded-full overflow-hidden bg-raised shrink-0">
-                      {friend.profileImage ? (
-                        <ImageWithFallback 
-                          src={String(friend.profileImage).startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
-                          alt={friend.nickname} 
-                          fill 
-                          containerClassName="w-full h-full"
-                          className="object-cover" 
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-accent-soft flex items-center justify-center text-accent font-medium text-sm">
-                          {initialOf(friend.nickname)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{friend.nickname}</p>
-                      <p className="text-xs text-ink-3 truncate">{friend.email || (friend.customId ? `@${friend.customId}` : '')}</p>
-                    </div>
-                  </div>
-                  <div className={`size-5 rounded-full border flex items-center justify-center transition-colors duration-150 ease-out ${selectedFriendIds.includes(friend.userId) ? 'bg-accent border-accent text-white' : 'border-line-strong'}`}>
-                    {selectedFriendIds.includes(friend.userId) && <Check size={12} strokeWidth={1.5} />}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="py-10 text-center">
-              <p className="text-sm text-ink-3">
-                {q ? '검색 결과가 없어요' : friends.length === 0 ? '아직 친구가 없어요' : '모든 친구와 공유하고 있어요'}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="px-6 py-4 border-t border-line shrink-0">
           <button
             onClick={handleShare}
             disabled={isSharing || selectedFriendIds.length === 0}
-            className="btn-primary w-full disabled:opacity-50 flex items-center justify-center gap-2"
+            className="btn-primary"
           >
-            {isSharing ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Users size={16} strokeWidth={1.5} />}
-            {isSharing ? '공유 중…' : `친구 ${selectedFriendIds.length}명과 공유`}
+            {isSharing && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
+            {isSharing ? '공유 중…' : `${selectedFriendIds.length}명과 공유`}
+          </button>
+        </>
+      }
+    >
+      <div className="relative px-2 pb-3">
+        <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-5 top-[18px] -translate-y-1/2 text-ink-3" />
+        <input
+          type="text"
+          placeholder="친구 검색"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="form-input h-9 pl-9"
+        />
+      </div>
+
+      {sharedWith.length > 0 && (
+        <div className="mb-2">
+          <p className="px-2 pb-1 pt-2 text-xs font-medium text-ink-3">
+            공유 중 <span className="stamp">{sharedWith.length}</span>
+          </p>
+          <ul>
+            {sharedWith.map(user => (
+              <li key={user.id} className="flex h-14 items-center justify-between gap-3 px-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  {avatar(user.nickname, user.profileImage, 'size-8', 'text-xs')}
+                  <p className="font-display text-[15px] text-ink truncate">{user.nickname}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleUnshare(user)}
+                  disabled={unsharingId === user.id}
+                  className="btn-secondary btn-sm shrink-0"
+                >
+                  {unsharingId === user.id && <Loader2 size={12} strokeWidth={1.5} className="animate-spin" />}
+                  공유 해제
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="px-2 pb-1 pt-4 text-xs font-medium text-ink-3">다른 친구에게 공유</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-10">
+          <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" />
+          <p className="text-sm text-ink-3">친구 목록을 불러오고 있어요</p>
+        </div>
+      ) : loadError ? (
+        <div className="flex flex-col items-center gap-2 py-10 text-center">
+          <p className="font-display text-lg text-ink">친구 목록을 불러오지 못했어요</p>
+          <p className="text-sm text-ink-3">{loadError}</p>
+          <button type="button" onClick={() => setReloadKey(k => k + 1)} className="btn-secondary mt-3">
+            <RefreshCw size={16} strokeWidth={1.5} />
+            다시 시도
           </button>
         </div>
-      </div>
-    </div>
+      ) : filteredFriends.length > 0 ? (
+        <ul>
+          {filteredFriends.map(friend => {
+            const selected = selectedFriendIds.includes(friend.userId);
+            return (
+              <li
+                key={friend.userId}
+                onClick={() => toggleFriend(friend.userId)}
+                className={`flex h-14 items-center justify-between gap-3 px-2 rounded-[10px] cursor-pointer transition-colors duration-150 ease-out ${selected ? 'bg-accent-soft' : 'hover:bg-raised'}`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {avatar(friend.nickname, friend.profileImage, 'size-10', 'text-sm')}
+                  <div className="min-w-0">
+                    <p className={`font-display text-[15px] truncate ${selected ? 'text-accent' : 'text-ink'}`}>{friend.nickname}</p>
+                    <p className="text-xs text-ink-3 truncate">{friend.email || (friend.customId ? `@${friend.customId}` : '')}</p>
+                  </div>
+                </div>
+                <div className={`size-5 shrink-0 rounded-full border flex items-center justify-center transition-colors duration-150 ease-out ${selected ? 'bg-accent border-accent text-white' : 'border-line-strong bg-surface'}`}>
+                  {selected && <Check size={12} strokeWidth={2} />}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="py-10 text-center text-sm text-ink-3">
+          {q ? '검색 결과가 없어요' : friends.length === 0 ? '아직 친구가 없어요' : '모든 친구와 공유하고 있어요'}
+        </p>
+      )}
+    </Modal>
   );
 }

@@ -4,12 +4,8 @@ import React, { useRef, useState, useEffect, useSyncExternalStore } from 'react'
 import {
   X,
   Upload,
-  Sparkles,
-  Lightbulb,
   Loader2,
   Check,
-  Users,
-  FileText
 } from 'lucide-react';
 import { fileToDataUrl, convertToWebP, MAX_IMAGE_BYTES } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -233,47 +229,72 @@ export default function GroupTopicCreateModal({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 p-0 lg:p-4"
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/40 md:items-center md:p-4"
       onClick={handleClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={initialTopic ? '토픽 수정' : '새 토픽 작성'}
-        className="bg-surface w-full h-[100dvh] lg:h-auto lg:max-h-[90vh] lg:max-w-5xl lg:rounded-2xl lg:border lg:border-line lg:shadow-float flex flex-col overflow-hidden relative"
+        className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface animate-slide-up md:max-h-[88vh] md:max-w-[720px] md:rounded-2xl md:animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="px-4 lg:px-6 py-3 lg:py-4 border-b border-line flex items-center justify-between shrink-0">
-          <h2 className="text-lg font-semibold text-ink">
-            {initialTopic ? '토픽 수정' : '새 토픽 작성'}
+        {/* 머리 */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4 md:px-6">
+          <h2 className="font-display text-xl leading-7 text-ink">
+            {initialTopic ? '토픽 수정' : '토픽 올리기'}
           </h2>
           <button
             onClick={handleClose}
             disabled={isSaving}
-            className="btn-ghost"
+            className="btn-icon"
             aria-label="닫기"
           >
             <X size={18} strokeWidth={1.5} />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
-          {/* Main Editor Section */}
-          <div className="lg:flex-1 lg:min-w-0 flex flex-col p-4 lg:p-6 lg:overflow-y-auto no-scrollbar lg:border-r border-line bg-surface">
+        {/* 본문 */}
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 md:px-6">
+          <div className="space-y-1.5">
+            <label htmlFor="topic-title" className="text-[13px] font-medium text-ink-2">제목</label>
             <input
+              id="topic-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="토픽 제목"
+              placeholder="무엇을 이야기할까요"
               aria-label="토픽 제목"
-              className="text-xl lg:text-2xl font-semibold text-ink placeholder:text-ink-3 border-none outline-none mb-6 w-full bg-transparent"
+              className="form-input h-10 font-display text-base"
             />
+          </div>
 
-            {/* Image Upload Area */}
+          {/* 본문 편집기 */}
+          <div className="space-y-1.5">
+            <span className="text-[13px] font-medium text-ink-2">내용</span>
             <div
-              className="w-full border border-dashed border-line-strong rounded-xl p-6 flex flex-col items-center justify-center gap-3 bg-raised hover:bg-canvas transition-colors duration-150 ease-out cursor-pointer mb-6 group relative overflow-hidden min-h-[160px]"
+              className={`h-[300px] overflow-hidden rounded-[10px] border border-line-strong md:h-[340px] ${markdownListClassName}`}
+              data-color-mode="light"
+            >
+              <MDEditor
+                previewOptions={{ rehypePlugins: markdownRehypePlugins }}
+                value={content}
+                onChange={(val) => setContent(val || '')}
+                preview={isNarrow ? 'edit' : 'live'}
+                height="100%"
+                className="no-scrollbar"
+                textareaProps={{
+                  placeholder: '자유롭게 써 주세요. 마크다운을 쓸 수 있어요'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 사진 */}
+          <div className="space-y-1.5">
+            <span className="text-[13px] font-medium text-ink-2">사진</span>
+            <div
+              className="group relative flex min-h-24 w-full cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-[10px] border border-dashed border-line-strong p-4 transition-colors hover:bg-raised"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
@@ -289,20 +310,20 @@ export default function GroupTopicCreateModal({
                 }}
               />
               {imagePreview ? (
-                <div className="relative w-full max-h-64 rounded-lg overflow-hidden">
+                <div className="relative max-h-56 w-full overflow-hidden rounded-lg">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-contain bg-raised" />
-                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <p className="text-white text-sm bg-black/50 px-4 py-2 rounded-lg">이미지 바꾸기</p>
+                  <img src={imagePreview} alt="Preview" className="h-full w-full bg-raised object-contain" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
+                    <p className="rounded-lg bg-black/50 px-3 py-1.5 text-[13px] text-white">사진 바꾸기</p>
                   </div>
                 </div>
               ) : (
                 <>
-                  <Upload size={18} strokeWidth={1.5} className="text-ink-3" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-ink">대표 이미지 추가</p>
-                    <p className="text-xs text-ink-3 mt-1">끌어다 놓거나 눌러서 올릴 수 있어요</p>
-                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-ink">
+                    <Upload size={16} strokeWidth={1.5} className="text-ink-3" />
+                    사진 추가
+                  </span>
+                  <p className="text-xs text-ink-3">끌어다 놓거나 눌러서 올려요. 사진 속 글자는 요약할 때 함께 읽어요</p>
                 </>
               )}
               {imagePreview && (
@@ -312,153 +333,98 @@ export default function GroupTopicCreateModal({
                     e.stopPropagation();
                     setImagePreview(null);
                   }}
-                  className="btn-secondary absolute top-3 right-3 z-10 size-9 !px-0 text-negative shadow-float"
+                  aria-label="사진 빼기"
+                  className="btn-icon absolute right-2 top-2 z-10 border border-line-strong bg-surface hover:!bg-negative-soft hover:!text-negative"
                 >
                   <X size={16} strokeWidth={1.5} />
                 </button>
               )}
             </div>
+          </div>
 
-            {/* Markdown Editor */}
-            <div className={`h-[360px] shrink-0 lg:h-auto lg:shrink lg:flex-1 lg:min-h-[400px] rounded-xl overflow-hidden border border-line ${markdownListClassName}`} data-color-mode="light">
-              <MDEditor
-                previewOptions={{ rehypePlugins: markdownRehypePlugins }}
-                value={content}
-                onChange={(val) => setContent(val || '')}
-                preview={isNarrow ? 'edit' : 'live'}
-                height="100%"
-                className="no-scrollbar"
-                textareaProps={{
-                  placeholder: '이 토픽에 대해 자유롭게 이야기해 보세요 (마크다운 지원)'
-                }}
-              />
+          {/* 멘션 */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="relative space-y-1.5">
+              <label className="text-[13px] font-medium text-ink-2">친구 언급</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={participantInput}
+                  onChange={(e) => {
+                    setParticipantInput(e.target.value);
+                    handleInputChange(e.target.value, 'participant');
+                  }}
+                  placeholder="@이름으로 찾기"
+                  className="form-input"
+                />
+                {showParticipantMentions && (
+                  <MentionList
+                    items={filteredParticipants as MentionItem[]}
+                    onSelect={(m) => {
+                      setContent(prev => `${prev}\n[@${m.nickname}](/profile/${m.id}) `);
+                      setShowParticipantMentions(false);
+                      setParticipantInput('');
+                    }}
+                  />
+                )}
+              </div>
             </div>
 
-            {/* Mentions Section */}
-            <div className="mt-6 pt-6 border-t border-line grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2 relative">
-                <label className="text-sm font-medium text-ink flex items-center gap-2"><Users size={16} strokeWidth={1.5} className="text-ink-3" /> 친구 언급 (@)</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={participantInput}
-                    onChange={(e) => {
-                      setParticipantInput(e.target.value);
-                      handleInputChange(e.target.value, 'participant');
+            <div className="relative space-y-1.5">
+              <label className="text-[13px] font-medium text-ink-2">메모 언급</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={memoMentionInput}
+                  onChange={(e) => {
+                    setMemoMentionInput(e.target.value);
+                    handleInputChange(e.target.value, 'memo');
+                  }}
+                  placeholder="@제목으로 찾기"
+                  className="form-input"
+                />
+                {showMemoMentions && (
+                  <MentionList
+                    items={filteredMemos as MentionItem[]}
+                    onSelect={(m) => {
+                      setContent(prev => `${prev}\n[${m.title}](/memo/${m.id}) `);
+                      setShowMemoMentions(false);
+                      setMemoMentionInput('');
                     }}
-                    placeholder="@이름으로 친구 찾기"
-                    className="form-input"
+                    isMemo
                   />
-                  {showParticipantMentions && (
-                    <MentionList 
-                      items={filteredParticipants as MentionItem[]} 
-                      onSelect={(m) => {
-                        setContent(prev => `${prev}\n[@${m.nickname}](/profile/${m.id}) `);
-                        setShowParticipantMentions(false);
-                        setParticipantInput('');
-                      }} 
-                    />
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2 relative">
-                <label className="text-sm font-medium text-ink flex items-center gap-2"><FileText size={16} strokeWidth={1.5} className="text-ink-3" /> 메모 언급 (@)</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={memoMentionInput}
-                    onChange={(e) => {
-                      setMemoMentionInput(e.target.value);
-                      handleInputChange(e.target.value, 'memo');
-                    }}
-                    placeholder="@제목으로 메모 찾기"
-                    className="form-input"
-                  />
-                  {showMemoMentions && (
-                    <MentionList 
-                      items={filteredMemos as MentionItem[]} 
-                      onSelect={(m) => {
-                        setContent(prev => `${prev}\n[${m.title}](/memo/${m.id}) `);
-                        setShowMemoMentions(false);
-                        setMemoMentionInput('');
-                      }} 
-                      isMemo
-                    />
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Right Sidebar - Info & Tips */}
-          <div className="hidden lg:flex w-80 bg-canvas p-6 flex-col gap-6 shrink-0 overflow-y-auto no-scrollbar">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <Sparkles size={16} strokeWidth={1.5} className="text-ink-3" />
-                <span>AI 스마트 기능</span>
-              </div>
-              <div className="card p-4 space-y-3">
-                <p className="text-sm text-ink-2 leading-relaxed">
-                  이미지를 첨부하면 AI가 사진 속 텍스트를 자동으로 뽑아 줘요.
-                </p>
-                <div className="h-px bg-line w-full" />
-                <p className="text-sm text-ink-2 leading-relaxed">
-                  작성 후 버튼 하나로 긴 내용을 3줄로 요약할 수 있어요.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <Lightbulb size={16} strokeWidth={1.5} className="text-ink-3" />
-                <span>작성 팁</span>
-              </div>
-              <ul className="text-sm text-ink-2 space-y-3 leading-relaxed">
-                <li className="flex gap-3">
-                  <span className="size-1.5 rounded-full bg-line-strong mt-2 shrink-0" />
-                  <span>마크다운 문법으로 내용을 구조화해 보세요.</span>
-                </li>
-                <li className="flex gap-3">
-                  <span className="size-1.5 rounded-full bg-line-strong mt-2 shrink-0" />
-                  <span>@멘션으로 특정 메모나 멤버를 언급할 수 있어요.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
+          {error && (
+            <p role="alert" className="rounded-[10px] bg-negative-soft px-3 py-2.5 text-sm text-negative">
+              {error}
+            </p>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="px-4 lg:px-6 pt-3 lg:pt-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:pb-4 border-t border-line flex items-center justify-between gap-3 shrink-0">
-          <div className="text-xs text-ink-3">
-            {isSaving ? '저장하는 중이에요' : '저장하면 바로 반영돼요'}
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleClose}
-              disabled={isSaving}
-              className="btn-secondary"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="btn-primary"
-            >
-              {isSaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Check size={16} strokeWidth={1.5} />}
-              {isSaving ? '저장 중…' : (initialTopic ? '수정 완료' : '토픽 게시')}
-            </button>
-          </div>
+        {/* 아래 */}
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] md:px-6">
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={isSaving}
+            className="btn-secondary"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="btn-primary"
+          >
+            {isSaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Check size={16} strokeWidth={1.5} />}
+            {isSaving ? '저장하는 중' : (initialTopic ? '저장' : '올리기')}
+          </button>
         </div>
-
-        {error && (
-          <div role="alert" className="absolute bottom-20 left-4 right-4 lg:left-auto lg:right-6 bg-negative-soft text-negative px-4 py-3 rounded-lg text-sm shadow-float">
-            {error}
-          </div>
-        )}
       </div>
     </div>
   );

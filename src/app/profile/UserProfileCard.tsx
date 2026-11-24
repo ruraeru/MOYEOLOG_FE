@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { MessageCircle, UserPlus, Check, Settings, Users } from 'lucide-react';
+import { MessageCircle, UserPlus, Check, Settings } from 'lucide-react';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { friendApi, resolveImageUrl, type UserProfileResponse } from '@/lib/friend-api';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -22,9 +22,9 @@ interface UserProfileCardProps {
 const STATUS_TEXT: Record<UserProfileResponse['friendStatus'], string> = {
   NONE: '',
   PENDING_SENT: '친구 신청을 보냈어요. 상대가 수락하면 친구가 돼요.',
-  PENDING_RECEIVED: '나에게 친구 신청을 보냈어요.',
-  FRIEND: '친구예요.',
-  SELF: '내 프로필이에요.',
+  PENDING_RECEIVED: '나에게 친구 신청을 보냈어요',
+  FRIEND: '친구예요',
+  SELF: '내 프로필이에요',
 };
 
 export default function UserProfileCard({ profile, onChanged, variant = 'page' }: UserProfileCardProps) {
@@ -82,15 +82,15 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
   const image = resolveImageUrl(profile.profileImage);
   const statusText =
     variant === 'invite' && profile.friendStatus === 'NONE'
-      ? '친구 신청을 보내면 상대가 수락한 뒤 친구가 돼요.'
+      ? '친구 신청을 보내면 상대가 수락한 뒤 친구가 돼요'
       : variant === 'invite' && profile.friendStatus === 'SELF'
         ? '내 친구 초대 링크예요. 친구에게 보내 주세요.'
         : STATUS_TEXT[profile.friendStatus];
 
   return (
-    <div className="card p-6 space-y-5">
+    <div className="card p-5 sm:p-6 space-y-5">
       <div className="flex items-center gap-4">
-        <div className="relative size-16 shrink-0 rounded-full bg-raised border border-line flex items-center justify-center overflow-hidden">
+        <div className="relative size-16 shrink-0 rounded-full bg-raised flex items-center justify-center overflow-hidden">
           {image ? (
             <ImageWithFallback
               src={image}
@@ -102,33 +102,32 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
               unoptimized
             />
           ) : (
-            <span className="text-xl font-medium text-ink-2">{initialOf(profile.nickname)}</span>
+            <span className="text-xl text-ink-2">{initialOf(profile.nickname)}</span>
           )}
         </div>
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-ink truncate">{profile.nickname}</h1>
-          <p className="text-xs text-ink-3 tabular-nums">ID: {profile.customId}</p>
+          <h1 className="font-display text-2xl leading-8 text-ink truncate">{profile.nickname}</h1>
+          <p className="text-[13px] text-ink-3 truncate">@{profile.customId}</p>
         </div>
       </div>
 
       {profile.bio ? (
         <p className="text-sm text-ink-2 leading-relaxed whitespace-pre-wrap break-words">{profile.bio}</p>
       ) : variant === 'page' ? (
-        <p className="text-sm text-ink-3">자기소개가 없어요.</p>
+        <p className="text-sm text-ink-3">자기소개가 없어요</p>
       ) : null}
 
       {profile.mutualGroups?.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-ink-3 flex items-center gap-1.5">
-            <Users size={14} strokeWidth={1.5} />
-            함께 있는 모임 {profile.mutualGroups.length}
+        <div className="space-y-2 border-t border-line pt-4">
+          <p className="text-xs font-medium text-ink-3">
+            함께 있는 모임 <span className="tabular-nums">{profile.mutualGroups.length}</span>
           </p>
           <div className="flex flex-wrap gap-1.5">
             {profile.mutualGroups.map((g) => (
               <Link
                 key={g.id}
                 href={`/groups/${g.id}`}
-                className="h-7 px-2.5 inline-flex items-center rounded-lg bg-raised text-xs text-ink-2 hover:text-ink transition-colors max-w-full truncate"
+                className="chip h-7 px-2.5 hover:bg-line hover:text-ink transition-colors max-w-full truncate"
               >
                 {g.name}
               </Link>
@@ -137,7 +136,7 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
         </div>
       )}
 
-      {statusText && <p className="text-sm text-ink-2">{statusText}</p>}
+      {statusText && <p className="text-[13px] text-ink-2">{statusText}</p>}
 
       <div className="flex flex-col sm:flex-row gap-2">
         {profile.friendStatus === 'NONE' && (

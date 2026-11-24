@@ -5,20 +5,14 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   Loader2,
-  Calendar as LucideCalendar,
   Link as LinkIcon,
+  Check,
   Settings,
   MessageSquare as TopicIcon,
-  Users,
   Search,
-  Archive,
-  User as UserIcon,
-  Star,
+  FileText,
   UserPlus,
   LogOut,
-  Lock,
-  SearchX,
-  AlertCircle,
   X,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
@@ -28,21 +22,20 @@ import { type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import { getApiErrorMessage } from '@/lib/axios';
-import { stripMarkdown } from '@/lib/utils';
+import { stripMarkdown, getThemeColors } from '@/lib/utils';
+import { useTimeFormat } from '@/lib/schedule-utils';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
 
 // ─── Imported Sub Components ─────────────────────────────────────
-import ImageWithFallback from '@/components/ImageWithFallback';
+import { Ribbon, UnderlineTabs, Segmented, EmptyState } from '@/components/ui';
 import {
-  TabButton,
-  FilterButton,
-  SectionTitle,
   TagBadge,
-  ViewSelector,
-  EmptyState,
   ErrorState,
+  AvatarStack,
+  Avatar,
 } from '@/components/groups/GroupUI';
 import { MemberCard } from '@/components/groups/MemberCard';
 import { MemoCard } from '@/components/groups/MemoCard';
@@ -97,6 +90,9 @@ function GroupDetailContent() {
   const { data: session } = useSession();
   const { confirm, toast } = useAlert();
   const { refreshGroups } = useGroupModal();
+  const tf = useTimeFormat();
+  // '다가오는 일정' 기준 시각 (화면을 연 시각)
+  const [now] = useState(() => Date.now());
   const groupId = params?.id as string;
   const topicParam = searchParams.get('topic');
   const tabParam = searchParams.get('tab');
@@ -349,19 +345,23 @@ function GroupDetailContent() {
     router.push('/groups');
   };
 
+  const groupColor = getThemeColors(group?.colorTheme).hex;
+
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
     const daySchedules = schedules.filter(s => isSameDay(parseISO(s.startTime), date));
     if (daySchedules.length === 0) return null;
     return (
-      <div className="mt-1 flex flex-col gap-0.5 w-full overflow-hidden px-0.5">
+      <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden">
         {daySchedules.slice(0, 2).map(s => (
-          <div key={s.id} className="bg-accent text-white text-xs px-1 py-0.5 rounded w-full text-left truncate">
-            {s.title}
+          <div key={s.id} className="flex w-full min-w-0 items-center gap-1 text-left text-[11px] leading-4 text-ink-2">
+            <Ribbon color={groupColor} className="h-3" />
+            <span className="hidden shrink-0 tabular-nums text-ink-3 sm:inline">{format(parseISO(s.startTime), tf)}</span>
+            <span className="truncate">{s.title}</span>
           </div>
         ))}
         {daySchedules.length > 2 && (
-          <div className="text-xs text-ink-3 tabular-nums">+{daySchedules.length - 2}</div>
+          <div className="pl-2 text-[11px] leading-4 text-ink-3 tabular-nums">+{daySchedules.length - 2}</div>
         )}
       </div>
     );
@@ -393,260 +393,246 @@ function GroupDetailContent() {
     }
   };
 
-  const themeClasses = {
-    indigo: 'bg-accent-soft',
-    blue: 'bg-sky-50',
-    emerald: 'bg-emerald-50',
-    orange: 'bg-orange-50',
-    rose: 'bg-rose-50',
-    amber: 'bg-amber-50',
-    purple: 'bg-purple-50',
-  };
-  const themeTextClasses = {
-    indigo: 'text-accent',
-    blue: 'text-sky-600',
-    emerald: 'text-emerald-600',
-    orange: 'text-orange-600',
-    rose: 'text-rose-600',
-    amber: 'text-amber-600',
-    purple: 'text-purple-600',
-  };
-  const bannerBg = themeClasses[group.colorTheme as keyof typeof themeClasses] || themeClasses.indigo;
-  const themeText = themeTextClasses[group.colorTheme as keyof typeof themeTextClasses] || themeTextClasses.indigo;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  const groupBg = group.backgroundImage ? (group.backgroundImage.startsWith('/uploads/') ? `${apiUrl}${group.backgroundImage}` : group.backgroundImage) : null;
-  const groupProfile = group.profileImage ? (group.profileImage.startsWith('/uploads/') ? `${apiUrl}${group.profileImage}` : group.profileImage) : null;
-
   const memoEmptyText = searchQuery.trim()
     ? '검색 결과가 없어요'
     : memoFilter.type === 'favorites' ? '즐겨찾기한 메모가 없어요' : '메모가 없어요';
 
+  const upcomingSchedules = schedules
+    .filter(s => parseISO(s.startTime).getTime() >= now)
+    .sort((a, b) => parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime())
+    .slice(0, 3);
+
+  const tabItems: { key: TabType; label: string; count: number }[] = [
+    { key: 'memos', label: '메모', count: memos.length },
+    { key: 'calendar', label: '일정', count: schedules.length },
+    { key: 'topics', label: '토픽', count: topics.length },
+    { key: 'members', label: '멤버', count: group.members.length },
+  ];
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
       <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-24">
-        {/* Banner Section */}
-        <div className="px-4 pt-4 md:px-8 md:pt-8">
-          <div className={`w-full rounded-2xl ${bannerBg} p-5 md:p-8 lg:p-12 relative overflow-hidden`}>
-            {groupBg && (
-              <div className="absolute inset-0 z-0">
-                <ImageWithFallback
-                  src={groupBg}
-                  alt=""
-                  fill
-                  containerClassName="w-full h-full"
-                  className="object-cover opacity-30"
-                  unoptimized
-                />
-              </div>
-            )}
-
-            <div className="relative z-10 max-w-7xl mx-auto flex flex-col gap-4 md:gap-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 md:gap-5 min-w-0">
-                  {groupProfile ? (
-                    <ImageWithFallback
-                      src={groupProfile}
-                      alt={group.name}
-                      fill
-                      containerClassName="size-14 md:size-20 rounded-2xl relative shrink-0 border-4 border-surface overflow-hidden"
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="size-14 md:size-20 rounded-2xl bg-surface flex items-center justify-center text-xl md:text-2xl font-semibold shrink-0 border-4 border-surface">
-                      <span className={themeText}>{[...group.name][0]}</span>
-                    </div>
-                  )}
-                  <div className="space-y-2 min-w-0">
-                    <h1 className="text-xl md:text-2xl font-semibold text-ink break-words">
-                      {group.name}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="px-3 py-1 bg-surface rounded-lg flex items-center gap-2 whitespace-nowrap">
-                        <Users size={16} strokeWidth={1.5} className="text-ink-3" />
-                        <span className="text-xs text-ink-2 tabular-nums">멤버 {group.memberCount}명</span>
-                      </div>
-                      <button
-                        onClick={handleCopyInviteLink}
-                        className={`px-3 py-1 bg-surface rounded-lg flex items-center gap-2 whitespace-nowrap hover:bg-raised transition-colors duration-150 ease-out ${copied ? 'text-positive' : 'text-ink-2'}`}
-                      >
-                        <LinkIcon size={16} strokeWidth={1.5} />
-                        <span className="text-xs">{copied ? '복사했어요' : '초대 링크 복사'}</span>
-                      </button>
-                      <button
-                        onClick={() => setIsInviteModalOpen(true)}
-                        className="px-3 py-1 bg-surface rounded-lg flex items-center gap-2 whitespace-nowrap text-ink-2 hover:bg-raised transition-colors duration-150 ease-out"
-                      >
-                        <UserPlus size={16} strokeWidth={1.5} />
-                        <span className="text-xs">친구 초대</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {isOwner && (
-                  <button
-                    onClick={() => setIsEditModalOpen(true)}
-                    className="btn-secondary size-10 !px-0 shrink-0"
-                    aria-label="모임 설정"
-                    title="모임 설정"
-                  >
-                    <Settings size={18} strokeWidth={1.5} className="text-ink-2" />
-                  </button>
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-8 lg:pt-8">
+          {/* 머리: 모임 띠 + 이름 + 설명·방장 / 얼굴 묶음 + 친구 초대 + 설정 */}
+          <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 gap-3">
+              <Ribbon color={groupColor} className="h-auto self-stretch" />
+              <div className="min-w-0">
+                <h1 className="break-words font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9">
+                  {group.name}
+                </h1>
+                <p className="mt-1 text-sm text-ink-2">
+                  {group.description && <span className="hidden break-words lg:inline">{group.description} · </span>}
+                  <span className="tabular-nums lg:hidden">{group.memberCount}명 · </span>
+                  방장 {group.createdByNickname}
+                </p>
+                {group.description && (
+                  <p className="mt-1 line-clamp-2 break-words text-sm text-ink-3 lg:hidden">{group.description}</p>
                 )}
               </div>
-
-              <p className="text-ink-2 max-w-3xl text-sm md:text-base leading-relaxed break-words">
-                {group.description || '아직 모임 설명이 없어요. 팀원들과 메모와 일정을 함께 나눠 보세요'}
-              </p>
             </div>
-          </div>
-        </div>
 
-        {/* Content Section */}
-        <div className="max-w-7xl mx-auto px-4 md:px-8 mt-6 md:mt-8 space-y-6 md:space-y-8">
-          {/* Navigation Tabs */}
-          <div className="grid grid-cols-4 sm:flex items-center gap-1 p-1 bg-raised rounded-[10px] w-full sm:w-fit">
-            <TabButton active={activeTab === 'memos'} icon={<Archive />} label="모임 메모" onClick={() => setActiveTab('memos')} />
-            <TabButton active={activeTab === 'calendar'} icon={<LucideCalendar />} label="모임 일정" onClick={() => setActiveTab('calendar')} />
-            <TabButton active={activeTab === 'topics'} icon={<TopicIcon />} label="모임 토픽" onClick={() => setActiveTab('topics')} />
-            <TabButton active={activeTab === 'members'} icon={<Users />} label="모임 멤버" onClick={() => setActiveTab('members')} />
-          </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="mr-1 hidden lg:flex" title={`멤버 ${group.memberCount}명`}>
+                <AvatarStack people={group.members} max={4} size="size-8" />
+              </span>
+              <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary">
+                <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
+              </button>
+              <button
+                onClick={handleCopyInviteLink}
+                className="btn-secondary !px-2.5 sm:!px-3.5"
+                aria-label="초대 링크 복사"
+                title="초대 링크 복사"
+              >
+                {copied ? <Check size={16} strokeWidth={1.5} /> : <LinkIcon size={16} strokeWidth={1.5} />}
+                <span className="hidden sm:inline">{copied ? '복사했어요' : '링크 복사'}</span>
+              </button>
+              {isOwner && (
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="btn-secondary size-9 !px-0"
+                  aria-label="모임 설정"
+                  title="모임 설정"
+                >
+                  <Settings size={16} strokeWidth={1.5} />
+                </button>
+              )}
+            </div>
+          </header>
 
-          <div className="min-h-[500px] outline-none">
+          <UnderlineTabs className="mt-5 lg:mt-6" items={tabItems} active={activeTab} onChange={setActiveTab} />
+
+          <div className="mt-5 min-h-[400px] outline-none lg:mt-6">
             {activeTab === 'memos' ? (
-              <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-stretch md:items-start outline-none">
-                {/* 모바일: 카테고리·태그를 가로 칩으로 */}
-                <div className="md:hidden flex items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
-                  {([
-                    { type: 'all', label: '전체' },
-                    { type: 'my', label: '내가 쓴 메모' },
-                    { type: 'favorites', label: '즐겨찾기' },
-                  ] as const).map(f => (
-                    <button
-                      key={f.type}
-                      type="button"
-                      onClick={() => setMemoFilter({ type: f.type })}
-                      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm transition-colors duration-150 ease-out ${
-                        memoFilter.type === f.type ? 'bg-surface text-ink font-medium shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 bg-raised'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                  {dynamicTags.length > 0 && <span className="w-px h-5 bg-line shrink-0" />}
-                  {dynamicTags.map(tag => (
-                    <TagBadge key={tag} label={tag} active={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
-                  ))}
-                </div>
-
-                {/* 데스크톱: 필터 사이드바 */}
-                <aside className="hidden md:block w-56 shrink-0 space-y-6">
-                  <div>
-                    <SectionTitle label="카테고리" />
-                    <div className="space-y-1">
-                      <FilterButton active={memoFilter.type === 'all'} icon={<Archive />} label="전체 메모" onClick={() => setMemoFilter({ type: 'all' })} />
-                      <FilterButton active={memoFilter.type === 'my'} icon={<UserIcon />} label="내가 쓴 메모" onClick={() => setMemoFilter({ type: 'my' })} />
-                      <FilterButton active={memoFilter.type === 'favorites'} icon={<Star />} label="즐겨찾기" onClick={() => setMemoFilter({ type: 'favorites' })} isFavorite />
-                    </div>
-                  </div>
-                  <div>
-                    <SectionTitle label="태그" />
-                    <div className="flex flex-wrap gap-2 px-3">
-                      {dynamicTags.length > 0 ? dynamicTags.map(tag => (
-                        <TagBadge key={tag} label={tag} active={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
-                      )) : <p className="text-xs text-ink-3">사용된 태그가 없어요</p>}
-                    </div>
-                  </div>
-                </aside>
-
-                <div className="flex-1 min-w-0 space-y-6">
-                  <div className="flex flex-wrap justify-between items-center gap-3">
-                    <div className="relative flex-1 min-w-[12rem] max-w-xl">
-                      <input
-                        type="search"
-                        placeholder="메모 검색"
-                        aria-label="모임 메모 검색"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="form-input pl-10 pr-9"
-                      />
-                      <Search size={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none" />
-                      {searchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchQuery('')}
-                          aria-label="검색어 지우기"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-ink-3 hover:text-ink"
-                        >
-                          <X size={14} strokeWidth={1.5} />
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <ViewSelector current={viewMode} onChange={setViewMode} />
-                      <button onClick={() => setIsMemoModalOpen(true)} className="btn-primary whitespace-nowrap"><Plus size={16} strokeWidth={1.5} /> 메모 작성</button>
-                    </div>
-                  </div>
-
-                  {listError && memos.length === 0 ? (
-                    <ErrorState message={listError} onRetry={() => fetchGroupData()} />
-                  ) : filteredMemos.length > 0 ? (
-                    <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-3"}>
-                      {filteredMemos.map(memo => <MemoCard key={memo.id} memo={memo} viewMode={viewMode} onClick={() => handleMemoClick(memo.id)} />)}
-                    </div>
-                  ) : (
-                    <EmptyState
-                      icon={<Archive />}
-                      text={memoEmptyText}
-                      subText={searchQuery.trim() ? '다른 검색어로 찾아보세요' : undefined}
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                  <Segmented
+                    ariaLabel="메모 범위"
+                    items={[
+                      { key: 'all', label: '전체' },
+                      { key: 'my', label: '내 메모' },
+                      { key: 'favorites', label: '즐겨찾기' },
+                    ]}
+                    active={memoFilter.type === 'tag' ? 'all' : memoFilter.type}
+                    onChange={(k) => setMemoFilter({ type: k })}
+                  />
+                  <div className="relative order-last w-full md:order-none md:w-auto md:min-w-[12rem] md:max-w-sm md:flex-1">
+                    <input
+                      type="search"
+                      placeholder="제목·내용 검색"
+                      aria-label="모임 메모 검색"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="form-input h-9 pl-9 pr-9"
                     />
-                  )}
+                    <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        aria-label="검색어 지우기"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-ink-3 hover:text-ink"
+                      >
+                        <X size={14} strokeWidth={1.5} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="hidden sm:inline-flex">
+                      <Segmented
+                        ariaLabel="보기"
+                        items={[
+                          { key: 'grid', label: '카드', title: '카드로 보기' },
+                          { key: 'list', label: '목록', title: '목록으로 보기' },
+                        ]}
+                        active={viewMode}
+                        onChange={setViewMode}
+                      />
+                    </span>
+                    <button onClick={() => setIsMemoModalOpen(true)} className="btn-primary whitespace-nowrap">
+                      <Plus size={16} strokeWidth={1.5} /> 메모 쓰기
+                    </button>
+                  </div>
                 </div>
+
+                {dynamicTags.length > 0 && (
+                  <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto no-scrollbar px-4 md:mx-0 md:flex-wrap md:px-0">
+                    {dynamicTags.map(tag => (
+                      <TagBadge key={tag} label={tag} active={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} />
+                    ))}
+                  </div>
+                )}
+
+                {listError && memos.length === 0 ? (
+                  <ErrorState message={listError} onRetry={() => fetchGroupData()} />
+                ) : filteredMemos.length > 0 ? (
+                  <div className={viewMode === 'grid' ? 'grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3' : 'space-y-2'}>
+                    {filteredMemos.map(memo => (
+                      <MemoCard key={memo.id} memo={memo} viewMode={viewMode} color={groupColor} onClick={() => handleMemoClick(memo.id)} />
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={FileText}
+                    title={memoEmptyText}
+                    description={searchQuery.trim() ? '다른 검색어로 찾아보세요' : '첫 메모를 남겨 보세요'}
+                  />
+                )}
               </div>
             ) : activeTab === 'calendar' ? (
               listError && schedules.length === 0 ? (
                 <ErrorState message={listError} onRetry={() => fetchGroupData()} />
               ) : (
-                <div className="card p-3 md:p-6 no-outline">
+                <div className="card overflow-hidden p-2 md:p-4">
                   <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
                 </div>
               )
             ) : activeTab === 'topics' ? (
-              <div className="space-y-6 outline-none">
-                <div className="flex justify-between items-center gap-3">
-                  <h3 className="text-base font-semibold text-ink">공유 토픽 <span className="text-xs font-normal text-ink-3 tabular-nums">{topics.length}</span></h3>
-                  <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="btn-primary whitespace-nowrap"><Plus size={16} strokeWidth={1.5} /> 새 토픽 게시</button>
-                </div>
-                {listError && topics.length === 0 ? (
-                  <ErrorState message={listError} onRetry={() => fetchGroupData()} />
-                ) : topics.length > 0 ? (
-                  <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" : "space-y-3"}>
-                    {topics.map(topic => <TopicCard key={topic.id} topic={topic} viewMode={viewMode} onClick={() => handleTopicClick(topic)} />)}
-                  </div>
-                ) : <EmptyState icon={<TopicIcon />} text="아직 게시된 토픽이 없어요" />}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-base font-semibold text-ink">멤버 <span className="text-xs font-normal text-ink-3 tabular-nums">{group.members.length}</span></h3>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary whitespace-nowrap">
-                      <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <section className="min-w-0 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-medium text-ink-2">최근 토픽</h2>
+                    <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="btn-primary whitespace-nowrap">
+                      <Plus size={16} strokeWidth={1.5} /> 토픽 올리기
                     </button>
-                    {!isOwner && (
-                      <button
-                        onClick={handleLeave}
-                        disabled={leaving}
-                        className="btn-ghost whitespace-nowrap text-negative hover:!bg-negative-soft"
-                      >
-                        {leaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <LogOut size={16} strokeWidth={1.5} />}
-                        모임 나가기
-                      </button>
+                  </div>
+                  {listError && topics.length === 0 ? (
+                    <ErrorState message={listError} onRetry={() => fetchGroupData()} />
+                  ) : topics.length > 0 ? (
+                    <div className="space-y-3">
+                      {topics.map(topic => <TopicCard key={topic.id} topic={topic} onClick={() => handleTopicClick(topic)} />)}
+                    </div>
+                  ) : (
+                    <EmptyState icon={TopicIcon} title="아직 토픽이 없어요" description="모임에서 같이 정할 이야기를 올려 보세요" />
+                  )}
+                </section>
+
+                {/* 오른쪽: 다가오는 일정 · 멤버 */}
+                <aside className="hidden space-y-4 xl:block">
+                  <div className="card px-5 py-4">
+                    <h3 className="font-display text-base text-ink">다가오는 일정</h3>
+                    {upcomingSchedules.length > 0 ? (
+                      <ul className="mt-2 divide-y divide-line">
+                        {upcomingSchedules.map(s => {
+                          const d = parseISO(s.startTime);
+                          return (
+                            <li key={s.id}>
+                              <button
+                                type="button"
+                                onClick={() => handleScheduleClick(s)}
+                                className="flex w-full gap-4 py-3 text-left"
+                              >
+                                <span className="stamp w-16 shrink-0">
+                                  {format(d, 'M.d EEE', { locale: ko })}
+                                  <br />
+                                  <span className="text-ink-2">{format(d, tf, { locale: ko })}</span>
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block truncate font-display text-[15px] leading-5 text-ink hover:text-accent">{s.title}</span>
+                                  {s.location && <span className="block truncate text-xs text-ink-3">{s.location}</span>}
+                                </span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-sm text-ink-3">잡힌 일정이 없어요</p>
                     )}
                   </div>
+
+                  <div className="card px-5 py-4">
+                    <h3 className="font-display text-base text-ink">
+                      멤버 <span className="stamp">{group.members.length}</span>
+                    </h3>
+                    <ul className="mt-2 space-y-1">
+                      {group.members.map(m => (
+                        <li key={m.id} className="flex h-10 items-center gap-3">
+                          <Avatar name={m.nickname} src={m.profileImage} size="size-7" />
+                          <span className="truncate text-sm text-ink">{m.nickname}</span>
+                          {m.id === group.createdById && <span className="shrink-0 text-xs text-ink-3">방장</span>}
+                          {m.id === session?.user?.id && <span className="shrink-0 text-xs text-ink-3">나</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </aside>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-sm font-medium text-ink-2">
+                    멤버 <span className="tabular-nums">{group.members.length}</span>
+                  </h2>
+                  {!isOwner && (
+                    <button onClick={handleLeave} disabled={leaving} className="btn-danger whitespace-nowrap">
+                      {leaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <LogOut size={16} strokeWidth={1.5} />}
+                      모임 나가기
+                    </button>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="card divide-y divide-line overflow-hidden">
                   {group.members.map(member => (
                     <MemberCard
                       key={member.id}
@@ -655,7 +641,6 @@ function GroupDetailContent() {
                       isMe={member.id === session?.user?.id}
                       currentUserIsOwner={isOwner}
                       onKick={() => handleKickMember(member.id, member.nickname)}
-                      apiUrl={apiUrl}
                     />
                   ))}
                 </div>
@@ -695,20 +680,17 @@ function GroupDetailContent() {
 }
 
 function GroupErrorView({ error, onRetry, onGoList }: { error: GroupLoadError; onRetry: () => void; onGoList: () => void }) {
-  let icon = <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />;
   let title = '모임을 불러오지 못했어요';
   let description = error.message;
   let canRetry = true;
 
   if (error.status === 403) {
-    icon = <Lock size={18} strokeWidth={1.5} className="text-ink-3" />;
     title = error.wasMember ? '이 모임에 더 이상 들어갈 수 없어요' : '이 모임의 멤버가 아니에요';
     description = error.wasMember
       ? '모임에서 내보내졌거나 모임을 나갔어요.'
       : '모임에 참여하려면 초대 링크나 초대 코드가 필요해요.';
     canRetry = false;
   } else if (error.status === 404 || error.status === 400) {
-    icon = <SearchX size={18} strokeWidth={1.5} className="text-ink-3" />;
     title = error.wasMember ? '삭제된 모임이에요' : '모임을 찾을 수 없어요';
     description = error.wasMember
       ? '방장이 모임을 삭제했어요.'
@@ -718,17 +700,14 @@ function GroupErrorView({ error, onRetry, onGoList }: { error: GroupLoadError; o
 
   return (
     <div className="flex-1 flex items-center justify-center p-6 pb-24">
-      <div className="card w-full max-w-sm p-6 text-center space-y-5">
-        <div className="size-10 rounded-full bg-raised flex items-center justify-center mx-auto">{icon}</div>
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold text-ink">{title}</h1>
-          <p className="text-sm text-ink-2">{description}</p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <button onClick={onGoList} className="btn-primary w-full">모임 목록으로</button>
+      <div className="card w-full max-w-sm p-6 text-center">
+        <h1 className="font-display text-xl leading-7 text-ink">{title}</h1>
+        <p className="mt-2 text-sm text-ink-2">{description}</p>
+        <div className="mt-6 flex justify-center gap-2">
           {canRetry && (
-            <button onClick={onRetry} className="btn-secondary w-full">다시 시도</button>
+            <button onClick={onRetry} className="btn-secondary">다시 시도</button>
           )}
+          <button onClick={onGoList} className="btn-primary">모임 목록으로</button>
         </div>
       </div>
     </div>
