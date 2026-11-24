@@ -15,6 +15,7 @@ import GroupEditModal from '@/components/GroupEditModal';
 import GroupTopicCreateModal from '@/components/GroupTopicCreateModal';
 import GroupTopicDetailModal from '@/components/GroupTopicDetailModal';
 import GroupInviteModal from '@/components/GroupInviteModal';
+import { groupStyle } from './GroupIdentity';
 
 /**
  * 모임 일정 탭에서 만든 일정이 그 모임 일정으로 저장되도록 defaultGroupId 를 넘긴다.
@@ -99,8 +100,9 @@ export function GroupModals({
   schedules, 
   setSelectedSchedule 
 }: GroupModalsProps) {
+  // 창들도 모임 색 토큰(bg-group 등)을 받도록 모임 색 변수를 깐다. contents 라 배치에는 영향이 없다
   return (
-    <>
+    <div className="contents" style={groupStyle(group.colorTheme)}>
       <MemoCreateModal 
         isOpen={isMemoModalOpen} 
         onClose={() => setIsMemoModalOpen(false)} 
@@ -153,6 +155,7 @@ export function GroupModals({
         onDelete={onSuccess} 
         onEdit={handleTopicEdit} 
         onMemoClick={handleMemoClick} 
+        group={group}
       />
       {isInviteModalOpen && <GroupInviteModal
         isOpen={isInviteModalOpen}
@@ -161,6 +164,6 @@ export function GroupModals({
         groupName={group.name}
         memberIds={group.members.map(m => m.id)}
       />}
-    </>
+    </div>
   );
 }

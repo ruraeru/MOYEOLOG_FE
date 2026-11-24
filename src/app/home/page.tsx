@@ -17,6 +17,7 @@ import { PageHeader, Ribbon, Dot, EmptyState } from '@/components/ui';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { stripMarkdown, initialOf, getThemeColors, getFileUrl } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
 import { formatTimeOnDay, schedulesOnDay, sortSchedules, useTimeFormat, useWeekStartsOn } from '@/lib/schedule-utils';
@@ -236,7 +237,7 @@ export default function HomePage() {
                   <MemoCard
                     key={memo.id}
                     memo={memo}
-                    groupName={userGroups.find((g) => g.id === memo.groupId)?.name}
+                    group={userGroups.find((g) => g.id === memo.groupId)}
                     ribbon={groupHex(memo.groupId, userGroups)}
                     author={memo.authorNickname || session?.user?.name || '나'}
                     className={i >= 2 ? 'max-lg:hidden' : ''}
@@ -343,7 +344,8 @@ function ScheduleRow({
   groups: GroupResponse[];
   onClick: () => void;
 }) {
-  const groupName = schedule.groupId ? groups.find((g) => g.id === schedule.groupId)?.name : '내 일정';
+  const group = schedule.groupId ? groups.find((g) => g.id === schedule.groupId) : undefined;
+  const groupName = schedule.groupId ? group?.name : '내 일정';
   const meta = [groupName, schedule.location].filter(Boolean).join(' · ');
   const people = schedule.participants ?? [];
 
@@ -370,7 +372,12 @@ function ScheduleRow({
       <Ribbon color={groupHex(schedule.groupId, groups)} className="h-10" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-display text-[15px] leading-5 text-ink group-hover:text-accent">{schedule.title}</p>
-        {meta && <p className="mt-1 truncate text-[13px] text-ink-3">{meta}</p>}
+        {meta && (
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-ink-3">
+            {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
+            <span className="min-w-0 truncate">{meta}</span>
+          </p>
+        )}
       </div>
       {people.length > 0 && (
         <div className="hidden shrink-0 -space-x-1.5 sm:flex" aria-label={`참여자 ${people.length}명`}>
@@ -403,14 +410,14 @@ function Avatar({ name, image }: { name: string; image?: string }) {
 
 function MemoCard({
   memo,
-  groupName,
+  group,
   ribbon,
   author,
   className = '',
   onClick,
 }: {
   memo: MemoResponse;
-  groupName?: string;
+  group?: GroupResponse;
   ribbon: string;
   author: string;
   className?: string;
@@ -429,7 +436,10 @@ function MemoCard({
         <h3 className="line-clamp-1 font-display text-base leading-6 text-ink">{memo.title}</h3>
         {description && <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-ink-2">{description}</p>}
         <div className="mt-2 flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-xs text-ink-3">{[groupName, author].filter(Boolean).join(' · ')}</span>
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
+            {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
+            <span className="min-w-0 truncate">{[group?.name, author].filter(Boolean).join(' · ')}</span>
+          </span>
           {!Number.isNaN(created.getTime()) && <span className="stamp shrink-0">{format(created, 'M.d')}</span>}
         </div>
       </div>
@@ -454,7 +464,7 @@ function GroupRow({
       onClick={onClick}
       className="flex h-14 w-full items-center gap-3 px-4 text-left transition-colors hover:bg-raised lg:px-5"
     >
-      <Ribbon color={getThemeColors(group.colorTheme).hex} className="h-5" />
+      <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="sm" />
       <span className="min-w-0 truncate font-display text-[15px] text-ink">{group.name}</span>
       <span className="shrink-0 text-[13px] tabular-nums text-ink-3">{group.memberCount}명</span>
       {next && (

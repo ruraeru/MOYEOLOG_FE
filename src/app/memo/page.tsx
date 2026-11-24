@@ -16,13 +16,14 @@ import {
   PenLine,
   Image as ImageIcon,
 } from 'lucide-react';
-import { PageHeader, Ribbon, Dot, Segmented, EmptyState, Modal, SideLabel, SideItem } from '@/components/ui';
+import { PageHeader, Ribbon, Segmented, EmptyState, Modal, SideLabel, SideItem } from '@/components/ui';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import type { MemoCardView } from '@/types/memo';
 import { getThemeColors, getFileUrl, stripMarkdown } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -31,7 +32,7 @@ import { useAlert } from '@/hooks/useAlert';
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
 /** 카드에 모임 띠 색(hex)과 작성자를 더한 것 */
-type MemoCardItem = MemoCardView & { ribbon: string; author?: string; groupId?: string };
+type MemoCardItem = MemoCardView & { ribbon: string; author?: string; groupId?: string; group?: GroupResponse };
 
 const TAG_PREVIEW_COUNT = 15;
 const MEMO_VIEW_KEY = 'moyeolog.memoView';
@@ -210,7 +211,8 @@ function MemoContent() {
         date: format(new Date(m.createdAt), 'M.d', { locale: ko }),
         locked: false,
         isFavorite: m.isFavorite,
-        groupId: m.groupId
+        groupId: m.groupId,
+        group
       };
     });
   }, [filter, myMemos, sharedMemos, groupMemos, favoriteMemos, userGroups, combinedUniqueMemos, selectedTags, searchQuery, userId]);
@@ -311,8 +313,12 @@ function MemoContent() {
             {userGroups.length > 0 ? userGroups.map(g => (
               <SideItem
                 key={g.id}
-                label={g.name}
-                ribbon={getThemeColors(g.colorTheme).hex}
+                label={
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <GroupAvatar name={g.name} src={g.profileImage} theme={g.colorTheme} size="xs" />
+                    <span className="min-w-0 truncate">{g.name}</span>
+                  </span>
+                }
                 count={groupMemos[g.id]?.length}
                 active={isActive('group', g.id)}
                 onClick={() => selectFilter({ type: 'group', id: g.id })}
@@ -364,7 +370,7 @@ function MemoContent() {
                   <FilterChip
                     key={g.id}
                     label={g.name}
-                    dot={getThemeColors(g.colorTheme).hex}
+                    lead={<GroupAvatar name={g.name} src={g.profileImage} theme={g.colorTheme} size="xs" />}
                     active={isActive('group', g.id)}
                     onClick={() => selectFilter({ type: 'group', id: g.id })}
                   />
@@ -446,7 +452,7 @@ function SearchBox({ value, onChange }: { value: string; onChange: (q: string) =
   );
 }
 
-function FilterChip({ label, active, dot, onClick }: { label: string; active: boolean; dot?: string; onClick: () => void }) {
+function FilterChip({ label, active, lead, onClick }: { label: string; active: boolean; lead?: React.ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -456,7 +462,7 @@ function FilterChip({ label, active, dot, onClick }: { label: string; active: bo
         active ? 'bg-accent text-white' : 'border border-line-strong bg-surface text-ink-2 hover:bg-raised hover:text-ink'
       }`}
     >
-      {dot && <Dot color={dot} />}
+      {lead}
       {label}
     </button>
   );
@@ -531,7 +537,7 @@ interface MemoCardProps extends MemoCardItem {
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, ribbon, author, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
     <div
@@ -577,9 +583,12 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, d
           </p>
         )}
         <div className="mt-1 flex items-center justify-between gap-3">
-          <span className="min-w-0 truncate text-xs text-ink-3">
-            {category}
-            {author && <> · {author}</>}
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
+            {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
+            <span className="min-w-0 truncate">
+              {category}
+              {author && <> · {author}</>}
+            </span>
           </span>
           <span className="stamp shrink-0">{date}</span>
         </div>

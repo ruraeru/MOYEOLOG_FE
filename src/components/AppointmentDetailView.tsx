@@ -6,6 +6,7 @@ import {
   Pencil, ChevronLeft, Users, type LucideIcon
 } from 'lucide-react';
 import { EmptyState, Ribbon } from './ui';
+import { GroupAvatar } from './groups/GroupIdentity';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
@@ -232,7 +233,11 @@ export default function AppointmentDetailView({
           )}
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[13px] text-ink-3">
-              <Ribbon color={ribbonColor} className="h-3.5" />
+              {scheduleGroup ? (
+                <GroupAvatar name={scheduleGroup.name} src={scheduleGroup.profileImage} theme={scheduleGroup.colorTheme} size="xs" />
+              ) : (
+                <Ribbon color={ribbonColor} className="h-3.5" />
+              )}
               <span className="truncate">{groupLabel} · 일정</span>
             </p>
             <h1 className="mt-1 font-display text-2xl leading-8 text-ink break-words">

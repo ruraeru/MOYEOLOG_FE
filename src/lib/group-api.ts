@@ -52,6 +52,8 @@ export interface GroupPreviewResponse {
   description?: string;
   colorTheme: string;
   profileImage?: string;
+  /** 모임 배경 사진(표지). 없으면 표지 줄무늬 */
+  backgroundImage?: string;
   memberCount: number;
   ownerNickname: string;
   alreadyMember: boolean;
@@ -130,12 +132,18 @@ export const groupApi = {
     colorTheme: string;
     image?: File;
     bgImage?: File;
+    /** true 면 프로필 사진을 지운다. 같은 요청에 image 가 있으면 새 사진이 이긴다 */
+    removeProfileImage?: boolean;
+    /** true 면 배경 사진을 지운다. 같은 요청에 bgImage 가 있으면 새 사진이 이긴다 */
+    removeBackgroundImage?: boolean;
   }, session: Session | null): Promise<GroupResponse> {
     const formData = new FormData();
     formData.append('group', new Blob([JSON.stringify({
       name: data.name.trim(),
       description: data.description,
-      colorTheme: data.colorTheme
+      colorTheme: data.colorTheme,
+      ...(data.removeProfileImage && !data.image ? { removeProfileImage: true } : {}),
+      ...(data.removeBackgroundImage && !data.bgImage ? { removeBackgroundImage: true } : {}),
     })], { type: 'application/json' }));
 
     if (data.image) formData.append('image', data.image);

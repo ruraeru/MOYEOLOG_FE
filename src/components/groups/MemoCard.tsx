@@ -5,13 +5,15 @@ import { format } from 'date-fns';
 import { Image as ImageIcon, Star } from 'lucide-react';
 import { stripMarkdown, getFileUrl } from '@/lib/utils';
 import ImageWithFallback from '@/components/ImageWithFallback';
-import { Ribbon } from '@/components/ui';
 import { type MemoResponse } from '@/lib/memo-api';
 
 interface MemoCardProps {
   memo: MemoResponse;
   viewMode: 'grid' | 'list';
-  /** 모임 색 hex (왼쪽 띠) */
+  /**
+   * 왼쪽 띠를 그릴지. 띠 색은 hex 대신 모임 화면 루트의 group 토큰(bg-group)을 따른다.
+   * (예전 호출과 맞추려고 hex 문자열을 그대로 받는다. 값은 띠 유무로만 쓴다)
+   */
   color?: string;
   onClick: () => void;
 }
@@ -30,11 +32,11 @@ export function MemoCard({ memo, viewMode, color, onClick }: MemoCardProps) {
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
       role="button"
       tabIndex={0}
-      className={`card relative flex cursor-pointer gap-4 overflow-hidden transition-colors duration-150 hover:bg-raised ${
+      className={`card relative flex cursor-pointer gap-4 overflow-hidden transition-colors duration-150 hover:bg-group-wash ${
         isList ? 'items-center px-4 py-3 md:px-5' : 'flex-col p-5'
       }`}
     >
-      {color && <Ribbon color={color} className="absolute inset-y-0 left-0 h-auto rounded-none" />}
+      {color && <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-group" />}
 
       <div className={`flex min-w-0 flex-1 flex-col ${isList ? 'gap-1' : 'gap-2'}`}>
         <div className="flex items-start justify-between gap-3">

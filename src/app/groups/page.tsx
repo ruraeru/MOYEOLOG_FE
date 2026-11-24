@@ -10,11 +10,12 @@ import { useRouter } from 'next/navigation';
 import { format, parseISO, isValid } from 'date-fns';
 import { useTimeFormat } from '@/lib/schedule-utils';
 import { ko } from 'date-fns/locale';
-import { stripMarkdown, getThemeColors } from '@/lib/utils';
+import { stripMarkdown } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
-import { PageHeader, Ribbon, EmptyState } from '@/components/ui';
+import { PageHeader, EmptyState } from '@/components/ui';
 import { ErrorState, Avatar, AvatarStack } from '@/components/groups/GroupUI';
 import { InviteCodeModal } from '@/components/groups/InviteCodeModal';
+import { GroupAvatar, GroupCover } from '@/components/groups/GroupIdentity';
 
 export default function GroupsPage() {
   const router = useRouter();
@@ -26,11 +27,7 @@ export default function GroupsPage() {
   const [activityError, setActivityError] = useState<string | null>(null);
   const [isCodeOpen, setIsCodeOpen] = useState(false);
 
-  const colorByGroup = useMemo(() => {
-    const map = new Map<string, string>();
-    groups.forEach(g => map.set(g.id, getThemeColors(g.colorTheme).hex));
-    return map;
-  }, [groups]);
+  const groupById = useMemo(() => new Map(groups.map(g => [g.id, g] as const)), [groups]);
 
   const fetchActivities = useCallback(async () => {
     if (!session) return;
@@ -112,7 +109,7 @@ export default function GroupsPage() {
                 <ActivityCard
                   key={`${activity.type}-${activity.id}-${idx}`}
                   activity={activity}
-                  color={colorByGroup.get(activity.groupId)}
+                  group={groupById.get(activity.groupId)}
                   onClick={() => handleActivityClick(activity)}
                 />
               ))
@@ -177,26 +174,32 @@ export default function GroupsPage() {
   );
 }
 
-/** 모임 카드: 띠 + 주아 이름 + 설명 + 겹친 얼굴 + 인원·방장 */
+/** 모임 카드: 표지 썸네일 + 표지에 걸친 모임 얼굴 + 주아 이름 + 설명 + 겹친 얼굴 + 인원·방장 */
 function GroupCard({ group }: { group: GroupResponse }) {
-  const color = getThemeColors(group.colorTheme).hex;
   return (
     <Link
       href={`/groups/${group.id}`}
-      className="card flex min-h-[148px] flex-col gap-3 p-5 transition-colors duration-150 hover:bg-raised"
+      className="card flex min-h-[220px] flex-col overflow-hidden transition-colors duration-150 hover:border-line-strong"
     >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Ribbon color={color} />
+      <GroupCover src={group.backgroundImage} theme={group.colorTheme} className="h-20 shrink-0" />
+      <div className="flex flex-1 flex-col gap-2 px-5 pb-5">
+        <GroupAvatar
+          name={group.name}
+          src={group.profileImage}
+          theme={group.colorTheme}
+          size="md"
+          className="-mt-5 shadow-[0_0_0_3px_var(--surface)]"
+        />
         <h2 className="truncate font-display text-lg leading-7 text-ink">{group.name}</h2>
-      </div>
-      <p className="line-clamp-2 text-sm leading-relaxed text-ink-2">
-        {group.description || <span className="text-ink-3">모임 설명이 없어요</span>}
-      </p>
-      <div className="mt-auto flex items-center justify-between gap-3">
-        <AvatarStack people={group.members} max={4} size="size-7" />
-        <span className="truncate text-xs text-ink-3">
-          <span className="tabular-nums">{group.memberCount}명</span> · 방장 {group.createdByNickname}
-        </span>
+        <p className="line-clamp-2 text-sm leading-relaxed text-ink-2">
+          {group.description || <span className="text-ink-3">모임 설명이 없어요</span>}
+        </p>
+        <div className="mt-auto flex items-center justify-between gap-3 pt-1">
+          <AvatarStack people={group.members} max={4} size="size-7" />
+          <span className="truncate text-xs text-ink-3">
+            <span className="tabular-nums">{group.memberCount}명</span> · 방장 {group.createdByNickname}
+          </span>
+        </div>
       </div>
     </Link>
   );
@@ -223,7 +226,7 @@ function parseScheduleSnippet(snippet: string, tf: string): { when: string | nul
   return { when, location: location || null };
 }
 
-function ActivityCard({ activity, color, onClick }: { activity: GroupActivityResponse, color?: string, onClick: () => void }) {
+function ActivityCard({ activity, group, onClick }: { activity: GroupActivityResponse, group?: GroupResponse, onClick: () => void }) {
   const tf = useTimeFormat();
   // 카드에는 보는 사람이 아니라 실제 작성자를 보여 준다
   const userName = activity.authorNickname || '알 수 없음';
@@ -247,7 +250,7 @@ function ActivityCard({ activity, color, onClick }: { activity: GroupActivityRes
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
-          {color && <Ribbon color={color} className="h-3.5" />}
+          {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
           <span className="truncate">{activity.groupName}</span>
           <span aria-hidden>·</span>
           <span className="shrink-0">{TYPE_LABEL[activity.type] ?? '메모'}</span>

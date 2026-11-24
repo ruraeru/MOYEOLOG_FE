@@ -117,7 +117,7 @@ export default function MemoEditModal({
       }}
       size="xl"
       title="메모 수정"
-      zIndex="z-[70]"
+      zIndex="z-[120]"
       bodyClassName="p-0! md:p-0!"
       footer={
         <>

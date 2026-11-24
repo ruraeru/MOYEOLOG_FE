@@ -4,7 +4,7 @@
  * 화면 공통 부품 (캠핑 테마). 새 화면도 여기 것을 쓴다.
  * - PageHeader: 화면 제목(주아) + 개수 + 오른쪽 동작(만들기 버튼은 여기에 하나만)
  * - Ribbon: 모임 색 띠. 모임 색은 띠·점으로만 쓴다
- * - UnderlineTabs: 밑줄 탭 (선택 = 주아 + 주황 밑줄)
+ * - UnderlineTabs: 밑줄 탭 (선택 = 주아 + 주황 밑줄. 모임 화면 안에서는 모임 색 밑줄)
  * - Segmented: 보기 전환 (월/주/목록, 카드/목록)
  * - EmptyState: 빈 상태
  * - Modal: 창 껍데기 (모바일은 아래에서 올라오는 시트, Esc·바깥 클릭으로 닫힘)
@@ -88,7 +88,7 @@ export function UnderlineTabs<K extends string>({
             {it.count != null && <span className="stamp text-xs">{it.count}</span>}
             <span
               aria-hidden
-              className={`absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-mark transition-[width,opacity] duration-200 ${on ? 'w-full opacity-100' : 'w-2 opacity-0'}`}
+              className={`absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-group transition-[width,opacity] duration-200 ${on ? 'w-full opacity-100' : 'w-2 opacity-0'}`}
             />
           </button>
         );
@@ -124,7 +124,7 @@ export function Segmented<K extends string>({
             title={it.title}
             onClick={() => onChange(it.key)}
             className={`inline-flex ${ih} items-center justify-center gap-1 rounded-lg transition-colors ${
-              on ? 'bg-surface text-ink font-medium shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:text-ink'
+              on ? 'bg-surface text-group-sel font-medium shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:text-ink'
             }`}
           >
             {it.label}
