@@ -39,6 +39,7 @@ import { ko } from 'date-fns/locale';
 import { useSession } from 'next-auth/react';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { getApiErrorMessage } from '@/lib/axios';
 import { getThemeColors } from '@/lib/utils';
 import { Ribbon, Segmented, SideItem, SideLabel, EmptyState } from '@/components/ui';
@@ -239,8 +240,12 @@ export default function SchedulePage() {
               {userGroups.map((group) => (
                 <SideItem
                   key={group.id}
-                  label={group.name}
-                  ribbon={getThemeColors(group.colorTheme).hex}
+                  label={
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />
+                      <span className="min-w-0 truncate">{group.name}</span>
+                    </span>
+                  }
                   count={schedules.filter(s => s.groupId === group.id).length}
                   active={activeFilter.type === 'group' && activeFilter.id === group.id}
                   onClick={() => setActiveFilter({ type: 'group', id: group.id })}
@@ -582,9 +587,12 @@ function ListView({ currentDate, schedules, userGroups, onAddClick, onScheduleCl
                     <Ribbon color={scheduleHex(s, userGroups)} className="h-9" />
                     <span className="flex-1 min-w-0">
                       <span className="block font-display text-base leading-6 text-ink truncate">{s.title}</span>
-                      <span className="block text-[13px] text-ink-3 truncate">
-                        {meta}
-                        {isMultiDaySchedule(s) && <span className="tabular-nums"> · {formatScheduleRange(s, tf)}</span>}
+                      <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-ink-3">
+                        {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
+                        <span className="min-w-0 truncate">
+                          {meta}
+                          {isMultiDaySchedule(s) && <span className="tabular-nums"> · {formatScheduleRange(s, tf)}</span>}
+                        </span>
                       </span>
                     </span>
                   </button>

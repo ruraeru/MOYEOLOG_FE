@@ -20,7 +20,7 @@ export function TopicCard({ topic, onClick }: TopicCardProps) {
       onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
       role="button"
       tabIndex={0}
-      className="card flex cursor-pointer flex-col gap-2 px-4 py-4 transition-colors duration-150 hover:bg-raised md:px-5"
+      className="card flex cursor-pointer flex-col gap-2 px-4 py-4 transition-colors duration-150 hover:bg-group-wash md:px-5"
     >
       <h4 className="truncate font-display text-[17px] leading-6 text-ink">{topic.title}</h4>
       {summary && <p className="hidden text-sm leading-relaxed text-ink-2 line-clamp-1 md:block">{summary}</p>}

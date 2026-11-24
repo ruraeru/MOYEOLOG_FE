@@ -5,6 +5,7 @@ import { ko } from 'date-fns/locale';
 import { type GroupResponse } from '@/lib/group-api';
 import { getThemeColors } from '@/lib/utils';
 import { Modal, Ribbon, EmptyState } from '@/components/ui';
+import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { formatTimeOnDay, isMultiDaySchedule, formatScheduleRange, sortSchedules, useTimeFormat } from '@/lib/schedule-utils';
 
 interface AppointmentListModalProps {
@@ -72,7 +73,10 @@ export default function AppointmentListModal({
                     <span className="tabular-nums">
                       {isMultiDaySchedule(apt) ? formatScheduleRange(apt, tf) : `${formatTimeOnDay(apt, day, tf)} – ${format(parseISO(apt.endTime), tf, { locale: ko })}`}
                     </span>
-                    <span className="truncate">{group ? group.name : apt.groupId ? '모임' : '내 일정'}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
+                      <span className="truncate">{group ? group.name : apt.groupId ? '모임' : '내 일정'}</span>
+                    </span>
                     {apt.location && (
                       <span className="flex items-center gap-1 min-w-0">
                         <MapPin size={14} strokeWidth={1.5} className="shrink-0" />

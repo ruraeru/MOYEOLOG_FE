@@ -14,6 +14,7 @@ import {
   UserPlus,
   LogOut,
   X,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -30,7 +31,8 @@ import { format, isSameDay, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 
 // ─── Imported Sub Components ─────────────────────────────────────
-import { Ribbon, UnderlineTabs, Segmented, EmptyState } from '@/components/ui';
+import { UnderlineTabs, Segmented, EmptyState } from '@/components/ui';
+import { GroupAvatar, GroupCover, groupStyle } from '@/components/groups/GroupIdentity';
 import {
   TagBadge,
   ErrorState,
@@ -355,7 +357,7 @@ function GroupDetailContent() {
       <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden">
         {daySchedules.slice(0, 2).map(s => (
           <div key={s.id} className="flex w-full min-w-0 items-center gap-1 text-left text-[11px] leading-4 text-ink-2">
-            <Ribbon color={groupColor} className="h-3" />
+            <span aria-hidden className="h-3 w-[3px] shrink-0 rounded-full bg-group" />
             <span className="hidden shrink-0 tabular-nums text-ink-3 sm:inline">{format(parseISO(s.startTime), tf)}</span>
             <span className="truncate">{s.title}</span>
           </div>
@@ -410,54 +412,75 @@ function GroupDetailContent() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-canvas">
+    <div className="flex-1 flex flex-col overflow-hidden bg-canvas" style={groupStyle(group.colorTheme)}>
       <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-24">
-        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-8 lg:pt-8">
-          {/* 머리: 모임 띠 + 이름 + 설명·방장 / 얼굴 묶음 + 친구 초대 + 설정 */}
-          <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex min-w-0 gap-3">
-              <Ribbon color={groupColor} className="h-auto self-stretch" />
-              <div className="min-w-0">
+        <div className="mx-auto max-w-7xl px-4 pt-4 md:px-8 lg:pt-6">
+          {/* 머리: 표지 + 표지에 걸친 모임 얼굴 / 이름·설명·방장 / 얼굴 묶음 + 친구 초대 + 링크 복사 + 설정 */}
+          <header>
+            <GroupCover
+              src={group.backgroundImage}
+              theme={group.colorTheme}
+              className="h-28 rounded-xl border border-line sm:h-32 lg:h-44"
+            >
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="btn-secondary btn-sm absolute right-3 top-3 border-line bg-surface/90"
+                >
+                  <ImageIcon size={14} strokeWidth={1.5} /> 표지 바꾸기
+                </button>
+              )}
+            </GroupCover>
+
+            <div className="flex flex-wrap items-start gap-x-4 gap-y-3 px-3 sm:px-4 lg:flex-nowrap lg:px-6">
+              <GroupAvatar
+                name={group.name}
+                src={group.profileImage}
+                theme={group.colorTheme}
+                size="xl"
+                className="order-1 -mt-7 ring-4 ring-surface max-lg:size-14 max-lg:rounded-xl max-lg:text-2xl lg:-mt-10"
+              />
+
+              <div className="order-3 w-full min-w-0 lg:order-2 lg:w-auto lg:flex-1 lg:pt-4">
                 <h1 className="break-words font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9">
                   {group.name}
                 </h1>
-                <p className="mt-1 text-sm text-ink-2">
-                  {group.description && <span className="hidden break-words lg:inline">{group.description} · </span>}
-                  <span className="tabular-nums lg:hidden">{group.memberCount}명 · </span>
-                  방장 {group.createdByNickname}
-                </p>
                 {group.description && (
-                  <p className="mt-1 line-clamp-2 break-words text-sm text-ink-3 lg:hidden">{group.description}</p>
+                  <p className="mt-1 line-clamp-2 break-words text-sm text-ink-2">{group.description}</p>
+                )}
+                <p className="mt-1 text-[13px] text-ink-3">
+                  <span className="tabular-nums">멤버 {group.memberCount}명</span> · 방장 {group.createdByNickname}
+                </p>
+              </div>
+
+              <div className="order-2 ml-auto flex shrink-0 items-center gap-2 pt-3 lg:order-3 lg:pt-4">
+                <span className="mr-1 hidden lg:flex" title={`멤버 ${group.memberCount}명`}>
+                  <AvatarStack people={group.members} max={4} size="size-8" />
+                </span>
+                <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary">
+                  <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
+                </button>
+                <button
+                  onClick={handleCopyInviteLink}
+                  className="btn-secondary !px-2.5 sm:!px-3.5"
+                  aria-label="초대 링크 복사"
+                  title="초대 링크 복사"
+                >
+                  {copied ? <Check size={16} strokeWidth={1.5} /> : <LinkIcon size={16} strokeWidth={1.5} />}
+                  <span className="hidden sm:inline">{copied ? '복사했어요' : '링크 복사'}</span>
+                </button>
+                {isOwner && (
+                  <button
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="btn-secondary size-9 !px-0"
+                    aria-label="모임 설정"
+                    title="모임 설정"
+                  >
+                    <Settings size={16} strokeWidth={1.5} />
+                  </button>
                 )}
               </div>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="mr-1 hidden lg:flex" title={`멤버 ${group.memberCount}명`}>
-                <AvatarStack people={group.members} max={4} size="size-8" />
-              </span>
-              <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary">
-                <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
-              </button>
-              <button
-                onClick={handleCopyInviteLink}
-                className="btn-secondary !px-2.5 sm:!px-3.5"
-                aria-label="초대 링크 복사"
-                title="초대 링크 복사"
-              >
-                {copied ? <Check size={16} strokeWidth={1.5} /> : <LinkIcon size={16} strokeWidth={1.5} />}
-                <span className="hidden sm:inline">{copied ? '복사했어요' : '링크 복사'}</span>
-              </button>
-              {isOwner && (
-                <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="btn-secondary size-9 !px-0"
-                  aria-label="모임 설정"
-                  title="모임 설정"
-                >
-                  <Settings size={16} strokeWidth={1.5} />
-                </button>
-              )}
             </div>
           </header>
 
@@ -544,7 +567,7 @@ function GroupDetailContent() {
               listError && schedules.length === 0 ? (
                 <ErrorState message={listError} onRetry={() => fetchGroupData()} />
               ) : (
-                <div className="card overflow-hidden p-2 md:p-4">
+                <div className="group-cal card overflow-hidden p-2 md:p-4">
                   <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
                 </div>
               )
@@ -581,15 +604,16 @@ function GroupDetailContent() {
                               <button
                                 type="button"
                                 onClick={() => handleScheduleClick(s)}
-                                className="flex w-full gap-4 py-3 text-left"
+                                className="group/up flex w-full gap-3 py-3 text-left"
                               >
-                                <span className="stamp w-16 shrink-0">
+                                <span aria-hidden className="w-[3px] shrink-0 self-stretch rounded-full bg-group" />
+                                <span className="stamp w-16 shrink-0 text-group-ink">
                                   {format(d, 'M.d EEE', { locale: ko })}
                                   <br />
                                   <span className="text-ink-2">{format(d, tf, { locale: ko })}</span>
                                 </span>
                                 <span className="min-w-0">
-                                  <span className="block truncate font-display text-[15px] leading-5 text-ink hover:text-accent">{s.title}</span>
+                                  <span className="block truncate font-display text-[15px] leading-5 text-ink group-hover/up:text-group-ink">{s.title}</span>
                                   {s.location && <span className="block truncate text-xs text-ink-3">{s.location}</span>}
                                 </span>
                               </button>

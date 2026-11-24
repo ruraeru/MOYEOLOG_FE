@@ -4,10 +4,8 @@ import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { groupApi, GroupApiError, type GroupPreviewResponse } from '@/lib/group-api';
-import { getFileUrl, getThemeColors } from '@/lib/utils';
-import { Ribbon } from '@/components/ui';
+import { GroupAvatar, GroupCover } from '@/components/groups/GroupIdentity';
 import { Loader2, Users } from 'lucide-react';
-import ImageWithFallback from '@/components/ImageWithFallback';
 import { useAlert } from '@/hooks/useAlert';
 
 type ViewState =
@@ -231,25 +229,23 @@ function GroupInviteContent({ code }: { code: string | null }) {
 }
 
 function GroupPreviewCard({ preview }: { preview: GroupPreviewResponse }) {
-  const profile = getFileUrl(preview.profileImage);
-  const hex = getThemeColors(preview.colorTheme).hex;
+  // backgroundImage 는 미리보기 응답에 새로 붙은 필드. 이전 서버면 없으니 optional 로 읽는다
+  const cover = (preview as GroupPreviewResponse & { backgroundImage?: string | null }).backgroundImage;
   return (
     <div>
-      <p className="text-xs text-ink-3">모임 초대</p>
-      <div className="mt-2 flex items-start gap-3">
-        <Ribbon color={hex} className="mt-1 h-6" />
-        <div className="min-w-0 flex-1">
-          <h1 className="break-words font-display text-xl leading-7 text-ink">{preview.name}</h1>
-          {preview.description && (
-            <p className="mt-1 line-clamp-3 break-words text-sm text-ink-2">{preview.description}</p>
-          )}
-        </div>
-        {profile && (
-          <div className="relative size-10 shrink-0 overflow-hidden rounded-[10px] bg-raised">
-            <ImageWithFallback src={profile} alt={preview.name} fill containerClassName="w-full h-full" className="object-cover" unoptimized />
-          </div>
-        )}
-      </div>
+      <GroupCover src={cover} theme={preview.colorTheme} className="-mx-6 -mt-6 h-24 rounded-t-xl" />
+      <GroupAvatar
+        name={preview.name}
+        src={preview.profileImage}
+        theme={preview.colorTheme}
+        size="lg"
+        className="-mt-7 shadow-[0_0_0_3px_var(--surface)]"
+      />
+      <p className="mt-3 text-xs text-ink-3">모임 초대</p>
+      <h1 className="mt-1 break-words font-display text-xl leading-7 text-ink">{preview.name}</h1>
+      {preview.description && (
+        <p className="mt-1 line-clamp-3 break-words text-sm text-ink-2">{preview.description}</p>
+      )}
       <div className="mt-4 flex items-center gap-3 border-t border-line pt-4 text-[13px] text-ink-2">
         <span className="flex items-center gap-1.5 tabular-nums">
           <Users size={16} strokeWidth={1.5} className="text-ink-3" />

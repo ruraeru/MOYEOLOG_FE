@@ -6,7 +6,7 @@ import Navbar from '@/components/Navbar';
 import { Plus, Loader2, RotateCw, Link as LinkIcon } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import GroupCreateModal from '@/components/GroupCreateModal';
-import { getThemeColors } from '@/lib/utils';
+import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { SideItem, SideLabel } from '@/components/ui';
 import { InviteCodeModal } from '@/components/groups/InviteCodeModal';
 import { GroupModalProvider, useGroupModal } from './GroupModalContext';
@@ -57,8 +57,12 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
                       key={group.id}
                       as={Link}
                       href={`/groups/${group.id}`}
-                      label={group.name}
-                      ribbon={getThemeColors(group.colorTheme).hex}
+                      label={
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />
+                          <span className="min-w-0 truncate">{group.name}</span>
+                        </span>
+                      }
                       count={group.memberCount}
                       active={activeGroupId === group.id}
                     />

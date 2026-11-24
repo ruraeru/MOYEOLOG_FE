@@ -39,8 +39,9 @@ import {
 } from '@/lib/markdown';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
-import { initialOf, getThemeColors } from '@/lib/utils';
-import { Ribbon, EmptyState } from './ui';
+import { initialOf } from '@/lib/utils';
+import { EmptyState } from './ui';
+import { GroupAvatar, groupStyle } from './groups/GroupIdentity';
 
 const EdMarkdown = dynamic(
   () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
@@ -56,6 +57,8 @@ interface GroupTopicDetailModalProps {
   onDelete?: () => void;
   onEdit?: (topic: TopicResponse) => void;
   onMemoClick?: (memoId: string) => void;
+  /** 이 토픽의 모임 (모임 화면에서 넘긴다). 없으면 내 모임 목록에서 찾는다 */
+  group?: Pick<GroupResponse, 'id' | 'name' | 'profileImage' | 'colorTheme'> | null;
 }
 
 function formatDateTime(iso: string, tf: string) {
@@ -110,6 +113,7 @@ export default function GroupTopicDetailModal({
   onDelete,
   onEdit,
   onMemoClick,
+  group: groupProp,
 }: GroupTopicDetailModalProps) {
   const tf = useTimeFormat();
   const { data: session } = useSession();
@@ -351,13 +355,13 @@ export default function GroupTopicDetailModal({
               if (isMemo) onMemoClick?.(id);
               if (isProfile) router.push(`/profile/${encodeURIComponent(id)}`);
             }}
-            className="text-accent font-medium hover:underline cursor-pointer"
+            className="text-group-ink font-medium hover:underline cursor-pointer"
           >
             {props.children}
           </a>
         );
       }
-      return <a {...props} className="text-accent hover:underline" target="_blank" rel="noopener noreferrer" />;
+      return <a {...props} className="text-group-ink hover:underline" target="_blank" rel="noopener noreferrer" />;
     },
   };
 
@@ -403,14 +407,14 @@ export default function GroupTopicDetailModal({
   const isCommenting = createCommentMutation.isPending;
   const loadingInsight = analyzeMutation.isPending;
   const keywords = Array.from(new Set((insight?.keywords ?? []).map((k) => k?.trim()).filter(Boolean)));
-  const group = userGroups.find((g) => g.id === topic.groupId);
-  const groupHex = group ? getThemeColors(group.colorTheme).hex : undefined;
+  const group = groupProp?.id === topic.groupId ? groupProp : userGroups.find((g) => g.id === topic.groupId);
 
   const resolveImage = (src: string) => (src.startsWith('/uploads/') ? `${apiUrl}${src}` : src);
 
   return (
     <div
       className="fixed inset-0 z-[110] flex items-end justify-center bg-black/40 md:items-center md:p-4"
+      style={group ? groupStyle(group.colorTheme) : undefined}
       onClick={handleClose}
     >
       <div
@@ -424,11 +428,11 @@ export default function GroupTopicDetailModal({
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* 머리: 모임 띠 + '모임 · 토픽', 제목, 작성자·시각 */}
+        {/* 머리: 모임 얼굴 + '모임 · 토픽', 제목, 작성자·시각 */}
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4 md:px-6">
           <div className="min-w-0">
-            <div className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
-              {groupHex && <Ribbon color={groupHex} className="h-3" />}
+            <div className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
+              {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
               <span className="truncate">{group ? `${group.name} · 토픽` : '토픽'}</span>
             </div>
             <h2 className="mt-1 break-words font-display text-xl leading-7 text-ink md:text-2xl md:leading-8">

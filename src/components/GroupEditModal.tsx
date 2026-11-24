@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Loader2, Camera, Image as ImageIcon, Users, Trash2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, validateGroupName, GROUP_NAME_MAX, type GroupResponse } from '@/lib/group-api';
 import { convertToWebP, getFileUrl } from '@/lib/utils';
 import { Modal } from '@/components/ui';
-import { ThemeDots } from '@/components/GroupCreateModal';
+import { ThemeDots, GroupHeadPreview } from '@/components/GroupCreateModal';
 import { useAlert } from '@/hooks/useAlert';
 
 interface GroupEditModalProps {
@@ -41,6 +41,9 @@ export default function GroupEditModal({
   // 모달은 열릴 때마다 새로 마운트되므로(GroupModals) 현재 모임 값으로 시작한다
   const [profilePreview, setProfilePreview] = useState<string | null>(() => getFileUrl(group.profileImage));
   const [bgPreview, setBgPreview] = useState<string | null>(() => getFileUrl(group.backgroundImage));
+  // '지우기'를 누른 사진. 저장할 때 removeProfileImage / removeBackgroundImage 로 보낸다
+  const [removeProfile, setRemoveProfile] = useState(false);
+  const [removeBg, setRemoveBg] = useState(false);
 
   const profileInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef = useRef<HTMLInputElement>(null);
@@ -50,10 +53,13 @@ export default function GroupEditModal({
     if (file) {
       const webpFile = await convertToWebP(file);
       setProfileFile(webpFile);
+      setRemoveProfile(false);
       const reader = new FileReader();
       reader.onloadend = () => setProfilePreview(reader.result as string);
       reader.readAsDataURL(webpFile);
     }
+    // 같은 파일을 다시 골라도 change 가 일어나게
+    e.target.value = '';
   };
 
   const handleBgChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,10 +67,24 @@ export default function GroupEditModal({
     if (file) {
       const webpFile = await convertToWebP(file);
       setBgFile(webpFile);
+      setRemoveBg(false);
       const reader = new FileReader();
       reader.onloadend = () => setBgPreview(reader.result as string);
       reader.readAsDataURL(webpFile);
     }
+    e.target.value = '';
+  };
+
+  const clearProfile = () => {
+    setProfileFile(null);
+    setProfilePreview(null);
+    setRemoveProfile(!!group.profileImage);
+  };
+
+  const clearBg = () => {
+    setBgFile(null);
+    setBgPreview(null);
+    setRemoveBg(!!group.backgroundImage);
   };
 
   const handleSave = async () => {
@@ -89,8 +109,11 @@ export default function GroupEditModal({
         colorTheme: selectedTheme,
         image: profileFile || undefined,
         bgImage: bgFile || undefined,
+        removeProfileImage: removeProfile && !profileFile,
+        removeBackgroundImage: removeBg && !bgFile,
       }, session);
 
+      toast.success('모임 정보를 저장했어요');
       onSuccess?.();
       onClose();
     } catch (e) {
@@ -130,7 +153,7 @@ export default function GroupEditModal({
       open={isOpen}
       onClose={onClose}
       size="md"
-      zIndex="z-[70]"
+      zIndex="z-[120]"
       title="모임 정보 수정"
       bodyClassName="no-scrollbar"
       footer={
@@ -155,70 +178,56 @@ export default function GroupEditModal({
       }
     >
       <div className="space-y-5">
-        {/* 배경 사진 */}
+        {/* 미리보기: 고른 색·사진이 바로 반영된다 */}
         <div className="space-y-1.5">
-          <label className="text-[13px] font-medium text-ink">배경 사진</label>
-          <div
-            onClick={() => bgInputRef.current?.click()}
-            className="relative h-28 w-full rounded-xl border border-dashed border-line-strong bg-surface overflow-hidden cursor-pointer group"
-          >
-            {bgPreview ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={bgPreview} alt="Background" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-150 ease-out flex items-center justify-center">
-                  <Camera size={18} strokeWidth={1.5} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out" />
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center gap-2 text-[13px] text-ink-3 group-hover:bg-raised group-hover:text-ink-2 transition-colors duration-150 ease-out">
-                <ImageIcon size={16} strokeWidth={1.5} />
-                <span>배경 사진 올리기</span>
-              </div>
-            )}
-            <input type="file" ref={bgInputRef} onChange={handleBgChange} className="hidden" accept="image/*" />
-          </div>
+          <p className="text-xs text-ink-3">미리보기</p>
+          <GroupHeadPreview
+            name={name}
+            theme={selectedTheme}
+            profileSrc={profilePreview}
+            coverSrc={bgPreview}
+            meta={`멤버 ${group.memberCount}명`}
+          />
         </div>
 
-        {/* 프로필 사진 · 이름 */}
-        <div className="flex items-start gap-4">
-          <div className="shrink-0">
-            <label className="text-[13px] font-medium text-ink block mb-1.5">프로필 사진</label>
-            <div
-              onClick={() => profileInputRef.current?.click()}
-              className="size-20 rounded-xl border border-line bg-raised overflow-hidden cursor-pointer group relative"
-            >
-              {profilePreview ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={profilePreview} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-ink-3">
-                  <Users size={18} strokeWidth={1.5} />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-150 ease-out flex items-center justify-center">
-                <Camera size={18} strokeWidth={1.5} className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out" />
-              </div>
-            </div>
-            <input type="file" ref={profileInputRef} onChange={handleProfileChange} className="hidden" accept="image/*" />
-          </div>
+        {/* 사진: 바꾸기 · 지우기 */}
+        <div className="divide-y divide-line rounded-xl border border-line">
+          <PhotoRow
+            label="표지 사진"
+            hint={bgPreview ? (bgFile ? '새 사진을 골랐어요' : '모임 화면 맨 위에 보여요') : '없으면 모임 색 줄무늬로 보여요'}
+            hasImage={!!bgPreview}
+            onChange={() => bgInputRef.current?.click()}
+            onClear={clearBg}
+            disabled={isSaving}
+          />
+          <PhotoRow
+            label="프로필 사진"
+            hint={profilePreview ? (profileFile ? '새 사진을 골랐어요' : '모임 목록과 모임 고르기에 보여요') : '없으면 모임 색 바탕에 이름 첫 글자로 보여요'}
+            hasImage={!!profilePreview}
+            onChange={() => profileInputRef.current?.click()}
+            onClear={clearProfile}
+            disabled={isSaving}
+          />
+          <input type="file" ref={bgInputRef} onChange={handleBgChange} className="hidden" accept="image/*" />
+          <input type="file" ref={profileInputRef} onChange={handleProfileChange} className="hidden" accept="image/*" />
+        </div>
 
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <label className="text-[13px] font-medium text-ink block">모임 이름</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="form-input"
-            />
-            <p className={`text-xs text-right tabular-nums ${[...name.trim()].length > GROUP_NAME_MAX ? 'text-negative' : 'text-ink-3'}`}>
-              {[...name.trim()].length}/{GROUP_NAME_MAX}
-            </p>
-          </div>
+        <div className="space-y-1.5">
+          <label htmlFor="group-edit-name" className="text-[13px] font-medium text-ink block">모임 이름</label>
+          <input
+            id="group-edit-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="form-input"
+          />
+          <p className={`text-xs text-right tabular-nums ${[...name.trim()].length > GROUP_NAME_MAX ? 'text-negative' : 'text-ink-3'}`}>
+            {[...name.trim()].length}/{GROUP_NAME_MAX}
+          </p>
         </div>
 
         <div className="space-y-2">
-          <label className="text-[13px] font-medium text-ink">모임 색</label>
+          <p className="text-[13px] font-medium text-ink">모임 색</p>
           <ThemeDots value={selectedTheme} onChange={setSelectedTheme} />
         </div>
 
@@ -238,5 +247,38 @@ export default function GroupEditModal({
         )}
       </div>
     </Modal>
+  );
+}
+
+function PhotoRow({
+  label,
+  hint,
+  hasImage,
+  onChange,
+  onClear,
+  disabled,
+}: {
+  label: string;
+  hint: string;
+  hasImage: boolean;
+  onChange: () => void;
+  onClear: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium text-ink">{label}</p>
+        <p className="truncate text-xs text-ink-3">{hint}</p>
+      </div>
+      {hasImage && (
+        <button type="button" onClick={onClear} disabled={disabled} className="btn-ghost btn-sm" aria-label={`${label} 지우기`}>
+          지우기
+        </button>
+      )}
+      <button type="button" onClick={onChange} disabled={disabled} className="btn-secondary btn-sm" aria-label={`${label} ${hasImage ? '바꾸기' : '올리기'}`}>
+        {hasImage ? '바꾸기' : '올리기'}
+      </button>
+    </div>
   );
 }

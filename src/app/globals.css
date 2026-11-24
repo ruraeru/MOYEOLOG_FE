@@ -35,6 +35,13 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
   --color-mark: var(--mark);
+  /* 모임 색: 모임 화면에서 groupStyle() 이 --group* 을 깐다. 밖에서는 기본 표시색으로 */
+  --color-group: var(--group, var(--mark));
+  --color-group-ink: var(--group-ink, var(--accent));
+  --color-group-wash: var(--group-wash, var(--raised));
+  --color-group-soft: var(--group-soft, var(--accent-soft));
+  /* 선택된 글자: 모임 화면 안에서는 모임 진한 톤, 밖에서는 기본 글자색 */
+  --color-group-sel: var(--group-ink, var(--ink));
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-negative-soft: var(--negative-soft);
@@ -163,6 +170,21 @@ body {
 .react-calendar__tile--active:enabled:focus {
   background: var(--raised) !important;
   box-shadow: inset 0 0 0 1px var(--line-strong);
+  color: var(--ink); /* 기본 CSS 의 흰 글자 덮기 */
+}
+
+/* 모임 화면 달력(.group-cal, groupStyle 루트 안): 오늘·선택·hover 를 모임 색으로 */
+.group-cal .react-calendar__tile:enabled:hover {
+  background-color: var(--group-wash, var(--raised)) !important;
+}
+.group-cal .react-calendar__tile--active,
+.group-cal .react-calendar__tile--active:enabled:focus {
+  background: var(--group-wash, var(--raised)) !important;
+  box-shadow: inset 0 0 0 1px var(--group, var(--line-strong));
+}
+.group-cal .react-calendar__tile--now abbr {
+  background: var(--group-soft, var(--mark));
+  color: var(--group-ink, #fff) !important;
 }
 
 @layer components {

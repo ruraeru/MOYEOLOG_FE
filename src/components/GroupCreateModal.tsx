@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { groupApi, validateGroupName, GROUP_NAME_MAX, type GroupResponse } from '@/lib/group-api';
 import { Modal } from '@/components/ui';
 import { THEME_COLORS, type ThemeKey } from '@/lib/constants';
+import { GroupAvatar, GroupCover, groupStyle } from '@/components/groups/GroupIdentity';
 
 interface GroupCreateModalProps {
   isOpen: boolean;
@@ -25,28 +26,92 @@ const THEME_LABELS: Record<ThemeKey, string> = {
   purple: '보라',
 };
 
-/** 모임 색 고르기: 점 7개. 모임 수정 창에서도 쓴다 */
+/** 모임 색 고르기: 원 7개 + 색 이름. 모임 수정 창에서도 쓴다 */
 export function ThemeDots({ value, onChange }: { value: string; onChange: (id: ThemeKey) => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {(Object.keys(THEME_COLORS) as ThemeKey[]).map((id) => {
-        const on = value === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            aria-label={`테마 색상 ${id}`}
-            aria-pressed={on}
-            title={THEME_LABELS[id]}
-            onClick={() => onChange(id)}
-            className={`flex size-8 items-center justify-center rounded-full transition-colors duration-150 ease-out ${
-              on ? 'shadow-[inset_0_0_0_1.5px_var(--ink)]' : 'hover:bg-raised'
-            }`}
-          >
-            <span className="size-5 rounded-full" style={{ backgroundColor: THEME_COLORS[id].hex }} />
-          </button>
-        );
-      })}
+    <div className="space-y-2">
+      <div role="radiogroup" aria-label="모임 색" className="grid grid-cols-7 gap-1">
+        {(Object.keys(THEME_COLORS) as ThemeKey[]).map((id) => {
+          const on = value === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              aria-label={THEME_LABELS[id]}
+              onClick={() => onChange(id)}
+              className={`flex flex-col items-center gap-1 rounded-lg py-1.5 transition-colors duration-150 ease-out ${
+                on ? 'bg-raised' : 'hover:bg-raised'
+              }`}
+            >
+              <span
+                className={`flex size-8 items-center justify-center rounded-full ${on ? 'shadow-[inset_0_0_0_1.5px_var(--ink)]' : ''}`}
+              >
+                <span className="size-6 rounded-full" style={{ backgroundColor: THEME_COLORS[id].hex }} />
+              </span>
+              <span className={`text-xs ${on ? 'font-medium text-ink' : 'text-ink-3'}`}>{THEME_LABELS[id]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-ink-3">모임 화면의 탭·표지·일정 표시에 쓰여요</p>
+    </div>
+  );
+}
+
+/**
+ * 모임 머리 미리보기: 표지 + 모임 얼굴 + 이름. 고른 색·사진이 바로 반영된다.
+ * 모임 상세 머리와 같은 모양(표지 띠 아래로 얼굴이 걸친다)을 작게 그린다.
+ */
+export function GroupHeadPreview({
+  name,
+  theme,
+  profileSrc,
+  coverSrc,
+  meta,
+  compact = false,
+}: {
+  name: string;
+  theme: string;
+  profileSrc?: string | null;
+  coverSrc?: string | null;
+  meta?: React.ReactNode;
+  compact?: boolean;
+}) {
+  const shown = name.trim() || '모임 이름';
+  return (
+    <div style={groupStyle(theme)} className="overflow-hidden rounded-xl border border-line bg-surface">
+      <GroupCover src={coverSrc} theme={theme} className={compact ? 'h-16' : 'h-28'} />
+      <div className="relative flex items-end gap-3 px-4 pb-3">
+        <GroupAvatar
+          name={shown}
+          src={profileSrc}
+          theme={theme}
+          size={compact ? 'md' : 'lg'}
+          className={`ring-4 ring-surface ${compact ? '-mt-5' : '-mt-7'}`}
+        />
+        <div className="min-w-0 flex-1 pb-0.5">
+          <p className={`truncate font-display ${compact ? 'text-base' : 'text-xl'} ${name.trim() ? 'text-ink' : 'text-ink-3'}`}>
+            {shown}
+          </p>
+          {meta && <p className="truncate text-xs text-ink-3">{meta}</p>}
+        </div>
+      </div>
+      {!compact && (
+        <div aria-hidden className="flex gap-4 border-t border-line px-4 text-[13px]">
+          <span className="relative py-2 font-display text-ink">
+            메모
+            <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-group" />
+          </span>
+          <span className="py-2 font-medium text-ink-3">토픽</span>
+          <span className="py-2 font-medium text-ink-3">일정</span>
+          <span className="ml-auto flex items-center gap-1.5 py-2 text-ink-2">
+            <span className="size-2 rounded-full bg-group" />
+            <span className="stamp">오늘 19:00</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -159,6 +224,8 @@ export default function GroupCreateModal({
     >
       {!createdGroup ? (
         <div className="space-y-5">
+          <GroupHeadPreview name={name} theme={selectedTheme} compact />
+
           <div className="space-y-1.5">
             <label className="text-[13px] font-medium text-ink">모임 이름</label>
             <input

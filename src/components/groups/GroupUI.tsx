@@ -8,7 +8,7 @@ import { getFileUrl, initialOf } from '@/lib/utils';
 
 // ─── 모임 화면 작은 부품 ───────────────────────────────────────
 
-/** 태그 칩. 선택되면 갈색 */
+/** 태그 칩. 선택되면 모임 색 옅은 바탕 + 모임 색 진한 글자 (모임 화면 밖에서는 accent-soft + 갈색) */
 export function TagBadge({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
   return (
     <button
@@ -16,7 +16,7 @@ export function TagBadge({ label, active, onClick }: { label: string, active: bo
       onClick={onClick}
       aria-pressed={active}
       className={`inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded-md px-2.5 text-xs transition-colors duration-150 ${
-        active ? 'bg-accent text-white' : 'bg-raised text-ink-2 hover:text-ink'
+        active ? 'bg-group-soft font-medium text-group-ink' : 'bg-raised text-ink-2 hover:text-ink'
       }`}
     >
       #{label}
