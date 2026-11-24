@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import ImageWithFallback from './ImageWithFallback';
 import {
   X,
-  Sparkles,
   RefreshCw,
-  MessageSquare,
+  List as ListIcon,
+  AtSign,
   Loader2,
   Trash2,
   Pencil,
@@ -39,7 +39,8 @@ import {
 } from '@/lib/markdown';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
-import { initialOf } from '@/lib/utils';
+import { initialOf, getThemeColors } from '@/lib/utils';
+import { Ribbon, EmptyState } from './ui';
 
 const EdMarkdown = dynamic(
   () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
@@ -229,7 +230,7 @@ export default function GroupTopicDetailModal({
     },
     onError: (error) => {
       console.error('Failed to analyze topic:', error);
-      toast.error(getApiErrorMessage(error, 'AI 분석에 실패했어요'));
+      toast.error(getApiErrorMessage(error, '댓글을 요약하지 못했어요'));
     },
   });
 
@@ -365,8 +366,8 @@ export default function GroupTopicDetailModal({
   if (loading && !topicDetail) {
     return (
       <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4" onClick={handleClose}>
-        <div className="bg-surface border border-line rounded-2xl shadow-float p-6 flex items-center gap-3">
-          <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+        <div className="flex items-center gap-3 rounded-2xl bg-surface px-6 py-5">
+          <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" />
           <span className="text-sm text-ink-2">토픽을 불러오는 중이에요</span>
         </div>
       </div>
@@ -380,7 +381,7 @@ export default function GroupTopicDetailModal({
       <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4" onClick={handleClose}>
         <div
           role="alertdialog"
-          className="bg-surface border border-line rounded-2xl shadow-float p-6 w-full max-w-sm text-center space-y-4"
+          className="w-full max-w-sm space-y-4 rounded-2xl bg-surface p-6 text-center"
           onClick={(e) => e.stopPropagation()}
         >
           <p className="text-sm text-ink">{getApiErrorMessage(topicError, '토픽을 불러오지 못했어요')}</p>
@@ -402,363 +403,353 @@ export default function GroupTopicDetailModal({
   const isCommenting = createCommentMutation.isPending;
   const loadingInsight = analyzeMutation.isPending;
   const keywords = Array.from(new Set((insight?.keywords ?? []).map((k) => k?.trim()).filter(Boolean)));
+  const group = userGroups.find((g) => g.id === topic.groupId);
+  const groupHex = group ? getThemeColors(group.colorTheme).hex : undefined;
 
   const resolveImage = (src: string) => (src.startsWith('/uploads/') ? `${apiUrl}${src}` : src);
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-0 lg:p-4"
+      className="fixed inset-0 z-[110] flex items-end justify-center bg-black/40 md:items-center md:p-4"
       onClick={handleClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={topic.title}
-        className={`bg-surface flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden relative w-full h-[100dvh] ${
+        className={`flex w-full flex-col overflow-hidden bg-surface ${
           isFullscreen
-            ? 'lg:fixed lg:inset-0 lg:w-screen lg:h-screen lg:rounded-none'
-            : 'lg:h-auto lg:rounded-2xl lg:border lg:border-line lg:shadow-float lg:max-w-6xl lg:max-h-[90vh]'
+            ? 'h-[100dvh] lg:fixed lg:inset-0 lg:h-screen lg:rounded-none'
+            : 'max-h-[92dvh] rounded-t-2xl animate-slide-up md:max-h-[88vh] md:max-w-[720px] md:rounded-2xl md:animate-scale-in'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Main Content Area */}
-        {/* 모바일에서는 contents 로 풀어서 머리말·댓글 입력칸이 대화상자 기준으로 붙어 있게 한다 */}
-        <div className="contents lg:flex lg:flex-1 lg:min-w-0 lg:flex-col lg:overflow-hidden lg:border-r lg:border-line lg:bg-surface">
-          {/* Header */}
-          <div className="sticky top-0 z-10 bg-surface px-4 lg:px-6 py-3 lg:py-4 border-b border-line flex items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="size-10 rounded-full relative overflow-hidden shrink-0">
-                {topic.authorProfileImage ? (
-                  <ImageWithFallback
-                    src={resolveImage(topic.authorProfileImage)}
-                    alt={topic.authorNickname}
-                    fill
-                    containerClassName="w-full h-full"
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="w-full h-full bg-accent-soft flex items-center justify-center text-accent">
-                    {initialOf(topic.authorNickname)}
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-medium text-ink truncate">
-                  {topic.authorNickname}
-                  {topic.authorCustomId && (
-                    <span className="ml-1.5 text-xs font-normal text-ink-3">@{topic.authorCustomId}</span>
-                  )}
-                </h3>
-                <p className="stamp">{formatDateTime(topic.createdAt, tf)}</p>
-              </div>
+        {/* 머리: 모임 띠 + '모임 · 토픽', 제목, 작성자·시각 */}
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4 md:px-6">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
+              {groupHex && <Ribbon color={groupHex} className="h-3" />}
+              <span className="truncate">{group ? `${group.name} · 토픽` : '토픽'}</span>
             </div>
-            <div className="flex items-center gap-1 lg:gap-2 shrink-0">
-              {isAuthor && (
-                <>
-                  <button
-                    onClick={() => onEdit?.(topic)}
-                    className="btn-ghost size-9 !px-0"
-                    title="토픽 수정"
-                    aria-label="토픽 수정"
-                  >
-                    <Pencil size={18} strokeWidth={1.5} />
-                  </button>
-                  <button
-                    onClick={handleTopicDelete}
-                    disabled={isDeleting}
-                    className="btn-ghost size-9 !px-0 hover:!text-negative hover:!bg-negative-soft"
-                    title="토픽 삭제"
-                    aria-label="토픽 삭제"
-                  >
-                    {isDeleting ? <Loader2 size={18} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={18} strokeWidth={1.5} />}
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="btn-ghost size-9 !px-0 hidden lg:inline-flex"
-                title={isFullscreen ? '축소하기' : '전체화면'}
-                aria-label={isFullscreen ? '축소하기' : '전체화면'}
-              >
-                {isFullscreen ? <Minimize2 size={18} strokeWidth={1.5} /> : <Maximize2 size={18} strokeWidth={1.5} />}
-              </button>
-              <button onClick={handleClose} className="btn-ghost size-9 !px-0" title="닫기" aria-label="닫기">
-                <X size={18} strokeWidth={1.5} />
-              </button>
+            <h2 className="mt-1 break-words font-display text-xl leading-7 text-ink md:text-2xl md:leading-8">
+              {topic.title}
+            </h2>
+            <div className="mt-2 flex min-w-0 items-center gap-2">
+              <Avatar
+                src={topic.authorProfileImage ? resolveImage(topic.authorProfileImage) : undefined}
+                name={topic.authorNickname}
+                className="size-6 text-[11px]"
+              />
+              <span className="min-w-0 truncate text-[13px] text-ink-2">
+                {topic.authorNickname}
+                {topic.authorCustomId && <span className="ml-1 text-ink-3">@{topic.authorCustomId}</span>}
+              </span>
+              <span className="stamp shrink-0">{formatDateTime(topic.createdAt, tf)}</span>
             </div>
           </div>
-
-          {/* Topic Content */}
-          <div className="shrink-0 lg:shrink lg:flex-1 lg:overflow-y-auto no-scrollbar p-4 lg:p-6 space-y-6">
-            <h2 className="text-xl lg:text-2xl font-semibold text-ink break-words">{topic.title}</h2>
-
-            {topic.imageUrl && (
-              <ImageWithFallback
-                src={resolveImage(topic.imageUrl)}
-                alt={topic.title}
-                width={1200}
-                height={600}
-                containerClassName="w-full max-h-[500px] min-h-[200px] rounded-xl border border-line bg-raised overflow-hidden"
-                className="w-full h-auto object-contain"
-                unoptimized
-              />
+          <div className="flex shrink-0 items-center gap-1">
+            {isAuthor && (
+              <>
+                <button
+                  onClick={() => onEdit?.(topic)}
+                  className="btn-icon"
+                  title="토픽 수정"
+                  aria-label="토픽 수정"
+                >
+                  <Pencil size={16} strokeWidth={1.5} />
+                </button>
+                <button
+                  onClick={handleTopicDelete}
+                  disabled={isDeleting}
+                  className="btn-icon hover:!bg-negative-soft hover:!text-negative"
+                  title="토픽 삭제"
+                  aria-label="토픽 삭제"
+                >
+                  {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
+                </button>
+              </>
             )}
-
-            <div className={`text-ink leading-relaxed break-words ${markdownListClassName}`} data-color-mode="light">
-              <EdMarkdown
-                rehypePlugins={markdownRehypePlugins}
-                source={topic.content}
-                components={markdownComponents}
-                style={{
-                  backgroundColor: 'transparent',
-                  fontSize: '1rem',
-                  fontWeight: 400,
-                  color: 'inherit',
-                }}
-              />
-            </div>
+            <button
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              className="btn-icon hidden lg:inline-flex"
+              title={isFullscreen ? '축소하기' : '전체화면'}
+              aria-label={isFullscreen ? '축소하기' : '전체화면'}
+            >
+              {isFullscreen ? <Minimize2 size={16} strokeWidth={1.5} /> : <Maximize2 size={16} strokeWidth={1.5} />}
+            </button>
+            <button onClick={handleClose} className="btn-icon" title="닫기" aria-label="닫기">
+              <X size={18} strokeWidth={1.5} />
+            </button>
           </div>
         </div>
 
-        {/* Right Sidebar - AI Insights & Comments */}
-        <div className="contents lg:flex lg:w-96 lg:flex-col lg:shrink-0 lg:overflow-hidden relative bg-canvas">
-          {/* AI Insights Section */}
-          <div className="p-4 lg:p-6 bg-canvas border-t lg:border-t-0 border-b border-line shrink-0">
-            <div className="flex items-center gap-2 text-sm font-semibold text-ink mb-3">
-              <Sparkles size={16} strokeWidth={1.5} className="text-ink-3" />
-              <span>AI 스마트 요약</span>
-              {insight && !loadingInsight && (
-                <button
-                  onClick={handleAnalyze}
-                  className="btn-ghost size-8 !px-0 ml-auto"
-                  title="AI 분석 다시하기"
-                  aria-label="AI 분석 다시하기"
-                >
-                  <RefreshCw size={16} strokeWidth={1.5} />
-                </button>
-              )}
-              {loadingInsight && <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3 ml-auto" />}
-            </div>
-
-            <div className="card p-4 min-h-[120px] flex flex-col justify-center">
-              {insight ? (
-                <div className="space-y-3">
-                  {(insight.stale || insight.analyzedAt) && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {insight.analyzedAt && <span className="stamp">{formatDateTime(insight.analyzedAt, tf)} 분석</span>}
-                      {insight.stale && (
-                        <span className="text-xs text-ink-3">분석 뒤에 토픽이 바뀌었어요. 다시 분석해 보세요</span>
-                      )}
-                    </div>
-                  )}
-                  <p className="text-sm text-ink-2 leading-relaxed">{spaceSentences(insight.summary)}</p>
-                  {keywords.length > 0 && (
-                    <ul className="flex flex-wrap gap-1.5" aria-label="키워드">
-                      {keywords.map((k) => (
-                        <li key={k} className="text-xs text-ink-2 bg-raised border border-line rounded-full px-2 py-0.5">
-                          #{k}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {insight.ocrText && insight.ocrText.trim() && (
-                    <div className="pt-3 border-t border-line">
-                      <span className="text-xs text-ink-3 block mb-1">이미지 텍스트 추출</span>
-                      <p className="text-xs text-ink-2 line-clamp-3 leading-relaxed">{insight.ocrText}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center space-y-3">
-                  <p className="text-sm text-ink-3">아직 분석된 내용이 없어요</p>
-                  <button onClick={handleAnalyze} disabled={loadingInsight} className="btn-primary">
-                    {loadingInsight ? '분석하는 중…' : 'AI 분석 시작'}
-                  </button>
-                </div>
-              )}
-            </div>
+        {/* 본문 → 이미지 → 댓글 요약 → 댓글 */}
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 md:px-6">
+          <div className={`break-words leading-relaxed text-ink ${markdownListClassName}`} data-color-mode="light">
+            <EdMarkdown
+              rehypePlugins={markdownRehypePlugins}
+              source={topic.content}
+              components={markdownComponents}
+              style={{
+                backgroundColor: 'transparent',
+                fontSize: '0.9375rem',
+                fontWeight: 400,
+                color: 'inherit',
+              }}
+            />
           </div>
 
-          {/* Comments Section */}
-          <div className="contents lg:flex lg:flex-1 lg:flex-col lg:overflow-hidden">
-            <div className="px-4 lg:px-6 py-4 bg-canvas shrink-0 flex items-center gap-2 text-sm font-semibold text-ink">
-              <MessageSquare size={16} strokeWidth={1.5} className="text-ink-3" />
-              <span>댓글 <span className="text-xs font-normal text-ink-3 tabular-nums">{comments.length}</span></span>
+          {topic.imageUrl && (
+            <ImageWithFallback
+              src={resolveImage(topic.imageUrl)}
+              alt={topic.title}
+              width={1200}
+              height={600}
+              containerClassName="w-full max-h-[420px] min-h-40 overflow-hidden rounded-xl border border-line bg-raised"
+              className="h-auto w-full object-contain"
+              unoptimized
+            />
+          )}
+
+          <section aria-label="댓글 요약" className="rounded-xl bg-raised px-4 py-3">
+            <div className="flex min-h-8 items-center gap-2">
+              <ListIcon size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
+              <span className="text-[13px] font-medium text-ink">댓글 요약</span>
+              <div className="ml-auto flex items-center gap-1">
+                {insight?.analyzedAt && (
+                  <span className="stamp">
+                    {comments.length > 0 && `댓글 ${comments.length}개 · `}
+                    {formatDateTime(insight.analyzedAt, tf)} 기준
+                  </span>
+                )}
+                {insight && !loadingInsight && (
+                  <button
+                    onClick={handleAnalyze}
+                    className="btn-icon"
+                    title="다시 요약하기"
+                    aria-label="AI 분석 다시하기"
+                  >
+                    <RefreshCw size={16} strokeWidth={1.5} />
+                  </button>
+                )}
+                {loadingInsight && insight && (
+                  <span className="inline-flex size-8 items-center justify-center">
+                    <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" />
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="flex-1 lg:overflow-y-auto no-scrollbar bg-canvas px-4 lg:px-6 space-y-4 pb-6 lg:pb-24">
-              {comments.length > 0 ? comments.map((comment) => {
-                const isMine = session?.user?.id === comment.authorId;
-                const isEditing = editingCommentId === comment.id;
-                return (
-                  <div key={comment.id} className="flex gap-3">
-                    <div className="size-8 rounded-full relative shrink-0 overflow-hidden">
-                      {comment.authorProfileImage ? (
-                        <ImageWithFallback
-                          src={resolveImage(comment.authorProfileImage)}
-                          alt={comment.authorNickname}
-                          fill
-                          containerClassName="w-full h-full"
-                          className="object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-raised flex items-center justify-center text-ink-2 text-xs">
-                          {initialOf(comment.authorNickname)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      {/* 좁은 칸에서는 시각·버튼 묶음이 다음 줄로 내려가 이름·@ID 가 잘리지 않게 한다 */}
-                      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
-                        <span className="min-w-0 text-sm font-medium text-ink break-words">
-                          {comment.authorNickname}
-                          {comment.authorCustomId && (
-                            <span className="ml-1 text-xs font-normal text-ink-3 whitespace-nowrap">@{comment.authorCustomId}</span>
-                          )}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0 ml-auto">
-                          <span className="stamp whitespace-nowrap">
-                            {formatDateTime(comment.createdAt, tf)}
-                            {isEdited(comment) && ' · 수정됨'}
+            {insight ? (
+              <div className="mt-1 space-y-2.5 pb-1">
+                {insight.stale && (
+                  <p className="text-xs text-ink-3">요약한 뒤에 토픽이 바뀌었어요. 다시 요약해 보세요.</p>
+                )}
+                <p className="text-sm leading-relaxed text-ink-2">{spaceSentences(insight.summary)}</p>
+                {keywords.length > 0 && (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="키워드">
+                    {keywords.map((k) => (
+                      <li key={k} className="chip bg-surface">#{k}</li>
+                    ))}
+                  </ul>
+                )}
+                {insight.ocrText && insight.ocrText.trim() && (
+                  <div className="border-t border-line pt-2.5">
+                    <span className="mb-1 block text-xs text-ink-3">사진 속 글자</span>
+                    <p className="line-clamp-3 text-xs leading-relaxed text-ink-2">{insight.ocrText}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-2 pb-1">
+                <p className="text-sm text-ink-3">아직 요약이 없어요</p>
+                <button onClick={handleAnalyze} disabled={loadingInsight} className="btn-secondary btn-sm">
+                  {loadingInsight && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
+                  {loadingInsight ? '요약하는 중' : '요약하기'}
+                </button>
+              </div>
+            )}
+          </section>
+
+          <section aria-label="댓글">
+            <h3 className="text-sm font-medium text-ink">
+              댓글 <span className="tabular-nums text-ink-3">{comments.length}</span>
+            </h3>
+
+            {comments.length > 0 ? (
+              <ul className="mt-3 space-y-4">
+                {comments.map((comment) => {
+                  const isMine = session?.user?.id === comment.authorId;
+                  const isEditing = editingCommentId === comment.id;
+                  return (
+                    <li key={comment.id} className="flex gap-3">
+                      <Avatar
+                        src={comment.authorProfileImage ? resolveImage(comment.authorProfileImage) : undefined}
+                        name={comment.authorNickname}
+                        className="size-8 text-xs"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-h-6 flex-wrap items-center gap-x-2 gap-y-0.5">
+                          <span className="min-w-0 break-words text-[13px] font-medium text-ink">
+                            {comment.authorNickname}
                           </span>
+                          {comment.authorCustomId && (
+                            <span className="whitespace-nowrap text-xs text-ink-3">@{comment.authorCustomId}</span>
+                          )}
+                          <span className="stamp whitespace-nowrap">{formatDateTime(comment.createdAt, tf)}</span>
+                          {isEdited(comment) && <span className="text-xs text-ink-3">수정됨</span>}
                           {isMine && !isEditing && (
-                            <>
+                            <div className="ml-auto flex shrink-0 items-center">
                               <button
                                 onClick={() => startEditComment(comment)}
-                                className="btn-ghost size-8 !px-0"
+                                className="btn-icon size-7"
                                 title="댓글 수정"
                                 aria-label="댓글 수정"
                               >
-                                <Pencil size={15} strokeWidth={1.5} />
+                                <Pencil size={14} strokeWidth={1.5} />
                               </button>
                               <button
                                 onClick={() => handleCommentDelete(comment.id)}
-                                className="btn-ghost size-8 !px-0 hover:!text-negative hover:!bg-negative-soft"
+                                className="btn-icon size-7 hover:!bg-negative-soft hover:!text-negative"
                                 title="댓글 삭제"
                                 aria-label="댓글 삭제"
                               >
-                                <Trash2 size={15} strokeWidth={1.5} />
+                                <Trash2 size={14} strokeWidth={1.5} />
                               </button>
-                            </>
+                            </div>
                           )}
                         </div>
-                      </div>
-                      {isEditing ? (
-                        <form
-                          className="space-y-2"
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            submitEditComment(comment);
-                          }}
-                        >
-                          <textarea
-                            value={editingContent}
-                            onChange={(e) => setEditingContent(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                                e.preventDefault();
-                                submitEditComment(comment);
-                              }
+                        {isEditing ? (
+                          <form
+                            className="mt-1 space-y-2"
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              submitEditComment(comment);
                             }}
-                            rows={3}
-                            autoFocus
-                            aria-label="댓글 수정"
-                            className="form-input resize-y min-h-[72px]"
-                          />
-                          <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={cancelEdit}
-                              disabled={updateCommentMutation.isPending}
-                              className="btn-secondary"
-                            >
-                              취소
-                            </button>
-                            <button
-                              type="submit"
-                              disabled={updateCommentMutation.isPending || !hasVisibleText(editingContent)}
-                              className="btn-primary"
-                            >
-                              {updateCommentMutation.isPending
-                                ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
-                                : <Check size={16} strokeWidth={1.5} />}
-                              저장
-                            </button>
+                          >
+                            <textarea
+                              value={editingContent}
+                              onChange={(e) => setEditingContent(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                  e.preventDefault();
+                                  submitEditComment(comment);
+                                }
+                              }}
+                              rows={3}
+                              autoFocus
+                              aria-label="댓글 수정"
+                              className="form-input min-h-[72px] resize-y"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={cancelEdit}
+                                disabled={updateCommentMutation.isPending}
+                                className="btn-secondary btn-sm"
+                              >
+                                취소
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={updateCommentMutation.isPending || !hasVisibleText(editingContent)}
+                                className="btn-primary btn-sm"
+                              >
+                                {updateCommentMutation.isPending
+                                  ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
+                                  : <Check size={14} strokeWidth={1.5} />}
+                                저장
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <div
+                            className={`mt-0.5 break-words text-sm leading-relaxed text-ink ${markdownListClassName}`}
+                            data-color-mode="light"
+                          >
+                            <EdMarkdown
+                              rehypePlugins={markdownRehypePlugins}
+                              source={comment.content}
+                              components={markdownComponents}
+                              style={{ backgroundColor: 'transparent', fontSize: '0.875rem', color: 'inherit' }}
+                            />
                           </div>
-                        </form>
-                      ) : (
-                        <div
-                          className={`text-sm text-ink-2 leading-relaxed bg-surface px-3 py-2 rounded-xl border border-line break-words ${markdownListClassName}`}
-                          data-color-mode="light"
-                        >
-                          <EdMarkdown
-                            rehypePlugins={markdownRehypePlugins}
-                            source={comment.content}
-                            components={markdownComponents}
-                            style={{ backgroundColor: 'transparent', fontSize: '0.875rem', color: 'inherit' }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }) : (
-                <div className="py-10 lg:py-16 text-center">
-                  <div className="size-10 rounded-full bg-raised flex items-center justify-center mx-auto mb-3">
-                    <MessageSquare size={18} strokeWidth={1.5} className="text-ink-3" />
-                  </div>
-                  <p className="text-sm font-medium text-ink">아직 댓글이 없어요</p>
-                  <p className="text-sm text-ink-3 mt-1">첫 댓글을 남겨 보세요</p>
-                </div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <EmptyState title="아직 댓글이 없어요" description="첫 댓글을 남겨 보세요" className="!py-8" />
+            )}
+          </section>
+        </div>
+
+        {/* 아래 고정: 댓글 입력칸 + 보내기. 창이 하단 탭(z-100)보다 위라 가려지지 않는다 */}
+        <div className="shrink-0 border-t border-line px-5 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] md:px-6">
+          <form onSubmit={handleCommentSubmit} className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <AtSign
+                size={16}
+                strokeWidth={1.5}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3"
+                aria-hidden
+              />
+              <input
+                type="text"
+                value={commentInput}
+                onChange={(e) => {
+                  setCommentInput(e.target.value);
+                  handleInputChange(e.target.value, 'participant');
+                }}
+                placeholder="댓글 남기기 · @로 멘션"
+                aria-label="댓글 입력"
+                className="form-input h-9 py-0 pl-9"
+              />
+
+              {showParticipantMentions && (
+                <MentionList
+                  items={filteredParticipants as MentionItem[]}
+                  onSelect={(m) => {
+                    const parts = commentInput.split('@');
+                    parts.pop();
+                    // 입력칸에는 '@이름' 만 보이고, 보낼 때 링크 형식으로 바꿔요.
+                    const name = m.nickname ?? '';
+                    const newVal = parts.join('@') + `@${name} `;
+                    setCommentInput(newVal);
+                    if (name) setCommentMentions((prev) => ({ ...prev, [name]: m.id }));
+                    setShowParticipantMentions(false);
+                  }}
+                />
               )}
             </div>
 
-            {/* Comment Input: 모바일은 화면 아래에 붙고, 모달이 하단 탭(z-100)보다 위라 가려지지 않는다 */}
-            <div className="sticky bottom-0 z-10 lg:absolute lg:bottom-0 lg:left-0 w-full px-4 lg:px-6 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:py-4 bg-canvas border-t border-line">
-              <form onSubmit={handleCommentSubmit} className="relative">
-                <input
-                  type="text"
-                  value={commentInput}
-                  onChange={(e) => {
-                    setCommentInput(e.target.value);
-                    handleInputChange(e.target.value, 'participant');
-                  }}
-                  placeholder="댓글 입력 (@로 멤버 언급)"
-                  aria-label="댓글 입력"
-                  className="form-input pr-12"
-                />
-
-                {showParticipantMentions && (
-                  <MentionList
-                    items={filteredParticipants as MentionItem[]}
-                    onSelect={(m) => {
-                      const parts = commentInput.split('@');
-                      parts.pop();
-                      // 입력칸에는 '@이름' 만 보이고, 보낼 때 링크 형식으로 바꿔요.
-                      const name = m.nickname ?? '';
-                      const newVal = parts.join('@') + `@${name} `;
-                      setCommentInput(newVal);
-                      if (name) setCommentMentions((prev) => ({ ...prev, [name]: m.id }));
-                      setShowParticipantMentions(false);
-                    }}
-                  />
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isCommenting || !hasVisibleText(commentInput)}
-                  className="btn-primary absolute right-1.5 top-1/2 -translate-y-1/2 size-8 !px-0"
-                  aria-label="댓글 보내기"
-                >
-                  {isCommenting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}
-                </button>
-              </form>
-            </div>
-          </div>
+            <button
+              type="submit"
+              disabled={isCommenting || !hasVisibleText(commentInput)}
+              className="btn-primary shrink-0"
+              aria-label="댓글 보내기"
+            >
+              {isCommenting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}
+              보내기
+            </button>
+          </form>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** 사진이 없으면 이름 첫 글자 */
+function Avatar({ src, name, className }: { src?: string; name: string; className: string }) {
+  return (
+    <div className={`relative shrink-0 overflow-hidden rounded-full ${className}`}>
+      {src ? (
+        <ImageWithFallback src={src} alt={name} fill containerClassName="w-full h-full" className="object-cover" unoptimized />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-raised text-ink-2">{initialOf(name)}</div>
+      )}
     </div>
   );
 }

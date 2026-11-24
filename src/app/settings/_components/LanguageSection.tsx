@@ -22,7 +22,7 @@ export default function LanguageSection() {
   return (
     <div className="space-y-6">
       <SettingsGroup title="언어">
-        <SettingsRow label="표시 언어" description="지금은 한국어만 제공해요.">
+        <SettingsRow label="표시 언어" description="지금은 한국어만 제공해요">
           <span className="text-sm text-ink">한국어</span>
         </SettingsRow>
       </SettingsGroup>

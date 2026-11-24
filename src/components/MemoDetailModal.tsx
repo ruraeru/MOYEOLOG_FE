@@ -43,11 +43,13 @@ export default function MemoDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[105] flex items-stretch sm:items-center justify-center bg-black/40 p-0 sm:p-4"
+      className="fixed inset-0 z-[105] flex items-stretch justify-center bg-black/40 sm:items-center sm:p-4"
       onClick={requestClose}
     >
       <div
-        className="bg-surface border border-line sm:rounded-2xl w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[85vh] flex shadow-float overflow-hidden relative"
+        role="dialog"
+        aria-modal="true"
+        className="relative flex h-[100dvh] w-full max-w-[960px] overflow-hidden bg-surface animate-slide-up sm:h-auto sm:max-h-[88vh] sm:rounded-2xl sm:animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <MemoDetailView

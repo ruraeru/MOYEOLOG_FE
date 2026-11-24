@@ -55,7 +55,7 @@ export default function NotificationSection() {
 
   return (
     <div className="space-y-6">
-      <SettingsGroup title="알림" description="어떤 소식을 알림으로 받을지 정해요. 끈 종류는 알림 목록에도 쌓이지 않아요.">
+      <SettingsGroup title="알림" description="받고 싶은 알림만 골라요. 끈 종류는 알림 목록에도 쌓이지 않아요.">
         {isLoading ? (
           <div className="flex justify-center py-10">
             <Loader2 size={20} strokeWidth={1.5} className="animate-spin text-ink-3" />

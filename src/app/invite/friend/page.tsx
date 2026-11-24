@@ -9,6 +9,7 @@ import { friendApi, type UserProfileResponse } from '@/lib/friend-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { Loader2, AlertCircle, RotateCw } from 'lucide-react';
 import UserProfileCard from '@/app/profile/UserProfileCard';
+import { EmptyState } from '@/components/ui';
 
 function FriendInviteContent() {
   const { data: session, status } = useSession();
@@ -72,23 +73,23 @@ function FriendInviteContent() {
   if (error || !profile) {
     return (
       <Shell>
-        <div className="card p-6 text-center space-y-5">
-          <div className="size-10 rounded-full bg-raised flex items-center justify-center mx-auto">
-            <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
-          </div>
-          <div className="space-y-1">
-            <h1 className="text-lg font-semibold text-ink">친구 초대</h1>
-            <p className="text-sm text-negative">{error?.message || '초대 정보를 불러오지 못했어요.'}</p>
-          </div>
-          <div className="flex flex-col gap-2">
-            {error && !error.invalid && (
-              <button onClick={() => fetchInviter()} className="btn-primary w-full">
-                <RotateCw size={16} strokeWidth={1.5} />
-                다시 시도
-              </button>
-            )}
-            <Link href="/friends" className="btn-secondary w-full">친구 목록으로</Link>
-          </div>
+        <div className="card">
+          <EmptyState
+            icon={AlertCircle}
+            title="친구 초대를 열 수 없어요"
+            description={error?.message || '초대 정보를 불러오지 못했어요.'}
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                {error && !error.invalid && (
+                  <button onClick={() => fetchInviter()} className="btn-primary">
+                    <RotateCw size={16} strokeWidth={1.5} />
+                    다시 시도
+                  </button>
+                )}
+                <Link href="/friends" className="btn-secondary">친구 목록으로</Link>
+              </div>
+            }
+          />
         </div>
       </Shell>
     );
@@ -96,9 +97,12 @@ function FriendInviteContent() {
 
   return (
     <Shell>
-      <p className="text-sm text-ink-2 text-center">
-        {profile.friendStatus === 'SELF' ? '내 친구 초대 링크' : `${profile.nickname}님이 친구가 되고 싶어 해요`}
-      </p>
+      <div className="space-y-1 pb-1">
+        <p className="text-[13px] font-medium text-ink-3">친구 초대</p>
+        <p className="font-display text-2xl leading-8 text-ink">
+          {profile.friendStatus === 'SELF' ? '내 친구 초대 링크' : `${profile.nickname}님이 친구가 되고 싶어 해요`}
+        </p>
+      </div>
       <UserProfileCard profile={profile} variant="invite" onChanged={() => fetchInviter(true)} />
       <div className="flex gap-2">
         <Link href="/friends" className="btn-ghost flex-1">친구 목록으로</Link>
@@ -111,7 +115,7 @@ function FriendInviteContent() {
 function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-canvas flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-sm space-y-3">{children}</div>
+      <div className="w-full max-w-md space-y-4">{children}</div>
     </div>
   );
 }

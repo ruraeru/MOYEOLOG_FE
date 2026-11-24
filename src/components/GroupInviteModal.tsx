@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Loader2, Search, UserPlus, Check, AlertCircle } from 'lucide-react';
+import { Loader2, Search, Check } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { groupApi } from '@/lib/group-api';
@@ -9,6 +9,7 @@ import ImageWithFallback from './ImageWithFallback';
 import { getApiErrorMessage } from '@/lib/axios';
 import { useAlert } from '@/hooks/useAlert';
 import { initialOf } from '@/lib/utils';
+import { Modal, EmptyState } from './ui';
 
 interface GroupInviteModalProps {
   isOpen: boolean;
@@ -48,7 +49,7 @@ export default function GroupInviteModal({
       setFriends(data.filter(f => f.status === 'ACCEPTED'));
     } catch (e) {
       console.error('Failed to fetch friends:', e);
-      setLoadError(getApiErrorMessage(e, '친구 목록을 불러오지 못했어요.'));
+      setLoadError(getApiErrorMessage(e, '친구 목록을 불러오지 못했어요'));
     } finally {
       setLoading(false);
     }
@@ -95,136 +96,119 @@ export default function GroupInviteModal({
       (friend.customId || '').toLowerCase().includes(query)
     );
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface border border-line rounded-2xl w-full max-w-md flex flex-col shadow-float overflow-hidden max-h-[80vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">멤버 초대</h2>
-            <p className="text-xs text-ink-3">{groupName}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="btn-ghost"
-            aria-label="닫기"
-          >
-            <X size={18} strokeWidth={1.5} />
-          </button>
-        </div>
-
-        <div className="p-4 border-b border-line">
-          <div className="relative">
-            <Search size={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
-            <input
-              type="text"
-              placeholder="친구 이름 또는 아이디 검색"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-input pl-10"
-            />
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-2 min-h-[300px] no-scrollbar">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-2">
-              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
-              <p className="text-sm text-ink-3">친구 목록을 불러오는 중이에요</p>
-            </div>
-          ) : loadError ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center px-6 gap-3">
-              <div className="size-10 rounded-full bg-raised flex items-center justify-center">
-                <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />
-              </div>
-              <p className="text-sm text-ink">{loadError}</p>
-              <button type="button" onClick={() => { setLoading(true); setLoadError(null); fetchFriends(); }} className="btn-secondary">다시 시도</button>
-            </div>
-          ) : filteredFriends.length > 0 ? (
-            <div className="space-y-1">
-              {filteredFriends.map((friend) => {
-                const isSelected = selectedUserIds.includes(friend.userId);
-                return (
-                  <button
-                    key={friend.id}
-                    type="button"
-                    aria-pressed={isSelected}
-                    onClick={() => handleToggleSelect(friend.userId)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors duration-150 ease-out ${
-                      isSelected ? 'bg-accent-soft' : 'hover:bg-raised'
-                    }`}
-                  >
-                    <div className="size-10 rounded-full relative overflow-hidden shrink-0">
-                      {friend.profileImage ? (
-                        <ImageWithFallback 
-                          src={friend.profileImage.startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage} 
-                          alt={friend.nickname} 
-                          fill 
-                          containerClassName="w-full h-full"
-                          className="object-cover" 
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-raised text-ink-2 text-sm">
-                          {initialOf(friend.nickname)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 text-left min-w-0">
-                      <p className={`text-sm font-medium truncate ${isSelected ? 'text-accent' : 'text-ink'}`}>
-                        {friend.nickname}
-                      </p>
-                      {friend.customId && <p className="text-xs text-ink-3 truncate">@{friend.customId}</p>}
-                    </div>
-                    <div className={`size-5 rounded-full flex items-center justify-center border transition-colors duration-150 ease-out ${
-                      isSelected ? 'bg-accent border-accent text-white' : 'border-line-strong'
-                    }`}>
-                      {isSelected && <Check size={12} strokeWidth={1.5} />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-center px-6">
-              <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3">
-                <UserPlus size={18} strokeWidth={1.5} className="text-ink-3" />
-              </div>
-              <p className="text-sm font-medium text-ink">
-                {query ? '검색 결과가 없어요' : '초대할 수 있는 친구가 없어요'}
-              </p>
-              <p className="text-sm text-ink-3 mt-1">
-                {query ? '다른 이름으로 찾아보세요' : '친구만 초대할 수 있어요. 이미 모임에 있는 친구는 빠져 있어요'}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {error && <p className="px-6 py-2 text-sm text-negative">{error}</p>}
-
-        <div className="px-6 py-4 border-t border-line flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-ink-3">선택한 친구</span>
-            <span className="text-xs text-ink-2 tabular-nums">{selectedUserIds.length}명</span>
-          </div>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title="친구 초대"
+      subtitle={groupName}
+      size="sm"
+      bodyClassName="!px-0 !py-0 flex flex-col"
+      footer={
+        <>
+          <span className="mr-auto text-[13px] text-ink-3">
+            선택 <span className="tabular-nums text-ink-2">{selectedUserIds.length}명</span>
+          </span>
+          <button type="button" onClick={onClose} className="btn-secondary">취소</button>
           <button
             type="button"
             onClick={handleInvite}
             disabled={inviting || selectedUserIds.length === 0}
-            className="btn-primary w-full"
+            className="btn-primary"
           >
             {inviting && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
-            {inviting ? '초대장 발송 중…' : '초대장 보내기'}
+            {inviting ? '보내는 중' : '초대 보내기'}
           </button>
+        </>
+      }
+    >
+      <div className="shrink-0 px-5 pt-4 pb-2 md:px-6">
+        <div className="relative">
+          <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+          <input
+            type="text"
+            placeholder="이름이나 아이디로 찾기"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="form-input h-9 py-0 pl-9"
+          />
         </div>
       </div>
-    </div>
+
+      <div className="min-h-[280px] flex-1 px-3 pb-3 md:px-4">
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-16">
+            <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" />
+            <p className="text-sm text-ink-3">친구 목록을 불러오는 중이에요</p>
+          </div>
+        ) : loadError ? (
+          <EmptyState
+            title="불러오지 못했어요"
+            description={loadError}
+            action={
+              <button type="button" onClick={() => { setLoading(true); setLoadError(null); fetchFriends(); }} className="btn-secondary">
+                다시 시도
+              </button>
+            }
+          />
+        ) : filteredFriends.length > 0 ? (
+          <ul>
+            {filteredFriends.map((friend) => {
+              const isSelected = selectedUserIds.includes(friend.userId);
+              return (
+                <li key={friend.id}>
+                  <button
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => handleToggleSelect(friend.userId)}
+                    className={`flex h-14 w-full items-center gap-3 rounded-[10px] px-2 transition-colors ${
+                      isSelected ? 'bg-accent-soft' : 'hover:bg-raised'
+                    }`}
+                  >
+                    <div className="relative size-9 shrink-0 overflow-hidden rounded-full">
+                      {friend.profileImage ? (
+                        <ImageWithFallback
+                          src={friend.profileImage.startsWith('/uploads/') ? `${apiUrl}${friend.profileImage}` : friend.profileImage}
+                          alt={friend.nickname}
+                          fill
+                          containerClassName="w-full h-full"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-raised text-[13px] text-ink-2">
+                          {initialOf(friend.nickname)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className={`truncate font-display text-[15px] ${isSelected ? 'text-accent' : 'text-ink'}`}>
+                        {friend.nickname}
+                      </p>
+                      {friend.customId && <p className="truncate text-xs text-ink-3">@{friend.customId}</p>}
+                    </div>
+                    <span
+                      aria-hidden
+                      className={`flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                        isSelected ? 'border-accent bg-accent text-white' : 'border-line-strong bg-surface'
+                      }`}
+                    >
+                      {isSelected && <Check size={12} strokeWidth={2} />}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <EmptyState
+            title={query ? '찾는 친구가 없어요' : '초대할 친구가 없어요'}
+            description={query ? '다른 이름으로 찾아보세요' : '친구만 초대할 수 있고, 이미 모임에 있는 친구는 빠져 있어요'}
+          />
+        )}
+      </div>
+
+      {error && <p role="alert" className="mx-5 mb-3 rounded-[10px] bg-negative-soft px-3 py-2 text-sm text-negative md:mx-6">{error}</p>}
+    </Modal>
   );
 }

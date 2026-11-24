@@ -3,6 +3,10 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 import Script from "next/script";
 import BottomNavbar from "@/components/BottomNavbar";
+import { Jua } from "next/font/google";
+
+// 제목·날짜·로고용 글꼴. 빌드 때 받아서 같은 도메인에서 내려준다(외부 글꼴 CDN 을 CSP 에 열지 않는다)
+const jua = Jua({ weight: "400", subsets: ["latin"], display: "swap", preload: false, variable: "--font-jua" });
 
 export const metadata: Metadata = {
   title: '모여로그 | MOYEOLOG',
@@ -20,7 +24,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className="h-full antialiased"
+      className={`h-full antialiased ${jua.variable}`}
     >
       <head>
         <meta httpEquiv="Content-Security-Policy" content="upgrade-insecure-requests" />

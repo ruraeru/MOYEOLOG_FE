@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { groupApi, GroupApiError, type GroupPreviewResponse } from '@/lib/group-api';
-import { getFileUrl } from '@/lib/utils';
-import { Loader2, Users, CheckCircle2, AlertCircle, Ticket } from 'lucide-react';
+import { getFileUrl, getThemeColors } from '@/lib/utils';
+import { Ribbon } from '@/components/ui';
+import { Loader2, Users } from 'lucide-react';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { useAlert } from '@/hooks/useAlert';
 
@@ -17,7 +18,7 @@ type ViewState =
   | { kind: 'joined'; groupId?: string; name?: string }
   | { kind: 'error'; message: string; canRetry: boolean };
 
-const BAD_CODE_MESSAGE = '초대 코드가 맞지 않거나 만료됐어요.';
+const BAD_CODE_MESSAGE = '초대 코드가 맞지 않거나 만료됐어요';
 
 function normalizeCode(input: string) {
   return input.trim().replace(/\s+/g, '').toUpperCase();
@@ -56,7 +57,7 @@ function GroupInviteContent({ code }: { code: string | null }) {
       if (e.status === 404 || e.status === 400) {
         setView({ kind: 'enter', message: e.message || BAD_CODE_MESSAGE });
       } else {
-        setView({ kind: 'error', message: e.message || '초대 코드를 확인하지 못했어요.', canRetry: true });
+        setView({ kind: 'error', message: e.message || '초대 코드를 확인하지 못했어요', canRetry: true });
       }
     }
   }, [session]);
@@ -96,7 +97,7 @@ function GroupInviteContent({ code }: { code: string | null }) {
       } else if (e.status === 404) {
         setView({ kind: 'enter', message: e.message || BAD_CODE_MESSAGE });
       } else {
-        setView({ kind: 'error', message: e.message || '모임에 참여하지 못했어요.', canRetry: e.status !== 403 });
+        setView({ kind: 'error', message: e.message || '모임에 참여하지 못했어요', canRetry: e.status !== 403 });
       }
     } finally {
       setJoining(false);
@@ -121,49 +122,45 @@ function GroupInviteContent({ code }: { code: string | null }) {
 
   const goGroup = (groupId?: string) => router.push(groupId ? `/groups/${groupId}` : '/groups');
 
-  let icon = <Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" />;
-  if (view.kind === 'joined' || view.kind === 'already') icon = <CheckCircle2 size={18} strokeWidth={1.5} className="text-positive" />;
-  if (view.kind === 'error') icon = <AlertCircle size={18} strokeWidth={1.5} className="text-negative" />;
-  if (view.kind === 'enter') icon = <Ticket size={18} strokeWidth={1.5} className="text-ink-3" />;
-
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center p-4 pb-24">
-      <div className="card w-full max-w-sm p-6 text-center space-y-5">
-        {view.kind === 'preview' ? (
-          <GroupPreviewCard preview={view.preview} />
-        ) : (
-          <div className="size-10 rounded-full bg-raised flex items-center justify-center mx-auto">{icon}</div>
-        )}
-
+    <div className="flex min-h-screen items-center justify-center bg-canvas p-4 pb-24">
+      <div className="card w-full max-w-[420px] p-6">
         {view.kind === 'loading' && (
-          <div className="space-y-1">
-            <h1 className="text-lg font-semibold text-ink">모임 초대를 확인하고 있어요</h1>
-            <p className="text-sm text-ink-2">잠시만 기다려 주세요</p>
+          <div className="flex items-center gap-3">
+            <Loader2 size={16} strokeWidth={1.5} className="shrink-0 animate-spin text-ink-3" />
+            <div>
+              <h1 className="font-display text-lg text-ink">모임 초대를 확인하고 있어요</h1>
+              <p className="mt-0.5 text-sm text-ink-3">잠시만 기다려 주세요</p>
+            </div>
           </div>
         )}
 
+        {view.kind === 'preview' && <GroupPreviewCard preview={view.preview} />}
+
         {view.kind === 'preview' && view.preview.blocked && (
           <>
-            <div className="space-y-1">
-              <h1 className="text-lg font-semibold text-ink">이 모임에 다시 들어갈 수 없어요</h1>
-              <p className="text-sm text-ink-2">모임에서 내보내져 초대 코드로는 참여할 수 없어요. 방장이 직접 초대하면 다시 참여할 수 있어요.</p>
+            <div className="mt-5 rounded-[10px] bg-raised px-4 py-3">
+              <p className="text-sm font-medium text-ink">이 모임에 다시 들어갈 수 없어요</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-ink-2">모임에서 내보내져 초대 코드로는 참여할 수 없어요. 방장이 직접 초대하면 다시 참여할 수 있어요.</p>
             </div>
-            <button onClick={() => router.push('/groups')} className="btn-primary w-full">모임 목록으로</button>
+            <div className="mt-5 flex justify-end">
+              <button onClick={() => router.push('/groups')} className="btn-primary">모임 목록으로</button>
+            </div>
           </>
         )}
 
         {view.kind === 'preview' && !view.preview.blocked && (
           <>
-            <p className="text-sm text-ink-2">
-              참여하면 모임 멤버에게 내 닉네임과 프로필 사진이 보여요.
+            <p className="mt-5 text-[13px] text-ink-3">
+              참여하면 모임 멤버에게 내 닉네임과 프로필 사진이 보여요
             </p>
-            <div className="flex flex-col gap-2">
-              <button onClick={handleJoin} disabled={joining} className="btn-primary w-full">
-                {joining && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
-                {joining ? '참여하는 중…' : '참여하기'}
-              </button>
-              <button onClick={() => router.push('/groups')} disabled={joining} className="btn-secondary w-full">
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => router.push('/groups')} disabled={joining} className="btn-secondary">
                 참여하지 않기
+              </button>
+              <button onClick={handleJoin} disabled={joining} className="btn-primary">
+                {joining && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
+                {joining ? '참여하는 중' : '참여하기'}
               </button>
             </div>
           </>
@@ -171,52 +168,46 @@ function GroupInviteContent({ code }: { code: string | null }) {
 
         {view.kind === 'joined' && (
           <>
-            <div className="space-y-1">
-              <h1 className="text-lg font-semibold text-ink">모임에 참여했어요</h1>
-              <p className="text-sm text-ink-2">{view.name ? `'${view.name}' 모임으로 이동해요` : '곧 모임으로 이동해요'}</p>
+            <h1 className="font-display text-xl text-ink">모임에 참여했어요</h1>
+            <p className="mt-1 text-sm text-ink-2">{view.name ? `'${view.name}' 모임으로 이동해요` : '곧 모임으로 이동해요'}</p>
+            <div className="mt-5 flex justify-end">
+              <button onClick={() => goGroup(view.groupId)} className="btn-primary">모임으로 가기</button>
             </div>
-            <button onClick={() => goGroup(view.groupId)} className="btn-primary w-full">모임으로 가기</button>
           </>
         )}
 
         {view.kind === 'already' && (
           <>
-            <div className="space-y-1">
-              <h1 className="text-lg font-semibold text-ink">이미 참여한 모임이에요</h1>
-              {view.name && <p className="text-sm text-ink-2 break-words">{view.name}</p>}
-            </div>
-            <div className="flex flex-col gap-2">
-              <button onClick={() => goGroup(view.groupId)} className="btn-primary w-full">모임으로 가기</button>
-              <button onClick={() => router.push('/groups')} className="btn-secondary w-full">모임 목록으로</button>
+            <h1 className="font-display text-xl text-ink">이미 참여한 모임이에요</h1>
+            {view.name && <p className="mt-1 break-words text-sm text-ink-2">{view.name}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => router.push('/groups')} className="btn-secondary">모임 목록으로</button>
+              <button onClick={() => goGroup(view.groupId)} className="btn-primary">모임으로 가기</button>
             </div>
           </>
         )}
 
         {view.kind === 'error' && (
           <>
-            <div className="space-y-1">
-              <h1 className="text-lg font-semibold text-ink">모임에 참여할 수 없어요</h1>
-              <p className="text-sm text-negative">{view.message}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              {view.canRetry && code && (
-                <button onClick={() => loadPreview(normalizeCode(code))} className="btn-primary w-full">다시 시도</button>
-              )}
-              <button onClick={() => router.push('/groups')} className={view.canRetry && code ? 'btn-secondary w-full' : 'btn-primary w-full'}>
+            <h1 className="font-display text-xl text-ink">모임에 참여할 수 없어요</h1>
+            <p className="mt-1 text-sm text-negative">{view.message}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => router.push('/groups')} className={view.canRetry && code ? 'btn-secondary' : 'btn-primary'}>
                 모임 목록으로
               </button>
+              {view.canRetry && code && (
+                <button onClick={() => loadPreview(normalizeCode(code))} className="btn-primary">다시 시도</button>
+              )}
             </div>
           </>
         )}
 
         {view.kind === 'enter' && (
-          <form onSubmit={handleSubmitCode} className="space-y-4">
-            <div className="space-y-1">
-              <h1 className="text-lg font-semibold text-ink">초대 코드로 참여</h1>
-              <p className={`text-sm ${view.message ? 'text-negative' : 'text-ink-2'}`}>
-                {view.message || '모임에서 받은 초대 코드를 입력해 주세요'}
-              </p>
-            </div>
+          <form onSubmit={handleSubmitCode}>
+            <h1 className="font-display text-xl text-ink">초대 코드로 참여</h1>
+            <p className={`mt-1 text-sm ${view.message ? 'text-negative' : 'text-ink-2'}`}>
+              {view.message || '모임에서 받은 초대 코드를 입력해 주세요'}
+            </p>
             <input
               type="text"
               value={codeInput}
@@ -226,11 +217,11 @@ function GroupInviteContent({ code }: { code: string | null }) {
               autoComplete="off"
               autoCapitalize="characters"
               autoFocus
-              className="form-input text-center font-mono tracking-wide"
+              className="form-input mt-4 h-10 text-center text-base font-medium tabular-nums tracking-wide"
             />
-            <div className="flex flex-col gap-2">
-              <button type="submit" disabled={!normalizeCode(codeInput)} className="btn-primary w-full">확인</button>
-              <button type="button" onClick={() => router.push('/groups')} className="btn-secondary w-full">모임 목록으로</button>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => router.push('/groups')} className="btn-secondary">모임 목록으로</button>
+              <button type="submit" disabled={!normalizeCode(codeInput)} className="btn-primary">확인</button>
             </div>
           </form>
         )}
@@ -241,28 +232,30 @@ function GroupInviteContent({ code }: { code: string | null }) {
 
 function GroupPreviewCard({ preview }: { preview: GroupPreviewResponse }) {
   const profile = getFileUrl(preview.profileImage);
+  const hex = getThemeColors(preview.colorTheme).hex;
   return (
-    <div className="space-y-3">
-      <div className="size-16 rounded-2xl bg-raised mx-auto overflow-hidden relative flex items-center justify-center">
-        {profile ? (
-          <ImageWithFallback src={profile} alt={preview.name} fill containerClassName="w-full h-full" className="object-cover" unoptimized />
-        ) : (
-          <span className="text-2xl font-semibold text-ink-2">{[...preview.name][0]}</span>
+    <div>
+      <p className="text-xs text-ink-3">모임 초대</p>
+      <div className="mt-2 flex items-start gap-3">
+        <Ribbon color={hex} className="mt-1 h-6" />
+        <div className="min-w-0 flex-1">
+          <h1 className="break-words font-display text-xl leading-7 text-ink">{preview.name}</h1>
+          {preview.description && (
+            <p className="mt-1 line-clamp-3 break-words text-sm text-ink-2">{preview.description}</p>
+          )}
+        </div>
+        {profile && (
+          <div className="relative size-10 shrink-0 overflow-hidden rounded-[10px] bg-raised">
+            <ImageWithFallback src={profile} alt={preview.name} fill containerClassName="w-full h-full" className="object-cover" unoptimized />
+          </div>
         )}
       </div>
-      <div className="space-y-1">
-        <p className="text-xs text-ink-3">모임 초대</p>
-        <h1 className="text-lg font-semibold text-ink break-words">{preview.name}</h1>
-        {preview.description && (
-          <p className="text-sm text-ink-2 line-clamp-3 break-words">{preview.description}</p>
-        )}
-      </div>
-      <div className="flex items-center justify-center gap-3 text-xs text-ink-2">
-        <span className="flex items-center gap-1 tabular-nums">
-          <Users size={14} strokeWidth={1.5} className="text-ink-3" />
+      <div className="mt-4 flex items-center gap-3 border-t border-line pt-4 text-[13px] text-ink-2">
+        <span className="flex items-center gap-1.5 tabular-nums">
+          <Users size={16} strokeWidth={1.5} className="text-ink-3" />
           멤버 {preview.memberCount}명
         </span>
-        <span className="w-px h-3 bg-line" />
+        <span aria-hidden className="h-3 w-px bg-line-strong" />
         <span className="truncate">방장 {preview.ownerNickname}</span>
       </div>
     </div>

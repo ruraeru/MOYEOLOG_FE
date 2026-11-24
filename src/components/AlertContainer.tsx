@@ -50,7 +50,8 @@ export default function AlertContainer() {
               <span className="text-sm flex-1 leading-snug">{toast.message}</span>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="btn-ghost size-7 !h-7 !px-0 cursor-pointer"
+                aria-label="닫기"
+                className="btn-icon size-7 shrink-0"
               >
                 <X size={16} strokeWidth={1.5} />
               </button>
@@ -59,40 +60,26 @@ export default function AlertContainer() {
         })}
       </div>
 
-      {/* Alert/Confirm Modal */}
+      {/* 확인 창: 다른 창과 같은 모양 (바탕 black/40, r16, 왼쪽 정렬, 버튼 오른쪽) */}
       {modal && (
         <div className="fixed inset-0 bg-black/40 z-[9998] flex items-center justify-center p-4">
-          {/* Modal Box */}
-          <div className="bg-surface rounded-2xl p-6 max-w-sm w-full shadow-float border border-line animate-scale-in">
-            {/* Title / Icon */}
-            <div className="flex flex-col items-center text-center gap-3 mb-6">
-              <div className="size-10 rounded-full bg-raised flex items-center justify-center">
-                {isDestructive ? (
-                  <AlertTriangle size={18} strokeWidth={1.5} className="text-negative" />
-                ) : modal.type === 'confirm' ? (
-                  <Info size={18} strokeWidth={1.5} className="text-ink-3" />
-                ) : (
-                  <CheckCircle2 size={18} strokeWidth={1.5} className="text-ink-3" />
-                )}
-              </div>
-
+          <div className="w-full max-w-[400px] rounded-2xl bg-surface animate-scale-in">
+            <div className="px-6 pt-6 pb-5">
               {modal.title && (
-                <h3 className="text-lg font-semibold text-ink">
+                <h3 className="font-display text-xl leading-7 text-ink mb-2">
                   {modal.title}
                 </h3>
               )}
-
-              <p className="text-sm text-ink-2 whitespace-pre-wrap leading-relaxed">
+              <p className={`whitespace-pre-wrap leading-relaxed ${modal.title ? 'text-sm text-ink-2' : 'text-[15px] text-ink'}`}>
                 {modal.message}
               </p>
             </div>
 
-            {/* Buttons */}
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-2 border-t border-line px-6 py-3">
               {modal.type === 'confirm' && (
                 <button
                   onClick={() => closeModal(false)}
-                  className="btn-secondary flex-1 cursor-pointer"
+                  className="btn-secondary"
                 >
                   {modal.cancelText || '취소'}
                 </button>
@@ -100,11 +87,7 @@ export default function AlertContainer() {
 
               <button
                 onClick={() => closeModal(true)}
-                className={`flex-1 cursor-pointer ${
-                  isDestructive
-                    ? 'btn-primary !bg-negative hover:!bg-negative/90'
-                    : 'btn-primary'
-                }`}
+                className={isDestructive ? 'btn-danger' : 'btn-primary'}
               >
                 {modal.confirmText || '확인'}
               </button>

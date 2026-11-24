@@ -206,25 +206,31 @@ export default function ProfileSection({ user }: { user: UserResponse }) {
   const busy = saveMutation.isPending || deleteImageMutation.isPending;
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <div className="relative">
-          <div className="relative flex size-28 items-center justify-center overflow-hidden rounded-full border border-line bg-raised">
-            {preview ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={preview} alt="프로필 사진" className="h-full w-full object-cover" />
-            ) : (
-              <UserIcon size={32} strokeWidth={1.5} className="text-ink-3" />
-            )}
-          </div>
+    <section className="space-y-4">
+      <div>
+        <h3 className="font-display text-xl leading-7 text-ink">프로필</h3>
+        <p className="mt-1 text-sm text-ink-2">친구와 모임 멤버에게 보이는 내 정보예요</p>
+      </div>
+
+      <form onSubmit={(e) => handleSubmit(onSubmit)(e)} className="card divide-y divide-line" noValidate>
+        {/* 사진 + 계정 정보 */}
+        <div className="flex items-start gap-4 px-5 py-5 lg:px-6">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={busy}
             aria-label="프로필 사진 바꾸기"
-            className="absolute bottom-0 right-0 flex size-9 items-center justify-center rounded-full border border-line-strong bg-surface text-ink-2 transition-colors hover:bg-raised"
+            className="group relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-line bg-raised"
           >
-            <Camera size={16} strokeWidth={1.5} />
+            {preview ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={preview} alt="프로필 사진" className="h-full w-full object-cover" />
+            ) : (
+              <UserIcon size={24} strokeWidth={1.5} className="text-ink-3" />
+            )}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100">
+              <Camera size={16} strokeWidth={1.5} />
+            </span>
           </button>
           <input
             type="file"
@@ -233,90 +239,91 @@ export default function ProfileSection({ user }: { user: UserResponse }) {
             accept="image/jpeg,image/png,image/gif,image/webp"
             onChange={handleImageChange}
           />
+
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-lg leading-6 text-ink">{user.nickname}</p>
+            <p className="mt-0.5 text-[13px] tabular-nums text-ink-2">@{user.customId}</p>
+            <p className="mt-0.5 truncate text-[13px] text-ink-3">{user.email || '카카오 계정에서 받은 이메일이 없어요'}</p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className="btn-secondary btn-sm">
+                사진 바꾸기
+              </button>
+              {(imageFile || user.profileImage) && (
+                <button type="button" onClick={handleRemoveImage} disabled={busy} className="btn-ghost btn-sm">
+                  <X size={16} strokeWidth={1.5} />
+                  {imageFile ? '선택 취소' : '사진 삭제'}
+                </button>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-ink-3">JPG, PNG, GIF, WEBP · 최대 10MB</p>
+            {imageFile && <p className="mt-1 text-xs text-ink-2">새 사진은 저장을 눌러야 반영돼요</p>}
+            {imageError && (
+              <p role="alert" className="mt-1 flex items-center gap-1 text-xs text-negative">
+                <AlertCircle size={16} strokeWidth={1.5} /> {imageError}
+              </p>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className="btn-ghost">
-            사진 바꾸기
-          </button>
-          {(imageFile || user.profileImage) && (
-            <button type="button" onClick={handleRemoveImage} disabled={busy} className="btn-ghost">
-              <X size={16} strokeWidth={1.5} />
-              {imageFile ? '선택 취소' : '사진 삭제'}
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-ink-3">JPG, PNG, GIF, WEBP · 최대 10MB</p>
-        {imageFile && <p className="text-xs text-ink-2">새 사진은 저장을 눌러야 반영돼요.</p>}
-        {imageError && (
-          <p role="alert" className="flex items-center gap-1 text-xs text-negative">
-            <AlertCircle size={16} strokeWidth={1.5} /> {imageError}
-          </p>
-        )}
-
-        <div>
-          <h3 className="text-2xl font-semibold text-ink">{user.nickname}</h3>
-          <p className="mt-1 text-sm tabular-nums text-ink-2">ID: {user.customId}</p>
-          <p className="mt-0.5 text-xs text-ink-3">{user.email || '카카오 계정에서 받은 이메일이 없어요'}</p>
-        </div>
-      </div>
-
-      <form onSubmit={(e) => handleSubmit(onSubmit)(e)} className="card space-y-5 p-6" noValidate>
-        <div className="space-y-2">
-          <label htmlFor="settings-nickname" className="text-sm font-medium text-ink">
-            활동 이름
-          </label>
-          <input
-            id="settings-nickname"
-            {...register('nickname')}
-            type="text"
-            autoComplete="nickname"
-            placeholder="이름을 입력해 주세요"
-            className={`form-input ${errors.nickname ? '!border-negative' : ''}`}
-          />
-          {errors.nickname ? (
-            <p className="flex items-center gap-1 text-xs text-negative">
-              <AlertCircle size={16} strokeWidth={1.5} /> {errors.nickname.message}
-            </p>
-          ) : (
-            <p className="text-xs text-ink-3">
-              {NICKNAME_MIN}~{NICKNAME_MAX}자. 친구와 모임 멤버에게 이 이름으로 보여요.
-            </p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between">
-            <label htmlFor="settings-bio" className="text-sm font-medium text-ink">
-              자기소개
+        {/* 입력칸 */}
+        <div className="space-y-5 px-5 py-5 lg:px-6">
+          <div className="space-y-2">
+            <label htmlFor="settings-nickname" className="block text-sm font-medium text-ink">
+              활동 이름
             </label>
-            <span className={`stamp ${bioLength > BIO_MAX ? '!text-negative' : ''}`}>
-              {bioLength}/{BIO_MAX}
-            </span>
+            <input
+              id="settings-nickname"
+              {...register('nickname')}
+              type="text"
+              autoComplete="nickname"
+              placeholder="이름을 입력해 주세요"
+              className={`form-input h-10 ${errors.nickname ? '!border-negative' : ''}`}
+            />
+            {errors.nickname ? (
+              <p className="flex items-center gap-1 text-xs text-negative">
+                <AlertCircle size={16} strokeWidth={1.5} /> {errors.nickname.message}
+              </p>
+            ) : (
+              <p className="text-xs text-ink-3">
+                {NICKNAME_MIN}~{NICKNAME_MAX}자. 친구와 모임 멤버에게 이 이름으로 보여요.
+              </p>
+            )}
           </div>
-          <textarea
-            id="settings-bio"
-            {...register('bio')}
-            placeholder="자기소개를 적어 보세요"
-            className={`form-input min-h-[120px] resize-none leading-relaxed ${errors.bio ? '!border-negative' : ''}`}
-          />
-          {errors.bio && (
-            <p className="flex items-center gap-1 text-xs text-negative">
-              <AlertCircle size={16} strokeWidth={1.5} /> {errors.bio.message}
-            </p>
-          )}
+
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <label htmlFor="settings-bio" className="text-sm font-medium text-ink">
+                자기소개
+              </label>
+              <span className={`stamp ${bioLength > BIO_MAX ? '!text-negative' : ''}`}>
+                {bioLength}/{BIO_MAX}
+              </span>
+            </div>
+            <textarea
+              id="settings-bio"
+              {...register('bio')}
+              placeholder="자기소개를 적어 보세요"
+              className={`form-input min-h-[120px] resize-none leading-relaxed ${errors.bio ? '!border-negative' : ''}`}
+            />
+            {errors.bio && (
+              <p className="flex items-center gap-1 text-xs text-negative">
+                <AlertCircle size={16} strokeWidth={1.5} /> {errors.bio.message}
+              </p>
+            )}
+          </div>
+
+          {error && <InlineError message={error} />}
         </div>
 
-        {error && <InlineError message={error} />}
-
-        {notice && !error && (
-          <div role="status" className="flex items-center gap-2 rounded-[10px] bg-raised px-4 py-3 text-sm text-ink">
-            {notice.type === 'success' && <CheckCircle2 size={16} strokeWidth={1.5} className="text-positive" />}
-            {notice.text}
-          </div>
-        )}
-
-        <div className="flex justify-end pt-2">
+        {/* 저장 */}
+        <div className="flex items-center justify-end gap-3 px-5 py-3 lg:px-6">
+          {notice && !error && (
+            <p role="status" className="mr-auto flex items-center gap-1.5 text-sm text-ink-2">
+              {notice.type === 'success' && <CheckCircle2 size={16} strokeWidth={1.5} className="text-positive" />}
+              {notice.text}
+            </p>
+          )}
           <button type="submit" disabled={busy} className="btn-primary">
             {saveMutation.isPending ? (
               <>
@@ -329,6 +336,6 @@ export default function ProfileSection({ user }: { user: UserResponse }) {
           </button>
         </div>
       </form>
-    </div>
+    </section>
   );
 }

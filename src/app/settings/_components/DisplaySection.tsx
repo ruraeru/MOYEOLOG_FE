@@ -11,7 +11,7 @@ export default function DisplaySection() {
 
   return (
     <div className="space-y-6">
-      <SettingsGroup title="화면" description="이 기기의 브라우저에만 저장돼요.">
+      <SettingsGroup title="화면" description="이 기기의 브라우저에만 저장돼요">
         <SettingsRow label="메모 기본 보기" description="메모 목록을 처음 열 때의 모양">
           <Segmented
             label="메모 기본 보기"

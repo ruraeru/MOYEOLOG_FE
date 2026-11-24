@@ -6,20 +6,17 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import {
   Search,
-  Plus,
-  Grid,
-  List,
-  ChevronDown,
-  Archive,
+  FileText,
   User,
   Share2,
   Star,
   Lock,
   Loader2,
   RefreshCw,
-  SlidersHorizontal,
-  X,
+  PenLine,
+  Image as ImageIcon,
 } from 'lucide-react';
+import { PageHeader, Ribbon, Dot, Segmented, EmptyState, Modal, SideLabel, SideItem } from '@/components/ui';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ImageWithFallback from '@/components/ImageWithFallback';
@@ -32,6 +29,9 @@ import { getApiErrorMessage } from '@/lib/axios';
 import { useAlert } from '@/hooks/useAlert';
 
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
+
+/** 카드에 모임 띠 색(hex)과 작성자를 더한 것 */
+type MemoCardItem = MemoCardView & { ribbon: string; author?: string; groupId?: string };
 
 const TAG_PREVIEW_COUNT = 15;
 const MEMO_VIEW_KEY = 'moyeolog.memoView';
@@ -164,7 +164,7 @@ function MemoContent() {
     }
   };
 
-  const memos = useMemo((): MemoCardView[] => {
+  const memos = useMemo((): MemoCardItem[] => {
     let filtered: MemoResponse[] = [];
 
     if (filter.type === 'favorites') {
@@ -205,7 +205,9 @@ function MemoContent() {
         tags: m.tags || [],
         category: m.groupId ? (group ? group.name : '모임 메모') : (isShared ? '공유받음' : '내 메모'),
         categoryColor: m.groupId ? theme.dot : (isShared ? 'bg-accent' : 'bg-ink-3'),
-        date: format(new Date(m.createdAt), 'M.d EEE', { locale: ko }),
+        ribbon: m.groupId ? theme.hex : (isShared ? 'var(--accent)' : 'var(--line-strong)'),
+        author: m.groupId || isShared ? m.authorNickname : undefined,
+        date: format(new Date(m.createdAt), 'M.d', { locale: ko }),
         locked: false,
         isFavorite: m.isFavorite,
         groupId: m.groupId
@@ -256,90 +258,167 @@ function MemoContent() {
     return baseTitle;
   };
 
-  if (status === 'loading') return <div className="h-screen flex items-center justify-center bg-canvas"><div className="size-8 animate-spin rounded-full border-2 border-accent border-t-transparent" /></div>;
+  if (status === 'loading') return <div className="h-screen flex items-center justify-center bg-canvas"><Loader2 size={24} strokeWidth={1.5} className="animate-spin text-ink-3" /></div>;
 
   const isFavoritesView = filter.type === 'favorites';
   const listError = loadError ?? (isFavoritesView ? favoritesError : null);
   const listLoading = (loading && !loaded) || (isFavoritesView && (favoritesLoading || (favoriteMemos === null && !favoritesError)));
 
-  const filterPanel = (
-    <FilterPanel
-      filter={filter}
-      groups={userGroups}
+  const counts = loaded
+    ? {
+        all: combinedUniqueMemos.length,
+        my: myMemos.filter(m => !m.groupId).length,
+        shared: sharedMemos.length,
+        favorites: combinedUniqueMemos.filter(m => m.isFavorite).length,
+      }
+    : null;
+
+  const tagPanel = (
+    <TagPanel
       tags={allTags}
       dataState={loaded ? 'ready' : loadError ? 'error' : 'loading'}
       selectedTags={selectedTags}
       showAllTags={showAllTags}
       onToggleShowAllTags={() => setShowAllTags(v => !v)}
-      onSelectFilter={(f) => { selectFilter(f); setIsFilterSheetOpen(false); }}
       onToggleTag={toggleTag}
     />
   );
+
+  const createButton = (
+    <button type="button" onClick={() => setIsCreateOpen(true)} className="btn-primary">
+      <PenLine size={16} strokeWidth={1.5} />
+      <span className="lg:hidden">쓰기</span>
+      <span className="hidden lg:inline">메모 쓰기</span>
+    </button>
+  );
+
+  const isActive = (type: FilterType, id?: string) => filter.type === type && (id === undefined || filter.id === id);
 
   return (
     <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
       <div className="flex-1 flex overflow-hidden">
-        <aside className="w-72 border-r border-line flex-col p-5 gap-8 overflow-y-auto no-scrollbar hidden lg:flex bg-canvas">
-          {filterPanel}
-        </aside>
+        <aside className="hidden lg:flex w-[264px] shrink-0 flex-col border-r border-line px-4 py-6 overflow-y-auto no-scrollbar">
+          <nav className="space-y-0.5" aria-label="메모 분류">
+            <SideItem icon={FileText} label="전체 메모" count={counts?.all} active={isActive('all')} onClick={() => selectFilter({ type: 'all' })} />
+            <SideItem icon={User} label="내 메모" count={counts?.my} active={isActive('my')} onClick={() => selectFilter({ type: 'my' })} />
+            <SideItem icon={Share2} label="공유받은 메모" count={counts?.shared} active={isActive('shared')} onClick={() => selectFilter({ type: 'shared' })} />
+            <SideItem icon={Star} label="즐겨찾기" count={counts?.favorites} active={isActive('favorites')} onClick={() => selectFilter({ type: 'favorites' })} />
+          </nav>
 
-        <main className="flex-1 flex flex-col overflow-hidden bg-canvas">
-          <Header
-            title={getPageTitle()}
-            loading={loading}
-            onViewChange={changeViewMode}
-            currentView={viewMode}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onOpenFilters={() => setIsFilterSheetOpen(true)}
-            activeFilterCount={(filter.type !== 'all' ? 1 : 0) + selectedTags.length}
-          />
-
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-2 sm:pt-2 pb-32 lg:pb-6 no-scrollbar">
-            {listError ? (
-              <ErrorState message={listError} onRetry={loadError ? loadData : loadFavorites} />
-            ) : listLoading ? <LoadingState /> : memos.length === 0 ? (
-              <EmptyState type={searchQuery.trim() ? 'search' : (selectedTags.length > 0 ? 'tag' : filter.type)} />
-            ) : (
-              <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 items-start sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
-                {memos.map(memo => (
-                  <MemoCard
-                    key={memo.id}
-                    {...memo}
-                    viewMode={viewMode}
-                    onClick={() => router.push(`/memo/${memo.id}`)}
-                    onToggleFavorite={(e: React.MouseEvent) => handleToggleFavorite(e, memo.id)}
-                    onTagClick={(e: React.MouseEvent, tag: string) => { e.stopPropagation(); toggleTag(tag); }}
-                  />
-                ))}
-              </div>
+          <SideLabel>모임 폴더</SideLabel>
+          <div className="space-y-0.5">
+            {userGroups.length > 0 ? userGroups.map(g => (
+              <SideItem
+                key={g.id}
+                label={g.name}
+                ribbon={getThemeColors(g.colorTheme).hex}
+                count={groupMemos[g.id]?.length}
+                active={isActive('group', g.id)}
+                onClick={() => selectFilter({ type: 'group', id: g.id })}
+              />
+            )) : (
+              <p className="px-3 text-xs text-ink-3">
+                {loaded ? '참여한 모임이 없어요' : loadError ? '불러오지 못했어요' : '불러오는 중…'}
+              </p>
             )}
           </div>
 
-          {/* 모바일에서는 하단 탭(높이 64px + 안전 영역) 위에 띄운다 */}
-          <button onClick={() => setIsCreateOpen(true)} aria-label="새 메모" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-8 right-5 lg:right-8 size-12 bg-accent text-white rounded-full flex items-center justify-center shadow-float hover:bg-accent-hover transition-colors duration-150 ease-out active:scale-[0.98] z-30">
-            <Plus size={20} strokeWidth={1.5} />
-          </button>
+          <SideLabel>태그</SideLabel>
+          <div className="px-3">{tagPanel}</div>
+        </aside>
+
+        <main className="flex-1 min-w-0 overflow-y-auto no-scrollbar">
+          <div className="px-4 pt-5 pb-24 sm:px-6 lg:px-8 lg:pt-6 lg:pb-10">
+            <PageHeader
+              title={getPageTitle()}
+              count={counts ? `${memos.length}개` : undefined}
+              actions={
+                <>
+                  {loading && loaded && <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" aria-label="불러오는 중" />}
+                  <div className="hidden lg:block w-64">
+                    <SearchBox value={searchQuery} onChange={setSearchQuery} />
+                  </div>
+                  <div className="hidden sm:block">
+                    <Segmented
+                      ariaLabel="메모 보기"
+                      items={[{ key: 'grid', label: '카드' }, { key: 'list', label: '목록' }]}
+                      active={viewMode}
+                      onChange={changeViewMode}
+                    />
+                  </div>
+                  {createButton}
+                </>
+              }
+            />
+
+            {/* 모바일·태블릿: 검색 + 분류 칩 가로 스크롤 */}
+            <div className="lg:hidden mt-4 space-y-3">
+              <SearchBox value={searchQuery} onChange={setSearchQuery} />
+              <div className="-mx-4 flex gap-2 overflow-x-auto no-scrollbar px-4 sm:-mx-6 sm:px-6">
+                <FilterChip label="전체" active={isActive('all')} onClick={() => selectFilter({ type: 'all' })} />
+                <FilterChip label="내 메모" active={isActive('my')} onClick={() => selectFilter({ type: 'my' })} />
+                <FilterChip label="공유받은" active={isActive('shared')} onClick={() => selectFilter({ type: 'shared' })} />
+                <FilterChip label="즐겨찾기" active={isActive('favorites')} onClick={() => selectFilter({ type: 'favorites' })} />
+                {userGroups.map(g => (
+                  <FilterChip
+                    key={g.id}
+                    label={g.name}
+                    dot={getThemeColors(g.colorTheme).hex}
+                    active={isActive('group', g.id)}
+                    onClick={() => selectFilter({ type: 'group', id: g.id })}
+                  />
+                ))}
+                {allTags.length > 0 && (
+                  <FilterChip
+                    label={selectedTags.length > 0 ? `태그 ${selectedTags.length}` : '태그'}
+                    active={selectedTags.length > 0}
+                    onClick={() => setIsFilterSheetOpen(true)}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 lg:mt-6">
+              {listError ? (
+                <EmptyState
+                  title="메모를 불러오지 못했어요"
+                  description={listError}
+                  action={
+                    <button type="button" onClick={loadError ? loadData : loadFavorites} className="btn-secondary">
+                      <RefreshCw size={16} strokeWidth={1.5} />
+                      다시 시도
+                    </button>
+                  }
+                  className="py-20"
+                />
+              ) : listLoading ? <LoadingState /> : memos.length === 0 ? (
+                <MemoEmpty
+                  type={searchQuery.trim() ? 'search' : (selectedTags.length > 0 ? 'tag' : filter.type)}
+                  onCreate={() => setIsCreateOpen(true)}
+                />
+              ) : (
+                <div className={`grid gap-3 sm:gap-4 ${viewMode === 'grid' ? 'grid-cols-1 items-start sm:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
+                  {memos.map(memo => (
+                    <MemoCard
+                      key={memo.id}
+                      {...memo}
+                      viewMode={viewMode}
+                      onClick={() => router.push(`/memo/${memo.id}`)}
+                      onToggleFavorite={(e: React.MouseEvent) => handleToggleFavorite(e, memo.id)}
+                      onTagClick={(e: React.MouseEvent, tag: string) => { e.stopPropagation(); toggleTag(tag); }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </main>
       </div>
 
-      {isFilterSheetOpen && (
-        <div className="fixed inset-0 z-[110] bg-black/40 flex items-end lg:hidden" onClick={() => setIsFilterSheetOpen(false)}>
-          <div
-            className="w-full max-h-[80dvh] overflow-y-auto no-scrollbar bg-surface rounded-t-2xl border-t border-line p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] flex flex-col gap-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-ink">메모 거르기</h2>
-              <button type="button" onClick={() => setIsFilterSheetOpen(false)} className="btn-ghost" aria-label="닫기">
-                <X size={18} strokeWidth={1.5} />
-              </button>
-            </div>
-            {filterPanel}
-          </div>
-        </div>
-      )}
+      <Modal open={isFilterSheetOpen} onClose={() => setIsFilterSheetOpen(false)} title="태그로 거르기" size="sm">
+        {tagPanel}
+      </Modal>
 
       {userId && (
         <MemoCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} userId={userId} onSuccess={loadData} />
@@ -348,20 +427,52 @@ function MemoContent() {
   );
 }
 
-interface FilterPanelProps {
-  filter: { type: FilterType; id?: string };
-  groups: GroupResponse[];
+// ─── Sub Components ─────────────────────────────────────────────
+
+function SearchBox({ value, onChange }: { value: string; onChange: (q: string) => void }) {
+  return (
+    <form className="relative w-full" role="search" onSubmit={(e) => e.preventDefault()}>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') onChange(''); }}
+        placeholder="제목·내용 검색"
+        aria-label="메모 검색"
+        className="form-input h-9 pl-9"
+      />
+      <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
+    </form>
+  );
+}
+
+function FilterChip({ label, active, dot, onClick }: { label: string; active: boolean; dot?: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${
+        active ? 'bg-accent text-white' : 'border border-line-strong bg-surface text-ink-2 hover:bg-raised hover:text-ink'
+      }`}
+    >
+      {dot && <Dot color={dot} />}
+      {label}
+    </button>
+  );
+}
+
+interface TagPanelProps {
   tags: string[];
   /** 목록을 아직 한 번도 못 불러왔으면 '없어요' 대신 불러오는 중·불러오지 못함을 보여 준다 */
   dataState: 'loading' | 'error' | 'ready';
   selectedTags: string[];
   showAllTags: boolean;
   onToggleShowAllTags: () => void;
-  onSelectFilter: (f: { type: FilterType; id?: string }) => void;
   onToggleTag: (tag: string) => void;
 }
 
-function FilterPanel({ filter, groups, tags, dataState, selectedTags, showAllTags, onToggleShowAllTags, onSelectFilter, onToggleTag }: FilterPanelProps) {
+function TagPanel({ tags, dataState, selectedTags, showAllTags, onToggleShowAllTags, onToggleTag }: TagPanelProps) {
   // 선택된 태그는 접혀 있어도 항상 보이게
   const visibleTags = showAllTags
     ? tags
@@ -369,258 +480,119 @@ function FilterPanel({ filter, groups, tags, dataState, selectedTags, showAllTag
   const unavailable =
     dataState === 'ready' ? null : dataState === 'error' ? '불러오지 못했어요' : '불러오는 중…';
   return (
-    <>
-      <div>
-        <SectionTitle label="카테고리" />
-        <div className="space-y-1">
-          <SidebarItem icon={Archive} label="전체 메모" active={filter.type === 'all'} onClick={() => onSelectFilter({ type: 'all' })} />
-          <SidebarItem icon={User} label="내 메모" active={filter.type === 'my'} onClick={() => onSelectFilter({ type: 'my' })} />
-          <SidebarItem icon={Share2} label="공유받은 메모" active={filter.type === 'shared'} onClick={() => onSelectFilter({ type: 'shared' })} />
-          <SidebarItem icon={Star} label="즐겨찾기" active={filter.type === 'favorites'} onClick={() => onSelectFilter({ type: 'favorites' })} />
-        </div>
+    <div>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleTags.length > 0 ? visibleTags.map(tag => {
+          const on = selectedTags.includes(tag);
+          return (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => onToggleTag(tag)}
+              aria-pressed={on}
+              className={`chip transition-colors ${on ? 'bg-accent text-white' : 'hover:text-ink'}`}
+            >
+              #{tag}
+            </button>
+          );
+        }) : <p className="text-xs text-ink-3">{unavailable ?? '사용한 태그가 없어요'}</p>}
       </div>
-
-      <div>
-        <SectionTitle label="모임별 폴더" />
-        <div className="space-y-1">
-          {groups.length > 0 ? groups.map(g => (
-            <SidebarItem
-              key={g.id}
-              label={g.name}
-              active={filter.type === 'group' && filter.id === g.id}
-              color={getThemeColors(g.colorTheme).dot}
-              onClick={() => onSelectFilter({ type: 'group', id: g.id })}
-            />
-          )) : <p className="text-xs text-ink-3 px-2">{unavailable ?? '참여한 모임이 없어요'}</p>}
-        </div>
-      </div>
-
-      <div>
-        <SectionTitle label="태그" />
-        <div className="flex flex-wrap gap-2 px-2">
-          {visibleTags.length > 0 ? visibleTags.map(tag => (
-            <TagBadge key={tag} label={tag} isActive={selectedTags.includes(tag)} onClick={() => onToggleTag(tag)} />
-          )) : <p className="text-xs text-ink-3">{unavailable ?? '사용한 태그가 없어요'}</p>}
-        </div>
-        {tags.length > TAG_PREVIEW_COUNT && (
-          <button type="button" onClick={onToggleShowAllTags} className="mt-2 mx-2 text-xs text-ink-2 hover:text-ink transition-colors duration-150 ease-out">
-            {showAllTags ? '접기' : `태그 ${tags.length - TAG_PREVIEW_COUNT}개 더 보기`}
-          </button>
-        )}
-      </div>
-    </>
-  );
-}
-
-// ─── Sub Components ─────────────────────────────────────────────
-
-interface SectionTitleProps {
-  label: string;
-}
-
-function SectionTitle({ label }: SectionTitleProps) {
-  return <h3 className="text-xs text-ink-3 flex items-center gap-1.5 mb-2 px-2"><ChevronDown size={16} strokeWidth={1.5} /> {label}</h3>;
-}
-
-interface SidebarItemProps {
-  icon?: React.ElementType;
-  label: string;
-  active?: boolean;
-  color?: string;
-  onClick?: () => void;
-}
-
-function SidebarItem({ icon: Icon, label, active, color, onClick }: SidebarItemProps) {
-  return (
-    <div
-      onClick={onClick}
-      className={`flex items-center justify-between px-3 py-2 rounded-[10px] cursor-pointer transition-colors duration-150 ease-out ${active
-          ? 'bg-raised text-ink'
-          : 'text-ink-2 hover:bg-raised'
-        }`}
-    >
-      <div className="flex items-center gap-3">
-        {Icon ? (
-          <Icon size={16} strokeWidth={1.5} className={active ? 'text-ink' : 'text-ink-3'} />
-        ) : (
-          <div className={`size-2 rounded-full ${color || 'bg-ink-3'}`} />
-        )}
-        <span className={`text-sm ${active ? 'font-medium' : ''}`}>{label}</span>
-      </div>
-    </div>
-  );
-}
-
-interface TagBadgeProps {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-}
-
-function TagBadge({ label, isActive, onClick }: TagBadgeProps) {
-  return (
-    <span
-      onClick={onClick}
-      className={`text-xs rounded-md px-2 py-0.5 cursor-pointer transition-colors duration-150 ease-out ${isActive
-          ? 'bg-accent-soft text-accent'
-          : 'bg-raised text-ink-2 hover:text-ink'
-        }`}
-    >
-      #{label}
-    </span>
-  );
-}
-
-interface HeaderProps {
-  title: string;
-  loading: boolean;
-  onViewChange: (view: 'grid' | 'list') => void;
-  currentView: 'grid' | 'list';
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
-  onOpenFilters: () => void;
-  activeFilterCount: number;
-}
-
-function Header({ title, loading, onViewChange, currentView, searchQuery, onSearchChange, onOpenFilters, activeFilterCount }: HeaderProps) {
-  return (
-    <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-4 space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl sm:text-2xl font-semibold text-ink truncate">{title}</h2>
-        {loading && <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3 shrink-0" />}
-      </div>
-      <div className="flex items-center gap-2 sm:gap-3 justify-between">
-        <form className="relative flex-1 w-full min-w-0" role="search" onSubmit={(e) => e.preventDefault()}>
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') onSearchChange(''); }}
-            placeholder="메모 제목 또는 내용 검색"
-            aria-label="메모 검색"
-            className="form-input w-full pl-10"
-          />
-          <Search size={16} strokeWidth={1.5} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-3 pointer-events-none" />
-        </form>
-        <button
-          type="button"
-          onClick={onOpenFilters}
-          className="lg:hidden btn-secondary flex items-center gap-1.5 shrink-0"
-          aria-label="카테고리·모임·태그로 거르기"
-        >
-          <SlidersHorizontal size={16} strokeWidth={1.5} />
-          <span className="text-sm">거르기{activeFilterCount > 0 ? ` ${activeFilterCount}` : ''}</span>
+      {tags.length > TAG_PREVIEW_COUNT && (
+        <button type="button" onClick={onToggleShowAllTags} className="mt-2 text-xs text-ink-2 hover:text-ink transition-colors">
+          {showAllTags ? '접기' : `태그 ${tags.length - TAG_PREVIEW_COUNT}개 더 보기`}
         </button>
-        <div className="flex p-1 bg-raised rounded-[10px] shrink-0">
-          <button
-            onClick={() => onViewChange('grid')}
-            aria-label="카드로 보기"
-            className={`p-2 rounded-lg transition-colors duration-150 ease-out ${currentView === 'grid' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 hover:text-ink'}`}
-          >
-            <Grid size={16} strokeWidth={1.5} />
-          </button>
-          <button
-            onClick={() => onViewChange('list')}
-            aria-label="목록으로 보기"
-            className={`p-2 rounded-lg transition-colors duration-150 ease-out ${currentView === 'list' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.06)]' : 'text-ink-2 hover:text-ink'}`}
-          >
-            <List size={16} strokeWidth={1.5} />
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
 function LoadingState() {
-  return <div className="flex flex-col items-center justify-center py-24 gap-3"><Loader2 size={24} strokeWidth={1.5} className="animate-spin text-ink-3" /><p className="text-sm text-ink-3">메모를 불러오고 있어요</p></div>;
+  return <div className="flex flex-col items-center justify-center py-24 gap-3"><Loader2 size={20} strokeWidth={1.5} className="animate-spin text-ink-3" /><p className="text-sm text-ink-3">메모를 불러오고 있어요</p></div>;
 }
 
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 text-center gap-1">
-      <p className="text-sm font-medium text-ink">메모를 불러오지 못했어요</p>
-      <p className="text-sm text-ink-3">{message}</p>
-      <button type="button" onClick={onRetry} className="btn-secondary mt-3 flex items-center gap-1.5">
-        <RefreshCw size={16} strokeWidth={1.5} />
-        다시 시도
-      </button>
-    </div>
-  );
-}
-
-function EmptyState({ type }: { type: string }) {
+function MemoEmpty({ type, onCreate }: { type: string; onCreate: () => void }) {
   const messages: Record<string, string> = { group: '이 모임에 쓴 메모가 없어요', shared: '공유받은 메모가 없어요', favorites: '즐겨찾기한 메모가 없어요', tag: '이 태그가 붙은 메모가 없어요', search: '검색 결과가 없어요' };
   const sub: Record<string, string> = { search: '다른 낱말로 찾아보세요', favorites: '메모의 별을 누르면 여기에 모여요', shared: '친구가 메모를 공유하면 여기에 보여요' };
+  const canCreate = type === 'all' || type === 'my';
   return (
-    <div className="flex flex-col items-center justify-center py-24 text-center">
-      <div className="size-10 rounded-full bg-raised flex items-center justify-center mb-3"><Archive size={18} strokeWidth={1.5} className="text-ink-3" /></div>
-      <p className="text-sm font-medium text-ink">{messages[type] || '메모가 없어요'}</p>
-      <p className="text-sm text-ink-3 mt-1">{sub[type] || '새 메모를 쓰면 여기에 모여요'}</p>
-    </div>
+    <EmptyState
+      title={messages[type] || '메모가 없어요'}
+      description={sub[type] || '새 메모를 쓰면 여기에 모여요'}
+      action={canCreate ? <button type="button" onClick={onCreate} className="btn-secondary">메모 쓰기</button> : undefined}
+      className="py-20"
+    />
   );
 }
 
-interface MemoCardProps extends MemoCardView {
+interface MemoCardProps extends MemoCardItem {
   viewMode: 'grid' | 'list';
   onClick?: () => void;
   onToggleFavorite: (e: React.MouseEvent) => void;
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, categoryColor, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
     <div
       onClick={onClick}
-      className={`card group flex overflow-hidden cursor-pointer transition-colors duration-150 ease-out hover:border-line-strong ${isList ? 'p-4 gap-4' : 'flex-col'}`}
+      className={`card relative flex cursor-pointer gap-4 overflow-hidden py-4 pl-5 pr-4 transition-colors hover:border-line-strong ${isList ? 'items-center' : 'sm:py-5'}`}
     >
-      {image && (
-        <ImageWithFallback
-          src={image}
-          alt={title}
-          fill
-          containerClassName={isList ? "size-24 rounded-[10px] shrink-0" : "h-40 w-full bg-raised"}
-          className="object-cover"
-        />
-      )}
-      <div className={isList ? "flex flex-col gap-2 flex-1 min-w-0" : "p-5 flex flex-col gap-3 flex-1 min-w-0"}>
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="font-semibold text-ink text-base truncate">{title}</h4>
-          <div className="flex items-center gap-1.5 shrink-0">
+      <Ribbon color={ribbon} className="absolute inset-y-0 left-0" />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-display text-[17px] leading-6 text-ink truncate">{title}</h3>
+          <div className="-mr-1.5 -mt-1 flex shrink-0 items-center gap-1">
             {locked && <Lock size={16} strokeWidth={1.5} className="text-ink-3" />}
             <button
+              type="button"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
-              className={`p-1 rounded-md transition-colors duration-150 ease-out ${isFavorite ? 'text-accent' : 'text-ink-3 hover:text-ink-2'}`}
+              aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
+              className={`btn-icon ${isFavorite ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
             >
               <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
             </button>
           </div>
         </div>
-        <p className="text-sm text-ink-2 leading-relaxed line-clamp-3">{description}</p>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+        {description && (
+          <p className={`text-sm leading-relaxed text-ink-2 ${isList ? 'line-clamp-1' : 'line-clamp-2 sm:line-clamp-3'}`}>{description}</p>
+        )}
+        {!isList && tags.length > 0 && (
+          <div className="hidden flex-wrap gap-1.5 sm:flex">
             {tags.map((tag) => (
               <span
                 key={tag}
                 onClick={(e: React.MouseEvent) => onTagClick(e, tag)}
-                className="text-xs text-ink-2 bg-raised rounded-md px-2 py-0.5 hover:text-ink transition-colors duration-150 ease-out"
+                className="chip transition-colors hover:text-ink"
               >
                 #{tag}
               </span>
             ))}
           </div>
         )}
-        <div className="flex items-center justify-between mt-auto pt-3 border-t border-line">
-          {category ? (
-            <div className="flex items-center gap-1.5 min-w-0">
-              <div className={`size-1.5 rounded-full shrink-0 ${categoryColor || 'bg-ink-3'}`} />
-              <span className="text-xs text-ink-3 truncate">{category}</span>
-            </div>
-          ) : <span />}
-          <span className="stamp">{date}</span>
+        {!isList && image && (
+          <p className="flex items-center gap-1.5 text-xs text-ink-3">
+            <ImageIcon size={16} strokeWidth={1.5} />
+            사진 1장
+          </p>
+        )}
+        <div className="mt-1 flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-xs text-ink-3">
+            {category}
+            {author && <> · {author}</>}
+          </span>
+          <span className="stamp shrink-0">{date}</span>
         </div>
       </div>
+      {isList && image && (
+        <ImageWithFallback
+          src={image}
+          alt=""
+          fill
+          containerClassName="hidden sm:block size-16 shrink-0 rounded-lg bg-raised"
+          className="object-cover"
+        />
+      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import { 
-  X, Calendar, Clock, MapPin, Trash2, Loader2, FileText, 
-  MessageSquare, ChevronRight, Map as MapIcon, ExternalLink, 
-  Edit2, ChevronLeft, Users, User as UserIcon
+import {
+  X, Calendar, Clock, MapPin, Trash2, Loader2, FileText,
+  ChevronRight, ExternalLink, AlignLeft,
+  Pencil, ChevronLeft, Users, type LucideIcon
 } from 'lucide-react';
+import { EmptyState, Ribbon } from './ui';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
@@ -142,9 +143,11 @@ export default function AppointmentDetailView({
     }
   }, [schedule?.location]);
 
+  const stateBox = `flex items-center justify-center bg-surface ${isPage ? 'h-full flex-1' : 'min-h-[320px] rounded-t-2xl md:rounded-2xl'}`;
+
   if (loadingSchedule) {
     return (
-      <div className={`flex items-center justify-center bg-surface ${isPage ? 'h-full flex-1' : 'p-20 rounded-2xl'}`}>
+      <div className={stateBox}>
         <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
       </div>
     );
@@ -152,28 +155,29 @@ export default function AppointmentDetailView({
 
   if (!schedule && loadError) {
     return (
-      <div className={`flex flex-col items-center justify-center bg-surface gap-3 ${isPage ? 'h-full flex-1' : 'p-20 rounded-2xl'}`}>
-        <p className="text-sm font-medium text-ink">일정을 불러오지 못했어요</p>
-        <p className="text-sm text-ink-3 text-center px-6">{loadError}</p>
-        <div className="flex gap-2">
-          {isPage && <button onClick={() => router.back()} className="btn-secondary">뒤로가기</button>}
-          <button onClick={() => setReloadKey((k) => k + 1)} className="btn-primary">다시 시도</button>
-        </div>
+      <div className={stateBox}>
+        <EmptyState
+          title="일정을 불러오지 못했어요"
+          description={loadError}
+          action={
+            <div className="flex gap-2">
+              {isPage && <button onClick={() => router.back()} className="btn-secondary">뒤로</button>}
+              <button onClick={() => setReloadKey((k) => k + 1)} className="btn-primary">다시 시도</button>
+            </div>
+          }
+        />
       </div>
     );
   }
 
   if (!schedule) {
     return (
-      <div className={`flex flex-col items-center justify-center bg-surface gap-3 ${isPage ? 'h-full flex-1' : 'p-20 rounded-2xl'}`}>
-        <div className="size-10 rounded-full bg-raised flex items-center justify-center"><Calendar size={18} strokeWidth={1.5} className="text-ink-3" /></div>
-        <p className="text-sm font-medium text-ink">일정을 찾을 수 없어요</p>
-        <p className="text-sm text-ink-3 text-center px-6">삭제됐거나 볼 수 있는 권한이 없는 일정이에요.</p>
-        {isPage && (
-          <button onClick={() => router.back()} className="btn-secondary">
-            뒤로가기
-          </button>
-        )}
+      <div className={stateBox}>
+        <EmptyState
+          title="일정을 찾을 수 없어요"
+          description="삭제됐거나 볼 수 있는 권한이 없는 일정이에요"
+          action={isPage ? <button onClick={() => router.back()} className="btn-secondary">뒤로</button> : undefined}
+        />
       </div>
     );
   }
@@ -207,256 +211,186 @@ export default function AppointmentDetailView({
   const endTime = parseISO(schedule.endTime);
   const multiDay = isMultiDaySchedule(schedule);
 
+  const groupLabel = schedule.groupId ? (scheduleGroup ? scheduleGroup.name : '모임 일정') : '개인 일정';
+  const ribbonColor = schedule.groupId ? getThemeColors(scheduleGroup?.colorTheme).hex : 'var(--line-strong)';
+  const participants = schedule.participants ?? [];
+  const taggedMemos = schedule.taggedMemos ?? [];
+
   return (
-    <div className={`flex flex-col lg:flex-row bg-surface overflow-y-auto lg:overflow-hidden no-scrollbar ${isPage ? 'h-full' : 'w-full max-h-full rounded-t-2xl md:rounded-2xl border border-line shadow-float'}`}>
-      {/* Main Content Area */}
-      <div className="flex-none lg:flex-1 flex flex-col p-5 md:p-6 lg:p-8 lg:overflow-y-auto no-scrollbar border-b lg:border-b-0 lg:border-r border-line">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            {isPage && (
-              <button
-                onClick={() => router.back()}
-                className="btn-ghost"
-                title="뒤로가기"
-              >
-                <ChevronLeft size={18} strokeWidth={1.5} />
-              </button>
-            )}
-            <h2 className="text-lg font-semibold text-ink">일정 상세</h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {session?.user?.id === schedule.authorId && (
-              <>
-                <button 
-                  onClick={() => onEdit ? onEdit(schedule) : setIsEditModalOpen(true)}
-                  className="btn-ghost text-ink-2"
-                  title="일정 수정"
-                >
-                  <Edit2 size={18} strokeWidth={1.5} />
-                </button>
-                <button 
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="btn-ghost text-ink-2 hover:text-negative disabled:opacity-50"
-                  title="삭제하기"
-                >
-                  {isDeleting ? <Loader2 size={18} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={18} strokeWidth={1.5} />}
-                </button>
-              </>
-            )}
-            {!isPage && onClose && (
-              <button onClick={onClose} className="btn-ghost lg:hidden">
-                <X size={18} strokeWidth={1.5} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-3 mb-8">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-raised px-2 py-0.5 text-xs text-ink-2">
-              {schedule.groupId && <span className={`size-1.5 rounded-full ${getThemeColors(scheduleGroup?.colorTheme).dot}`} />}
-              {schedule.groupId ? (scheduleGroup ? scheduleGroup.name : '모임 일정') : '개인 일정'}
-            </span>
-          </div>
-          <h1 className="text-xl md:text-2xl font-semibold text-ink break-words">
-            {schedule.title}
-          </h1>
-        </div>
-
-        {/* Info Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-          {multiDay ? (
-          <div className="flex items-center gap-3 card px-4 py-3 sm:col-span-2">
-            <Calendar size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-ink-3">기간</p>
-              <p className="stamp !text-sm !text-ink">
-                {formatScheduleRange(schedule, tf)}
-              </p>
-            </div>
-          </div>
-          ) : (
-          <>
-          <div className="flex items-center gap-3 card px-4 py-3">
-            <Calendar size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-ink-3">날짜</p>
-              <p className="stamp !text-sm !text-ink truncate">
-                {format(startTime, 'M.d EEE', { locale: ko })}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 card px-4 py-3">
-            <Clock size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-xs text-ink-3">시간</p>
-              <p className="stamp !text-sm !text-ink truncate">
-                {format(startTime, tf, { locale: ko })} – {format(endTime, tf, { locale: ko })}
-              </p>
-            </div>
-          </div>
-          </>
+    <div className={`flex flex-col bg-surface overflow-hidden ${isPage ? 'h-full' : 'w-full max-h-full rounded-t-2xl md:rounded-2xl'}`}>
+      {/* 머리: 모임 띠 + '모임 · 일정', 주아 제목, 작성자·시각 */}
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4 md:px-6">
+        <div className="flex min-w-0 items-start gap-2">
+          {isPage && (
+            <button
+              onClick={() => router.back()}
+              className="btn-icon -ml-2 mt-0.5 shrink-0"
+              title="뒤로가기"
+            >
+              <ChevronLeft size={18} strokeWidth={1.5} />
+            </button>
           )}
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[13px] text-ink-3">
+              <Ribbon color={ribbonColor} className="h-3.5" />
+              <span className="truncate">{groupLabel} · 일정</span>
+            </p>
+            <h1 className="mt-1 font-display text-2xl leading-8 text-ink break-words">
+              {schedule.title}
+            </h1>
+            <div className="mt-2 flex items-center gap-2 text-[13px] text-ink-2">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-raised text-[11px] text-ink-2">
+                {initialOf(schedule.authorNickname)}
+              </span>
+              <span className="truncate">{schedule.authorNickname}</span>
+              <span className="stamp">{formatStamp(schedule.createdAt, tf)}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Location Detail Section */}
-        {schedule.location && (
-          <div className="space-y-3 mb-8">
-            <h3 className="text-base font-semibold text-ink flex items-center gap-2">
-              <MapPin size={16} strokeWidth={1.5} className="text-ink-3" /> 장소 정보
-            </h3>
-            
-            {isLoadingLocation ? (
-              <div className="w-full h-40 bg-raised rounded-2xl flex items-center justify-center">
-                <Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" />
-              </div>
-            ) : locationDetail ? (
-              <div className="card relative overflow-hidden">
-                <div className="flex flex-col md:flex-row">
-                  {locationDetail.imageUrl && (
-                    <div className="relative w-full md:w-56 h-48 md:h-auto overflow-hidden bg-raised shrink-0">
-                      <ImageWithFallback 
-                        src={locationDetail.imageUrl} 
-                        alt={schedule.location} 
-                        fill
-                        containerClassName="w-full h-full"
-                        className="object-cover" 
-                        unoptimized
-                      />
-                    </div>
-                  )}
-                  <div className="flex-1 p-5 flex flex-col justify-center">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h4 className="text-lg font-semibold text-ink">{schedule.location}</h4>
-                      <a 
-                        href={locationDetail.placeUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="btn-ghost text-ink-2 shrink-0"
-                      >
-                        <ExternalLink size={16} strokeWidth={1.5} />
-                      </a>
-                    </div>
-                    <p className="text-sm text-ink-2 flex items-center gap-1.5 mb-3">
-                      <MapIcon size={16} strokeWidth={1.5} className="text-ink-3" />
-                      {locationDetail.address}
-                    </p>
-                    <span className="inline-block rounded-md bg-raised px-2 py-0.5 text-xs text-ink-2 self-start">
-                      {locationDetail.category}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 card px-4 py-3">
-                <MapPin size={18} strokeWidth={1.5} className="text-ink-3 shrink-0" />
-                <div>
-                  <p className="text-xs text-ink-3">장소</p>
-                  <p className="text-sm font-medium text-ink">{schedule.location}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Description */}
-        <div className="space-y-3 mb-8">
-          <h3 className="text-base font-semibold text-ink flex items-center gap-2">
-            <FileText size={16} strokeWidth={1.5} className="text-ink-3" /> 상세 설명
-          </h3>
-          <div className="bg-raised rounded-2xl p-5 text-sm text-ink-2 leading-relaxed min-h-[120px] whitespace-pre-wrap">
-            {schedule.description || '추가된 설명이 없어요'}
-          </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {session?.user?.id === schedule.authorId && (
+            <>
+              <button
+                onClick={() => onEdit ? onEdit(schedule) : setIsEditModalOpen(true)}
+                className="btn-icon"
+                title="일정 수정"
+              >
+                <Pencil size={16} strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="btn-icon hover:text-negative"
+                title="삭제하기"
+              >
+                {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
+              </button>
+            </>
+          )}
+          {!isPage && onClose && (
+            <button onClick={onClose} className="btn-icon" aria-label="닫기">
+              <X size={18} strokeWidth={1.5} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Sidebar Area */}
-      <div className="w-full lg:w-[360px] bg-canvas p-5 md:p-6 lg:overflow-y-auto no-scrollbar flex flex-col gap-6 shrink-0 relative">
-        {!isPage && onClose && (
-          <button
-            onClick={onClose}
-            className="btn-ghost absolute top-4 right-4 hidden lg:inline-flex"
-          >
-            <X size={18} strokeWidth={1.5} />
-          </button>
-        )}
+      {/* 본문: 아이콘 + 글자 행 */}
+      <div className={`min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6 ${isPage ? 'pb-24 lg:pb-6' : ''}`}>
+        <div className={`space-y-5 ${isPage ? 'max-w-[720px]' : ''}`}>
+          {/* 시간 */}
+          <InfoRow icon={multiDay ? Calendar : Clock} label={multiDay ? '기간' : '시간'}>
+            {multiDay ? (
+              <p className="text-sm text-ink tabular-nums">{formatScheduleRange(schedule, tf)}</p>
+            ) : (
+              <p className="text-sm text-ink">
+                {format(startTime, 'M월 d일 EEEE', { locale: ko })}
+                <span className="ml-2 tabular-nums text-ink-2">
+                  {format(startTime, tf, { locale: ko })} – {format(endTime, tf, { locale: ko })}
+                </span>
+              </p>
+            )}
+          </InfoRow>
 
-        {/* Author */}
-        <div className="space-y-3 pt-4 lg:pt-0">
-          <h3 className="text-base font-semibold text-ink flex items-center gap-2">
-            <UserIcon size={16} strokeWidth={1.5} className="text-ink-3" /> 작성자
-          </h3>
-          <div className="flex items-center gap-3 card px-4 py-3">
-            <div className="size-8 rounded-full bg-accent-soft flex items-center justify-center text-sm font-medium text-accent">
-              {initialOf(schedule.authorNickname)}
-            </div>
-            <span className="text-sm font-medium text-ink">{schedule.authorNickname}</span>
-          </div>
-        </div>
-
-        {/* Participants */}
-        {schedule.participants && schedule.participants.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-ink flex items-center gap-2">
-              <Users size={16} strokeWidth={1.5} className="text-ink-3" /> 참여자
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {schedule.participants.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 card !rounded-full">
-                  <div className="size-6 rounded-full bg-accent-soft flex items-center justify-center overflow-hidden relative shrink-0">
-                    {p.profileImage ? (
-                      <ImageWithFallback 
-                        src={p.profileImage.startsWith('/uploads/') ? `${apiUrl}${p.profileImage}` : p.profileImage} 
-                        alt={p.nickname} 
-                        fill 
-                        containerClassName="w-full h-full" 
-                        className="object-cover" 
-                        unoptimized
-                      />
-                    ) : (
-                      <span className="text-xs text-accent">{initialOf(p.nickname)}</span>
+          {/* 장소 */}
+          {schedule.location && (
+            <InfoRow icon={MapPin} label="장소">
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm font-medium text-ink break-words">{schedule.location}</p>
+                    {isLoadingLocation && <Loader2 size={14} strokeWidth={1.5} className="shrink-0 animate-spin text-ink-3" />}
+                    {locationDetail?.placeUrl && (
+                      <a
+                        href={locationDetail.placeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-icon size-7 shrink-0"
+                        title="카카오맵에서 보기"
+                      >
+                        <ExternalLink size={14} strokeWidth={1.5} />
+                      </a>
                     )}
                   </div>
-                  <span className="text-sm text-ink">{p.nickname}</span>
+                  {locationDetail && (
+                    <>
+                      <p className="mt-0.5 text-[13px] text-ink-3">{locationDetail.address}</p>
+                      {locationDetail.category && <span className="chip mt-2">{locationDetail.category}</span>}
+                    </>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tagged Memos */}
-        {schedule.taggedMemos && schedule.taggedMemos.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-base font-semibold text-ink flex items-center gap-2">
-              <MessageSquare size={16} strokeWidth={1.5} className="text-ink-3" /> 연결된 메모
-            </h3>
-            <div className="grid grid-cols-1 gap-2">
-              {schedule.taggedMemos.map((memo) => (
-                <div
-                  key={memo.id}
-                  onClick={() => handleMemoClick(memo.id)}
-                  className="flex items-center gap-3 card px-4 py-3 hover:bg-raised transition-colors duration-150 ease-out cursor-pointer"
-                >
-                  <FileText size={16} strokeWidth={1.5} className="text-ink-3 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm text-ink truncate">
-                      {memo.title}
-                    </h4>
+                {locationDetail?.imageUrl && (
+                  <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-raised md:size-20">
+                    <ImageWithFallback
+                      src={locationDetail.imageUrl}
+                      alt={schedule.location}
+                      fill
+                      containerClassName="w-full h-full"
+                      className="object-cover"
+                      unoptimized
+                    />
                   </div>
-                  <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                )}
+              </div>
+            </InfoRow>
+          )}
 
-        {/* Metadata */}
-        <div className="mt-auto pt-6 border-t border-line flex flex-col gap-1 stamp">
-          <span>ID {schedule.id.slice(0, 8)}</span>
-          <span>작성 {formatStamp(schedule.createdAt, tf)}</span>
+          {/* 참여자 */}
+          {participants.length > 0 && (
+            <InfoRow icon={Users} label="참여자">
+              <p className="mb-2 text-[13px] text-ink-3">참여자 {participants.length}명</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {participants.map((p) => (
+                  <div key={p.id} className="flex items-center gap-2">
+                    <div className="relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-raised">
+                      {p.profileImage ? (
+                        <ImageWithFallback
+                          src={p.profileImage.startsWith('/uploads/') ? `${apiUrl}${p.profileImage}` : p.profileImage}
+                          alt={p.nickname}
+                          fill
+                          containerClassName="w-full h-full"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="text-[11px] text-ink-2">{initialOf(p.nickname)}</span>
+                      )}
+                    </div>
+                    <span className="text-sm text-ink">{p.nickname}</span>
+                  </div>
+                ))}
+              </div>
+            </InfoRow>
+          )}
+
+          {/* 연결된 메모 */}
+          {taggedMemos.length > 0 && (
+            <InfoRow icon={FileText} label="연결된 메모">
+              <p className="mb-1 text-[13px] text-ink-3">연결된 메모</p>
+              <div className="-mx-2">
+                {taggedMemos.map((memo) => (
+                  <div
+                    key={memo.id}
+                    onClick={() => handleMemoClick(memo.id)}
+                    className="flex h-10 cursor-pointer items-center gap-2 rounded-lg px-2 transition-colors hover:bg-raised"
+                  >
+                    <span className="min-w-0 flex-1 truncate font-display text-[15px] text-ink">{memo.title}</span>
+                    <ChevronRight size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
+                  </div>
+                ))}
+              </div>
+            </InfoRow>
+          )}
+
+          {/* 설명 */}
+          <InfoRow icon={AlignLeft} label="설명">
+            {schedule.description ? (
+              <p className="text-sm leading-relaxed text-ink-2 whitespace-pre-wrap break-words">{schedule.description}</p>
+            ) : (
+              <p className="text-sm text-ink-3">설명이 없어요</p>
+            )}
+          </InfoRow>
         </div>
       </div>
 
@@ -471,8 +405,21 @@ export default function AppointmentDetailView({
           if (isPage) {
             window.location.reload();
           }
-        }} 
+        }}
       />
+    </div>
+  );
+}
+
+/** 아이콘 + 글자 행. 라벨은 화면 읽기 프로그램용 */
+function InfoRow({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[16px_minmax(0,1fr)] gap-x-3">
+      <Icon size={16} strokeWidth={1.5} className="mt-0.5 text-ink-3" aria-hidden />
+      <div className="min-w-0">
+        <span className="sr-only">{label}</span>
+        {children}
+      </div>
     </div>
   );
 }

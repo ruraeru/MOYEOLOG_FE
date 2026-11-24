@@ -84,10 +84,10 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
             user.email ? (
               <>
                 <span className="break-all">{user.email}</span>
-                <span className="block">켜면 친구 목록에서 친구가 내 이메일을 볼 수 있어요.</span>
+                <span className="block">켜면 친구 목록에서 친구가 내 이메일을 볼 수 있어요</span>
               </>
             ) : (
-              '카카오 계정에서 받은 이메일이 없어 보여 줄 이메일이 없어요.'
+              '카카오 계정에서 받은 이메일이 없어 보여 줄 이메일이 없어요'
             )
           }
         >
@@ -114,18 +114,17 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
               onRetry={() => sessionsQuery.refetch()}
             />
           ) : sessions.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-ink-3">로그인된 기기 정보가 없어요.</p>
+            <p className="px-5 py-6 text-sm text-ink-3 lg:px-6">로그인된 기기 정보가 없어요</p>
           ) : (
             sessions.map((item, index) => {
               const created = formatStamp(item.createdAt, timeFormat);
               const lastUsed = formatStamp(item.lastUsedAt, timeFormat);
               return (
-                <div key={String(item.id)} className="flex items-center gap-3 px-5 py-4">
+                <div key={String(item.id)} className="flex min-h-16 items-center gap-3 px-5 py-3 lg:px-6">
                   <Laptop size={18} strokeWidth={1.5} className="shrink-0 text-ink-3" />
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 text-sm text-ink">
+                    <p className="flex items-center gap-2 text-sm font-medium text-ink">
                       {item.current ? '지금 이 기기' : `다른 기기 ${index + 1}`}
-                      {item.current && <span className="size-1.5 rounded-full bg-accent" aria-hidden />}
                     </p>
                     <p className="mt-0.5 flex flex-wrap gap-x-3">
                       {created && <span className="stamp">로그인 {created}</span>}
@@ -136,7 +135,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
               );
             })
           )}
-          <div className="flex flex-wrap justify-end gap-2 px-5 py-4">
+          <div className="flex flex-wrap justify-end gap-2 px-5 py-3 lg:px-6">
             <button type="button" onClick={() => signOut({ callbackUrl: '/' })} className="btn-secondary">
               <LogOut size={16} strokeWidth={1.5} />이 기기에서 로그아웃
             </button>
@@ -144,7 +143,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
               type="button"
               onClick={handleLogoutAll}
               disabled={logoutAllMutation.isPending}
-              className="btn-secondary !text-negative"
+              className="btn-danger"
             >
               {logoutAllMutation.isPending && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
               모든 기기에서 로그아웃
@@ -155,14 +154,14 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
       </div>
 
       <SettingsGroup title="회원 탈퇴">
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-4 px-5 py-4 lg:px-6">
           <p className="text-sm leading-relaxed text-ink-2">
             탈퇴하면 내가 쓴 메모·일정·토픽·댓글, 친구 관계, 공유, 알림과 메시지가 모두 지워지고 되돌릴 수 없어요.
             내가 방장인 모임은 가장 오래된 멤버에게 넘어가고, 혼자인 모임은 삭제돼요.
           </p>
           {!withdrawOpen ? (
             <div className="flex justify-end">
-              <button type="button" onClick={() => setWithdrawOpen(true)} className="btn-ghost !text-negative">
+              <button type="button" onClick={() => setWithdrawOpen(true)} className="btn-danger">
                 탈퇴하기
               </button>
             </div>
@@ -176,7 +175,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
               }}
             >
               <label htmlFor="withdraw-confirm" className="block text-sm text-ink">
-                계속하려면 <span className="font-medium">{WITHDRAW_PHRASE}</span> 를 입력해 주세요.
+                계속하려면 <span className="font-medium">{WITHDRAW_PHRASE}</span> 를 입력해 주세요
               </label>
               <input
                 id="withdraw-confirm"
@@ -202,7 +201,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
                 <button
                   type="submit"
                   disabled={withdrawText.trim() !== WITHDRAW_PHRASE || withdrawMutation.isPending}
-                  className="btn-primary !bg-negative hover:!bg-negative/90"
+                  className="btn-danger"
                 >
                   {withdrawMutation.isPending && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
                   회원 탈퇴
