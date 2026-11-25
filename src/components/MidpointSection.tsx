@@ -31,10 +31,13 @@ const STATION_LIMIT = 5;
 export default function MidpointSection({
   scheduleId,
   onLocationChange,
+  onDepartureChange,
   wrap = (content) => content,
 }: {
   scheduleId: string;
   onLocationChange?: (place: MidpointPlace) => void;
+  /** 내 출발지를 적거나 지웠을 때 (일정 목록의 '출발지 미입력' 표시를 다시 불러오게) */
+  onDepartureChange?: () => void;
   wrap?: (content: ReactNode) => ReactNode;
 }) {
   const { data: session } = useSession();
@@ -75,11 +78,13 @@ export default function MidpointSection({
       setEditing(false);
       setKeyword('');
       clearSearchResults();
+      onDepartureChange?.();
     });
 
   const removeDeparture = () =>
     run(async () => {
       apply(await midpointApi.removeDeparture(scheduleId, session));
+      onDepartureChange?.();
     });
 
   const askOthers = () =>

@@ -400,6 +400,7 @@ export default function AppointmentDetailView({
                 setSchedule((prev) => (prev ? { ...prev, location: place.name, latitude: place.latitude, longitude: place.longitude } : prev));
                 onSuccess?.();
               }}
+              onDepartureChange={() => onSuccess?.()}
               wrap={(content) => <InfoRow icon={TrainFront} label="중간 지점">{content}</InfoRow>}
             />
           )}
