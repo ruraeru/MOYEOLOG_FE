@@ -24,6 +24,15 @@ export interface ScheduleResponse {
   createdAt: string;
   /** 내가 이 일정에 출발지를 적어야 하는데 아직 안 적었는지 (여럿이 만나고, 장소가 비었고, 끝나지 않은 일정) */
   departureNeeded?: boolean;
+  /** 내가 만든 일정인데 아직 장소를 정하지 않았는지 (여럿이 만나고, 끝나지 않은 일정) */
+  placeNeeded?: boolean;
+}
+
+/** 달력에서 붉게 표시할 까닭. 없으면 null */
+export function scheduleAlert(s: Pick<ScheduleResponse, 'departureNeeded' | 'placeNeeded'>): string | null {
+  if (s.departureNeeded) return '출발지 미입력';
+  if (s.placeNeeded) return '장소 미정';
+  return null;
 }
 
 export const scheduleApi = {
