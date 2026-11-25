@@ -8,7 +8,7 @@ declare module 'next-auth' {
       email?: string | null;
       image?: string | null;
       accessToken?: string;
-      kakaoId?: string;
+      kakaoId?: string; // 이메일 가입 계정은 비어 있음
       customId?: string;
       error?: string;
     };
@@ -24,7 +24,7 @@ declare module 'next-auth' {
     refreshToken?: string;
     backendUser?: {
       id: string;
-      kakaoId?: string;
+      kakaoId?: string | null; // 이메일 가입 계정은 없음
       customId?: string;
       nickname?: string;
       profileImage?: string | null;

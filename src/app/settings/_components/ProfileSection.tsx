@@ -243,7 +243,7 @@ export default function ProfileSection({ user }: { user: UserResponse }) {
           <div className="min-w-0 flex-1">
             <p className="truncate font-display text-lg leading-6 text-ink">{user.nickname}</p>
             <p className="mt-0.5 text-[13px] tabular-nums text-ink-2">@{user.customId}</p>
-            <p className="mt-0.5 truncate text-[13px] text-ink-3">{user.email || '카카오 계정에서 받은 이메일이 없어요'}</p>
+            <p className="mt-0.5 truncate text-[13px] text-ink-3">{user.email || '등록된 이메일이 없어요'}</p>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={busy} className="btn-secondary btn-sm">
