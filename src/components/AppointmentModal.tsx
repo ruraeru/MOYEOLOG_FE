@@ -19,6 +19,9 @@ import {
 import { addHours, addMilliseconds, format, parseISO } from 'date-fns';
 import { useKakaoMap } from '@/hooks/useKakaoMap';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
+import { usePlaceWeather } from '@/hooks/useWeather';
+import { recommendFor, weatherAt } from '@/lib/weather';
+import { WeatherLine } from '@/components/Weather';
 import { useMentions } from '@/hooks/useMentions';
 import { useAlert } from '@/hooks/useAlert';
 import { Chip, MentionList } from './Mentions';
@@ -27,7 +30,6 @@ import { Modal } from './ui';
 import {
   Clock,
   MapPin,
-  Star,
   Users,
   UserPlus,
   FileText,
@@ -109,6 +111,11 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [taggedMemos, setTaggedMemos] = useState<TaggedMemo[]>([]);
 
+  // 지도에서 고른 장소의 좌표(날씨·저장용). 장소를 직접 고쳐 쓰면 지운다.
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  // 주변 추천을 보여 줄 좌표. 이 모달에서 장소를 고른 뒤에만 채운다(수정 화면을 열기만 해서는 추천하지 않음).
+  const [recommendAt, setRecommendAt] = useState<{ lat: number; lng: number } | null>(null);
+
   // Input states
   const [participantInput, setParticipantInput] = useState('');
   const [memoMentionInput, setMemoMentionInput] = useState('');
@@ -145,6 +152,8 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       setEndDate(format(end, 'yyyy-MM-dd'));
       setEndTime(format(end, 'HH:mm'));
       setLocation(initialSchedule.location || '');
+      setCoords(initialSchedule.latitude != null && initialSchedule.longitude != null
+        ? { lat: initialSchedule.latitude, lng: initialSchedule.longitude } : null);
       setMemo(initialSchedule.description || '');
       setSelectedGroupId(initialSchedule.groupId || '');
       setParticipants(initialSchedule.participants || []);
@@ -156,7 +165,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       }
     } else if (isOpen) {
       const day = initialDate || format(new Date(), 'yyyy-MM-dd');
-      setTitle(''); setMemo(''); setLocation('');
+      setTitle(''); setMemo(''); setLocation(''); setCoords(null);
       setDate(day); setTime('12:00');
       setEndDate(day); setEndTime('13:00');
       setSelectedGroupId(defaultGroupId || '');
@@ -164,7 +173,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       setParticipants(currentUserId ? [{ id: currentUserId, nickname: '나', profileImage: currentUserImage }] : []);
     }
     if (isOpen) {
-      setParticipantInput(''); setMemoMentionInput('');
+      setParticipantInput(''); setMemoMentionInput(''); setRecommendAt(null);
     }
   }, [isOpen, initialSchedule, initialDate, defaultGroupId, currentUserId, currentUserImage, searchPlaces]);
 
@@ -185,10 +194,25 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
   const handleLocationSelect = useCallback((place: { place_name?: string, name?: string, y: string, x: string }) => {
     setLocation(truncateCodePoints(place.place_name || place.name || '', SCHEDULE_LOCATION_MAX));
-    updatePosition(parseFloat(place.y), parseFloat(place.x));
-    fetchRecommendations(parseFloat(place.y), parseFloat(place.x));
+    const picked = { lat: parseFloat(place.y), lng: parseFloat(place.x) };
+    updatePosition(picked.lat, picked.lng);
+    setCoords(picked);
+    setRecommendAt(picked);
     clearSearchResults();
-  }, [updatePosition, fetchRecommendations, clearSearchResults]);
+  }, [updatePosition, clearSearchResults]);
+
+  // 일정 시작 시각의 그 장소 날씨. 예보 범위(10일) 밖이거나 날씨를 못 받으면 null.
+  const { data: forecast, isLoading: isWeatherLoading } = usePlaceWeather(coords?.lat, coords?.lng);
+  const startText = `${date}T${time}:00`;
+  const weather = forecast ? weatherAt(forecast, startText) : null;
+  const recommend = recommendFor(weather);
+  const categoryKey = recommend.categories.join(',');
+
+  // 장소를 고르면 날씨가 정해진 뒤 한 번, 시작 시각을 바꿔 날씨가 달라지면 다시 추천한다.
+  useEffect(() => {
+    if (!recommendAt || isWeatherLoading) return;
+    fetchRecommendations(recommendAt.lat, recommendAt.lng, categoryKey.split(','));
+  }, [recommendAt, isWeatherLoading, categoryKey, fetchRecommendations]);
 
   const handleSave = async () => {
     const trimmedTitle = title.trim();
@@ -208,7 +232,8 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       const payload = {
         title: trimmedTitle, description: memo, startTime: toLocalDateTimeString(start),
         endTime: toLocalDateTimeString(end),
-        location, groupId: selectedGroupId || undefined,
+        location, latitude: coords?.lat ?? null, longitude: coords?.lng ?? null,
+        groupId: selectedGroupId || undefined,
         taggedMemoIds: [...new Set(taggedMemos.map(m => m.id))],
         participantIds: [...new Set(participants.filter(p => p.id).map(p => p.id!))],
       };
@@ -288,7 +313,7 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           {/* 장소 + 지도 */}
           <Row icon={MapPin} label="장소">
             <div className="relative">
-              <input type="text" aria-label="장소" value={location} onChange={(e) => { const v = truncateCodePoints(e.target.value, SCHEDULE_LOCATION_MAX); setLocation(v); searchPlaces(v); }} placeholder="장소를 검색해요" className="form-input pr-10" />
+              <input type="text" aria-label="장소" value={location} onChange={(e) => { const v = truncateCodePoints(e.target.value, SCHEDULE_LOCATION_MAX); setLocation(v); setCoords(null); setRecommendAt(null); searchPlaces(v); }} placeholder="장소를 검색해요" className="form-input pr-10" />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-3">{isSearching ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Search size={16} strokeWidth={1.5} />}</div>
               {searchResults.length > 0 && (
                 <div className="absolute z-20 w-full top-full mt-1 bg-surface rounded-[10px] shadow-float border border-line overflow-hidden max-h-60 overflow-y-auto">
@@ -306,9 +331,19 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
               {isMapLoading && <div className="absolute inset-0 bg-surface/70 flex flex-col items-center justify-center gap-2 z-10"><Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" /><p className="text-xs text-ink-2">위치를 확인하는 중이에요</p></div>}
             </div>
 
-            {(isRecommending || recommendations.length > 0) && (
+            {weather && (
+              <p className="mt-2 text-[13px] text-ink-2">
+                <span className="text-ink-3">일정 시각 날씨 </span>
+                <WeatherLine weather={weather} />
+              </p>
+            )}
+
+            {recommendAt && (isRecommending || recommendations.length > 0) && (
               <div className="mt-4">
-                <p className="mb-2 text-[13px] font-medium text-ink-2">주변 추천</p>
+                <p className="mb-2 text-[13px] font-medium text-ink-2">
+                  주변 추천
+                  {recommend.reason && <span className="ml-2 font-normal text-ink-3">{recommend.reason}</span>}
+                </p>
                 <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {isRecommending ? (
                     <div className="flex h-20 w-full items-center justify-center rounded-[10px] border border-line"><Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" /></div>
@@ -399,7 +434,7 @@ function Row({ icon: Icon, label, children }: { icon: LucideIcon, label: string,
   );
 }
 
-function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name: string, image: string, rating: string, category: string, distance: string, y: string, x: string, desc: string }, onClick: () => void }) {
+function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name: string, image: string, category: string, distance: string, y: string, x: string, desc: string }, onClick: () => void }) {
   return (
     <div onClick={onClick} className="w-40 shrink-0 cursor-pointer overflow-hidden rounded-[10px] border border-line bg-surface transition-colors hover:bg-raised">
       <div className="relative h-20 w-full bg-raised">
@@ -410,7 +445,6 @@ function RecommendationCard({ rec, onClick }: { rec: { id: string | number, name
           containerClassName="w-full h-full"
           className="object-cover" 
         />
-        <div className="absolute top-1.5 right-1.5 z-10 bg-surface/90 text-ink text-xs tabular-nums px-1.5 py-0.5 rounded-md flex items-center gap-1"><Star size={12} strokeWidth={1.5} className="text-ink-3" /> {rec.rating}</div>
       </div>
       <div className="px-3 py-2"><p className="truncate text-[13px] font-medium text-ink">{rec.name}</p><p className="truncate text-xs text-ink-3">{rec.category} · {rec.distance}</p></div>
     </div>

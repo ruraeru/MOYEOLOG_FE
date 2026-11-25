@@ -17,7 +17,6 @@ export interface Recommendation {
   name: string;
   category: string;
   distance: string;
-  rating: string;
   desc: string;
   image: string;
   tags: string[];
@@ -33,6 +32,7 @@ export function usePlaceSearch() {
   const [isRecommending, setIsRecommending] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMounted = useRef(true);
+  const recommendRequest = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -71,10 +71,11 @@ export function usePlaceSearch() {
     }, 300);
   }, []);
 
-  const fetchRecommendations = useCallback(async (lat: number, lng: number) => {
+  const fetchRecommendations = useCallback(async (lat: number, lng: number, categories: string[] = ['FD6', 'CE7']) => {
     const kakao = (window as any).kakao;
     if (!kakao?.maps?.services) return;
 
+    const request = ++recommendRequest.current;
     setIsRecommending(true);
     const ps = new kakao.maps.services.Places();
 
@@ -93,40 +94,38 @@ export function usePlaceSearch() {
       }
     };
 
-    const processResults = async (data: any[]) => {
-      return await Promise.all(
-        data.slice(0, 5).map(async (place) => ({
-          id: place.id,
-          name: place.place_name,
-          category: place.category_group_name?.split('>').pop()?.trim() || '장소',
-          rating: (4.0 + Math.random() * 1.0).toFixed(1),
-          distance: place.distance ? `${place.distance}m` : '',
-          desc: place.address_name,
-          image: await fetchImage(place.place_name),
-          y: place.y,
-          x: place.x,
-          tags: [place.category_group_name?.split('>')[0]?.trim() || '추천']
-        }))
-      );
-    };
+    const byCategory = (code: string) =>
+      new Promise<any[]>((resolve) => {
+        ps.categorySearch(
+          code,
+          (data: any[], status: string) => resolve(status === kakao.maps.services.Status.OK ? data : []),
+          { location: new kakao.maps.LatLng(lat, lng), radius: 1000 }
+        );
+      });
 
-    ps.categorySearch('FD6', async (data: any, status: any) => {
-      if (!isMounted.current) return;
-      if (status === kakao.maps.services.Status.OK) {
-        setRecommendations(await processResults(data));
-        setIsRecommending(false);
-      } else {
-        ps.categorySearch('CE7', async (cafeData: any, cafeStatus: any) => {
-          if (!isMounted.current) return;
-          if (cafeStatus === kakao.maps.services.Status.OK) {
-            setRecommendations(await processResults(cafeData));
-          } else {
-            setRecommendations([]);
-          }
-          setIsRecommending(false);
-        }, { location: new kakao.maps.LatLng(lat, lng), radius: 1000 });
-      }
-    }, { location: new kakao.maps.LatLng(lat, lng), radius: 1000 });
+    // 앞선 종류부터 3곳씩, 모두 5곳까지 채운다.
+    const places: any[] = [];
+    for (const code of categories) {
+      if (places.length >= 5) break;
+      places.push(...(await byCategory(code)).slice(0, Math.min(3, 5 - places.length)));
+    }
+    const results: Recommendation[] = await Promise.all(
+      places.map(async (place) => ({
+        id: place.id,
+        name: place.place_name,
+        category: place.category_group_name?.split('>').pop()?.trim() || '장소',
+        distance: place.distance ? `${place.distance}m` : '',
+        desc: place.address_name,
+        image: await fetchImage(place.place_name),
+        y: place.y,
+        x: place.x,
+        tags: [place.category_group_name?.split('>')[0]?.trim() || '추천']
+      }))
+    );
+    // 그 사이 다른 장소·날씨로 다시 요청했으면 버린다.
+    if (!isMounted.current || request !== recommendRequest.current) return;
+    setRecommendations(results);
+    setIsRecommending(false);
   }, []);
 
   const clearSearchResults = useCallback(() => {

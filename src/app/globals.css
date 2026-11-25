@@ -108,6 +108,7 @@ body {
 }
 
 .react-calendar__tile {
+  position: relative; /* 날씨 아이콘을 칸 오른쪽 위에 둔다 */
   background: var(--surface) !important;
   min-height: 112px !important;
   padding: 8px !important;
