@@ -14,7 +14,7 @@ import { getThemeColors } from '@/lib/utils';
 const emptySubscribe = () => () => {};
 
 /**
- * 로그인 후 돌아갈 경로. callbackUrl 쿼리가 같은 사이트 내 상대 경로일 때만 사용하고, 아니면 /memo로 보냅니다.
+ * 로그인 후 돌아갈 경로. callbackUrl 쿼리가 같은 사이트 내 상대 경로일 때만 사용하고, 아니면 /home으로 보냅니다.
  */
 const getCallbackPath = () =>
   safeCallbackPath(new URLSearchParams(window.location.search).get('callbackUrl'));
