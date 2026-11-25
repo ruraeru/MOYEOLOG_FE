@@ -10,7 +10,7 @@ const jua = Jua({ weight: "400", subsets: ["latin"], display: "swap", preload: f
 
 export const metadata: Metadata = {
   title: '모여로그 | MOYEOLOG',
-  description: '일정, 메모, 모임을 친구와 한곳에서 함께 쓰는 서비스',
+  description: '장소 정하기부터 함께 보는 일정과 메모까지, 모임의 모든 일을 한곳에서 해결해요',
   // 홈 화면에 추가하면 앱처럼(브라우저 틀 없이) 뜬다. 매니페스트는 app/manifest.ts, iOS 아이콘은 app/apple-icon.png
   applicationName: '모여로그',
   appleWebApp: { capable: true, title: '모여로그', statusBarStyle: 'default' },
