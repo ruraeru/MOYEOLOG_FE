@@ -10,12 +10,22 @@ const ICONS: Record<Sky, LucideIcon> = {
   SNOW: CloudSnow,
 };
 
+/** 아이콘 색(globals.css 의 --wx-*). 글자에는 쓰지 않는다. */
+const COLORS: Record<Sky, string> = {
+  CLEAR: 'text-wx-sun',
+  PARTLY: 'text-wx-sun',
+  CLOUDY: 'text-ink-3',
+  RAIN: 'text-wx-rain',
+  SLEET: 'text-wx-rain',
+  SNOW: 'text-wx-snow',
+};
+
 /** 날씨 아이콘 하나. 설명은 title·aria-label 로 준다. */
 export function WeatherIcon({ weather, size = 14, className = '' }: { weather: WeatherAt; size?: number; className?: string }) {
   const Icon = ICONS[weather.sky];
   const text = weatherText(weather);
   return (
-    <span role="img" aria-label={`날씨 ${text}`} title={text} className={`inline-flex shrink-0 text-ink-3 ${className}`}>
+    <span role="img" aria-label={`날씨 ${text}`} title={text} className={`inline-flex shrink-0 ${COLORS[weather.sky]} ${className}`}>
       <Icon size={size} strokeWidth={1.5} aria-hidden />
     </span>
   );
@@ -26,7 +36,7 @@ export function WeatherLine({ weather, className = '' }: { weather: WeatherAt; c
   const Icon = ICONS[weather.sky];
   return (
     <span className={`inline-flex items-center gap-1.5 tabular-nums ${className}`}>
-      <Icon size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-3" />
+      <Icon size={14} strokeWidth={1.5} aria-hidden className={`shrink-0 ${COLORS[weather.sky]}`} />
       {weatherText(weather)}
     </span>
   );

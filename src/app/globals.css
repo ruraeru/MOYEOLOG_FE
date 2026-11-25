@@ -19,6 +19,10 @@
   --positive: #4f7a3a;
   --negative: #c2410c;
   --negative-soft: #fdf0ea;
+  /* 날씨 아이콘 색. 흰 바탕에서 3:1 이상. 흐림은 --ink-3 를 그대로 쓴다 */
+  --wx-sun: #bf7d0c;     /* 맑음, 구름 많음 */
+  --wx-rain: #3f6f99;    /* 비, 비 또는 눈 */
+  --wx-snow: #3f93a8;    /* 눈 */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -45,6 +49,9 @@
   --color-positive: var(--positive);
   --color-negative: var(--negative);
   --color-negative-soft: var(--negative-soft);
+  --color-wx-sun: var(--wx-sun);
+  --color-wx-rain: var(--wx-rain);
+  --color-wx-snow: var(--wx-snow);
   --color-background: var(--canvas);
   --color-foreground: var(--ink);
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
