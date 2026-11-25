@@ -61,9 +61,9 @@ export const midpointApi = {
     return response.data.sent;
   },
 
-  /** 고른 장소를 일정 장소로 저장한다 */
-  async confirm(scheduleId: string, name: string, session: Session | null): Promise<MidpointResponse> {
-    const response = await axiosInstance.post<MidpointResponse>(`/api/schedules/${scheduleId}/midpoint/confirm`, { name }, {
+  /** 고른 장소를 일정 장소(이름 + 좌표)로 저장한다 */
+  async confirm(scheduleId: string, place: MidpointPlace, session: Session | null): Promise<MidpointResponse> {
+    const response = await axiosInstance.post<MidpointResponse>(`/api/schedules/${scheduleId}/midpoint/confirm`, place, {
       headers: getAuthHeaders(session),
     });
     return response.data;

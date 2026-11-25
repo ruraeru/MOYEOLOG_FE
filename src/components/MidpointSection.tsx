@@ -15,6 +15,8 @@ interface Station {
   name: string;
   lines: string[];
   distance: number;
+  latitude: number;
+  longitude: number;
 }
 
 const STATION_LIMIT = 5;
@@ -29,7 +31,7 @@ export default function MidpointSection({
   onLocationChange,
 }: {
   scheduleId: string;
-  onLocationChange?: (location: string) => void;
+  onLocationChange?: (place: MidpointPlace) => void;
 }) {
   const { data: session } = useSession();
   const { confirm, toast } = useAlert();
@@ -86,9 +88,9 @@ export default function MidpointSection({
   const confirmStation = async (station: Station) => {
     if (!(await confirm(`일정 장소를 ${station.name}(으)로 정할까요?`))) return;
     await run(async () => {
-      const next = await midpointApi.confirm(scheduleId, station.name, session);
-      apply(next);
-      onLocationChange?.(next.location ?? station.name);
+      const place = { name: station.name, latitude: station.latitude, longitude: station.longitude };
+      apply(await midpointApi.confirm(scheduleId, place, session));
+      onLocationChange?.(place);
       toast.success('일정 장소를 정했어요');
     });
   };
@@ -339,7 +341,14 @@ function groupStations(result: any[]): Station[] {
     if (found) {
       if (line && !found.lines.includes(line)) found.lines.push(line);
     } else {
-      byName.set(name, { id: String(place.id), name, lines: line ? [line] : [], distance: Number(place.distance) || 0 });
+      byName.set(name, {
+        id: String(place.id),
+        name,
+        lines: line ? [line] : [],
+        distance: Number(place.distance) || 0,
+        latitude: Number(place.y),
+        longitude: Number(place.x),
+      });
     }
   }
   return [...byName.values()].slice(0, STATION_LIMIT);

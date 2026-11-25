@@ -20,6 +20,9 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { stripMarkdown, initialOf, getThemeColors, getFileUrl } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
+import { useScheduleWeather } from '@/hooks/useWeather';
+import { WeatherLine } from '@/components/Weather';
+import type { WeatherAt } from '@/lib/weather';
 import { formatTimeOnDay, schedulesOnDay, sortSchedules, useTimeFormat, useWeekStartsOn } from '@/lib/schedule-utils';
 
 const emptySubscribe = () => () => { };
@@ -66,6 +69,7 @@ export default function HomePage() {
 
   const recentMemos = memoData ? memoData.slice(0, 5) : [];
   const schedules = scheduleData || [];
+  const weatherOf = useScheduleWeather(schedules);
   const userGroups = groupData || [];
   const loading = memosLoading || schedulesLoading || groupsLoading;
   const weekStartsOn = useWeekStartsOn();
@@ -207,6 +211,7 @@ export default function HomePage() {
                           day={day}
                           label={i === 0 ? dayLabel(day, today) : ''}
                           time={formatTimeOnDay(s, day, tf)}
+                          weather={isSameDay(parseISO(s.startTime), day) ? weatherOf(s) : null}
                           groups={userGroups}
                           onClick={() => handleScheduleClick(s)}
                         />
@@ -334,6 +339,7 @@ function ScheduleRow({
   day,
   label,
   time,
+  weather,
   groups,
   onClick,
 }: {
@@ -341,6 +347,7 @@ function ScheduleRow({
   day: Date;
   label: string;
   time: string;
+  weather: WeatherAt | null;
   groups: GroupResponse[];
   onClick: () => void;
 }) {
@@ -378,6 +385,7 @@ function ScheduleRow({
             <span className="min-w-0 truncate">{meta}</span>
           </p>
         )}
+        {weather && <p className="mt-1 text-[13px] text-ink-3"><WeatherLine weather={weather} /></p>}
       </div>
       {people.length > 0 && (
         <div className="hidden shrink-0 -space-x-1.5 sm:flex" aria-label={`참여자 ${people.length}명`}>

@@ -9,6 +9,9 @@ export interface ScheduleResponse {
   startTime: string;
   endTime: string;
   location?: string;
+  /** 지도에서 고른 장소의 좌표. 직접 입력한 장소·예전 일정에는 없다. */
+  latitude?: number | null;
+  longitude?: number | null;
   authorId: string;
   authorNickname: string;
   groupId?: string;
@@ -35,6 +38,8 @@ export const scheduleApi = {
     startTime: string; 
     endTime: string; 
     location?: string; 
+    latitude?: number | null;
+    longitude?: number | null;
     groupId?: string;
     taggedMemoIds?: string[];
     participantIds?: string[];
@@ -51,6 +56,8 @@ export const scheduleApi = {
     startTime: string; 
     endTime: string; 
     location?: string; 
+    latitude?: number | null;
+    longitude?: number | null;
     groupId?: string;
     taggedMemoIds?: string[];
     participantIds?: string[];

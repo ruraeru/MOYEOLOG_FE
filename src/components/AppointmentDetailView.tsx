@@ -3,7 +3,7 @@
 import {
   X, Calendar, Clock, MapPin, Trash2, Loader2, FileText,
   ChevronRight, ExternalLink, AlignLeft,
-  Pencil, ChevronLeft, Users, TrainFront, type LucideIcon
+  Pencil, ChevronLeft, Users, CloudSun, TrainFront, type LucideIcon
 } from 'lucide-react';
 import { EmptyState, Ribbon } from './ui';
 import { GroupAvatar } from './groups/GroupIdentity';
@@ -22,12 +22,17 @@ import ImageWithFallback from './ImageWithFallback';
 import AppointmentModal from './AppointmentModal';
 import MidpointSection from './MidpointSection';
 import { useAlert } from '@/hooks/useAlert';
+import { usePlaceWeather } from '@/hooks/useWeather';
+import { weatherAt } from '@/lib/weather';
+import { WeatherLine } from './Weather';
 
 interface LocationDetail {
   address: string;
   category: string;
   imageUrl?: string;
   placeUrl?: string;
+  lat?: number;
+  lng?: number;
 }
 
 interface AppointmentDetailViewProps {
@@ -128,7 +133,9 @@ export default function AppointmentDetailView({
                 address: place.road_address_name || place.address_name,
                 category: place.category_group_name || place.category_name,
                 placeUrl: `https://map.kakao.com/link/map/${place.id}`,
-                imageUrl: imageUrl
+                imageUrl: imageUrl,
+                lat: parseFloat(place.y),
+                lng: parseFloat(place.x)
               });
             } else {
               setLocationDetail(null);
@@ -144,6 +151,13 @@ export default function AppointmentDetailView({
       setLocationDetail(null);
     }
   }, [schedule?.location]);
+
+  // 일정 시작 시각의 약속 장소 날씨. 좌표가 저장되지 않은 예전 일정은 장소 검색 결과의 좌표를 쓴다.
+  const { data: forecast } = usePlaceWeather(
+    schedule?.latitude ?? locationDetail?.lat,
+    schedule?.longitude ?? locationDetail?.lng
+  );
+  const weather = forecast && schedule ? weatherAt(forecast, schedule.startTime) : null;
 
   const stateBox = `flex items-center justify-center bg-surface ${isPage ? 'h-full flex-1' : 'min-h-[320px] rounded-t-2xl md:rounded-2xl'}`;
 
@@ -342,6 +356,14 @@ export default function AppointmentDetailView({
             </InfoRow>
           )}
 
+          {/* 날씨: 약속 장소의 예보(10일 안) */}
+          {weather && (
+            <InfoRow icon={CloudSun} label="날씨">
+              <p className="text-sm text-ink"><WeatherLine weather={weather} /></p>
+              <p className="mt-0.5 text-[13px] text-ink-3">일정 시작 시각 기준 · 기상청 예보</p>
+            </InfoRow>
+          )}
+
           {/* 참여자 */}
           {participants.length > 0 && (
             <InfoRow icon={Users} label="참여자">
@@ -375,8 +397,8 @@ export default function AppointmentDetailView({
             <InfoRow icon={TrainFront} label="중간 지점">
               <MidpointSection
                 scheduleId={schedule.id}
-                onLocationChange={(location) => {
-                  setSchedule((prev) => (prev ? { ...prev, location } : prev));
+                onLocationChange={(place) => {
+                  setSchedule((prev) => (prev ? { ...prev, location: place.name, latitude: place.latitude, longitude: place.longitude } : prev));
                   onSuccess?.();
                 }}
               />

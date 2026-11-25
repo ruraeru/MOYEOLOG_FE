@@ -42,6 +42,9 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { getApiErrorMessage } from '@/lib/axios';
 import { getThemeColors } from '@/lib/utils';
+import { useScheduleWeather } from '@/hooks/useWeather';
+import { WeatherIcon } from '@/components/Weather';
+import type { WeatherAt } from '@/lib/weather';
 import { Ribbon, Segmented, SideItem, SideLabel, EmptyState } from '@/components/ui';
 import {
   type ScheduleView,
@@ -173,6 +176,9 @@ export default function SchedulePage() {
 
     return sortSchedules(result);
   }, [schedules, activeFilter, searchQuery]);
+
+  // 장소 좌표가 있는 일정의 시작 시각 날씨(10일 안)
+  const weatherOf = useScheduleWeather(filteredSchedules);
 
   // Month Grid Days
   const monthDays = useMemo(() => {
@@ -325,6 +331,7 @@ export default function SchedulePage() {
                 days={weekDays}
                 schedules={filteredSchedules}
                 userGroups={userGroups}
+                weatherOf={weatherOf}
                 onDayClick={handleOpenListModal}
                 onAddClick={handleOpenCreate}
                 onScheduleClick={handleOpenDetail}
@@ -355,6 +362,7 @@ export default function SchedulePage() {
                         currentDate={currentDate}
                         schedules={filteredSchedules}
                         userGroups={userGroups}
+                        weatherOf={weatherOf}
                         onDayClick={handleOpenListModal}
                         onScheduleClick={(e, schedule) => { e.stopPropagation(); handleOpenDetail(schedule); }}
                       />
@@ -406,14 +414,25 @@ interface CalendarDayProps {
   currentDate: Date;
   schedules: ScheduleResponse[];
   userGroups: GroupResponse[];
+  weatherOf: (s: ScheduleResponse) => WeatherAt | null;
   onDayClick: (date: Date) => void;
   onScheduleClick: (e: React.MouseEvent, schedule: ScheduleResponse) => void;
 }
 
-function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, onDayClick, onScheduleClick }: CalendarDayProps) {
+/** 그 날 시작하는 일정 가운데 날씨를 아는 첫 일정의 날씨(약속 장소·시각 기준). */
+function dayWeather(items: ScheduleResponse[], day: Date, weatherOf: (s: ScheduleResponse) => WeatherAt | null) {
+  for (const s of items) {
+    const weather = isSameDay(parseISO(s.startTime), day) ? weatherOf(s) : null;
+    if (weather) return weather;
+  }
+  return null;
+}
+
+function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, weatherOf, onDayClick, onScheduleClick }: CalendarDayProps) {
   const tf = useTimeFormat();
   // 여러 날 일정은 걸친 모든 날짜 칸에 나온다.
   const daySchedules = schedulesOnDay(schedules, day);
+  const weather = dayWeather(daySchedules, day, weatherOf);
   const isCurrMonth = isSameMonth(day, currentDate);
 
   return (
@@ -425,6 +444,7 @@ function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, onDayCl
     >
       <div className="flex items-center justify-between shrink-0">
         <DayNumber day={day} muted={!isCurrMonth} />
+        <span className="flex items-center gap-0.5">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -435,6 +455,8 @@ function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, onDayCl
         >
           <Plus size={16} strokeWidth={1.5} />
         </button>
+        {weather && <WeatherIcon weather={weather} className="md:mr-0.5" />}
+        </span>
       </div>
       <div className={`flex-1 flex flex-col gap-1 overflow-hidden min-h-0 ${isCurrMonth ? '' : 'opacity-70'}`}>
         {daySchedules.slice(0, 3).map((s, idx) => (
@@ -471,24 +493,27 @@ interface WeekViewProps {
   days: Date[];
   schedules: ScheduleResponse[];
   userGroups: GroupResponse[];
+  weatherOf: (s: ScheduleResponse) => WeatherAt | null;
   onDayClick: (date: Date) => void;
   onAddClick: (date: Date) => void;
   onScheduleClick: (schedule: ScheduleResponse) => void;
 }
 
-function WeekView({ days, schedules, userGroups, onDayClick, onAddClick, onScheduleClick }: WeekViewProps) {
+function WeekView({ days, schedules, userGroups, weatherOf, onDayClick, onAddClick, onScheduleClick }: WeekViewProps) {
   const tf = useTimeFormat();
   return (
     <div className="card flex-1 min-h-0 overflow-y-auto no-scrollbar">
       <div className="grid grid-cols-1 md:grid-cols-7 md:min-h-full md:divide-x divide-line">
         {days.map((day) => {
           const items = schedulesOnDay(schedules, day);
+          const weather = dayWeather(items, day, weatherOf);
           return (
             <div key={day.toISOString()} className="flex flex-col border-b md:border-b-0 border-line last:border-b-0 min-w-0">
               <div className="flex items-center justify-between gap-2 px-3 py-2 md:sticky md:top-0 bg-surface border-b border-line">
                 <button type="button" onClick={() => onDayClick(day)} className="flex items-center gap-1.5 text-left">
                   <span className="text-xs text-ink-3">{format(day, 'EEE', { locale: ko })}</span>
                   <DayNumber day={day} />
+                  {weather && <WeatherIcon weather={weather} />}
                 </button>
                 <button type="button" onClick={() => onAddClick(day)} aria-label={`${format(day, 'M월 d일', { locale: ko })}에 일정 추가`} className="btn-icon text-ink-3">
                   <Plus size={16} strokeWidth={1.5} />
