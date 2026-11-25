@@ -11,7 +11,7 @@ export function AccountShell({ title, description, children }: { title: string; 
     <main className="flex min-h-screen items-start justify-center bg-canvas px-4 py-12 sm:items-center">
       <div className="w-full max-w-[400px]">
         <Link href="/" className="inline-flex items-center">
-          <Logo size={56} />
+          <Logo height={34} />
         </Link>
         <div className="card mt-8 p-6">
           <h1 className="font-display text-2xl leading-8 text-ink">{title}</h1>

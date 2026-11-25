@@ -38,9 +38,9 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-line bg-canvas/95 backdrop-blur supports-[backdrop-filter]:bg-canvas/85">
       <div className="mx-auto flex h-14 w-full items-center justify-between px-4 lg:h-16 lg:px-8">
-        {/* 로고: 두 줄 "모여 / 로그" 그림 (이름이 그림 안에 있다) */}
+        {/* 로고: 가로 한 줄 "모여로그" 그림 (이름이 그림 안에 있다) */}
         <Link href="/home" className="flex shrink-0 items-center">
-          <Logo size={40} className="size-9 lg:size-10" />
+          <Logo height={24} className="h-[22px] w-auto lg:h-6" />
         </Link>
 
         {/* 가운데 메뉴 (넓은 화면): 글자만, 선택은 주아 + 주황 밑줄 */}
