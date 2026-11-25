@@ -361,9 +361,13 @@ function GroupDetailContent() {
       <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden">
         {weather && <WeatherIcon weather={weather} className="absolute right-1.5 top-1.5 md:right-2.5 md:top-2.5" />}
         {daySchedules.slice(0, 2).map(s => (
-          <div key={s.id} className="flex w-full min-w-0 items-center gap-1 text-left text-[11px] leading-4 text-ink-2">
+          <div
+            key={s.id}
+            title={s.departureNeeded ? '출발지 미입력' : undefined}
+            className={`flex w-full min-w-0 items-center gap-1 text-left text-[11px] leading-4 ${s.departureNeeded ? 'rounded bg-negative-soft px-0.5 text-negative' : 'text-ink-2'}`}
+          >
             <span aria-hidden className="h-3 w-[3px] shrink-0 rounded-full bg-group" />
-            <span className="hidden shrink-0 tabular-nums text-ink-3 sm:inline">{format(parseISO(s.startTime), tf)}</span>
+            <span className={`hidden shrink-0 tabular-nums sm:inline ${s.departureNeeded ? '' : 'text-ink-3'}`}>{format(parseISO(s.startTime), tf)}</span>
             <span className="truncate">{s.title}</span>
           </div>
         ))}
