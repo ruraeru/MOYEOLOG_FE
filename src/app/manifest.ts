@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: '모여로그',
     short_name: '모여로그',
-    description: '일정, 메모, 모임을 친구와 한곳에서 함께 쓰는 서비스',
+    description: '장소 정하기부터 함께 보는 일정과 메모까지, 모임의 모든 일을 한곳에서 해결해요',
     lang: 'ko',
     // 로그인 전이면 미들웨어가 로그인 화면으로 보낸다
     start_url: '/home',

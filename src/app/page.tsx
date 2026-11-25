@@ -101,12 +101,12 @@ export default function LoginPage() {
           <Logo height={46} />
 
           <h1 className="mt-8 font-display text-[36px] leading-[48px] text-ink lg:text-[52px] lg:leading-[64px]">
-            모임의 메모와 일정을
+            모임장도 모임원도,
             <br />
-            한곳에 모아요
+            모이기 쉽게 잊지 않게
           </h1>
           <p className="mt-6 max-w-[480px] text-base leading-relaxed text-ink-2 lg:text-lg">
-            친구와 모임을 만들고, 회의록과 약속을 같이 쓰고, 토픽에서 이야기해요
+            장소 정하기부터 함께 보는 일정과 메모까지, 모임의 모든 일을 한곳에서 해결해요
           </p>
 
           {loginError && (
