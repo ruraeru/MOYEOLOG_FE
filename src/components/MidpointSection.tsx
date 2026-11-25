@@ -81,6 +81,10 @@ export default function MidpointSection({
   const chosenLng = anchor?.longitude ?? confirmedStation?.longitude ?? savedPlace?.longitude ?? null;
   const hasChosen = !!data?.center && chosenLat != null && chosenLng != null;
 
+  // 역이 아닌 곳(추천 장소 등)으로 장소가 정해졌으면 지하철역 목록은 접어 둔다. 사용자가 누르면 그 선택을 따른다.
+  const [stationsToggle, setStationsToggle] = useState<boolean | null>(null);
+  const stationsOpen = stationsToggle ?? !(confirmedName && !confirmedStation);
+
   // 일정 시작 시각의 그 역 날씨. 예보 범위(10일) 밖이거나 못 받으면 null → 기본 순서로 추천한다
   const { data: forecast, isLoading: isWeatherLoading } = usePlaceWeather(hasChosen ? chosenLat : null, hasChosen ? chosenLng : null);
   const weather = forecast ? weatherAt(forecast, startTime) : null;
@@ -147,6 +151,7 @@ export default function MidpointSection({
       const picked = { name: rec.name.slice(0, 255), latitude: Number(rec.y), longitude: Number(rec.x) };
       apply(await midpointApi.confirm(scheduleId, picked, session));
       setAnchor(base);
+      setStationsToggle(null);
       onLocationChange?.(picked);
       toast.success('일정 장소를 정했어요');
     });
@@ -290,7 +295,23 @@ export default function MidpointSection({
         <p className="mt-3 text-[13px] text-ink-3">가운데 근처에서 지하철역을 찾지 못했어요</p>
       ) : (
         <div className="mt-3">
-          <p className="text-[13px] text-ink-3">가운데에서 가까운 지하철역</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] text-ink-3">
+              가운데에서 가까운 지하철역{!stationsOpen && <> <span className="stamp">{stations.items.length}</span>곳</>}
+            </p>
+            {(!stationsOpen || stationsToggle !== null || (confirmedName && !confirmedStation)) && (
+              <button
+                type="button"
+                onClick={() => setStationsToggle(!stationsOpen)}
+                aria-expanded={stationsOpen}
+                className="btn-ghost btn-sm"
+              >
+                {stationsOpen ? '접기' : '펼치기'}
+              </button>
+            )}
+          </div>
+          {stationsOpen && (
+          <>
           <ul className="mt-1 divide-y divide-line rounded-lg border border-line">
             {stations.items.map((station, index) => (
               <li key={station.id} className="flex items-center gap-2 px-3 py-2">
@@ -328,6 +349,8 @@ export default function MidpointSection({
             ))}
           </ul>
           {!data.canConfirm && <p className="mt-1.5 text-[13px] text-ink-3">장소는 일정을 만든 사람이 정해요</p>}
+          </>
+          )}
         </div>
       )}
 
