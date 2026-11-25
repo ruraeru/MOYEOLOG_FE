@@ -1,0 +1,33 @@
+import { Cloud, CloudHail, CloudRain, CloudSnow, CloudSun, Sun, type LucideIcon } from 'lucide-react';
+import { weatherText, type Sky, type WeatherAt } from '@/lib/weather';
+
+const ICONS: Record<Sky, LucideIcon> = {
+  CLEAR: Sun,
+  PARTLY: CloudSun,
+  CLOUDY: Cloud,
+  RAIN: CloudRain,
+  SLEET: CloudHail,
+  SNOW: CloudSnow,
+};
+
+/** 날씨 아이콘 하나. 설명은 title·aria-label 로 준다. */
+export function WeatherIcon({ weather, size = 14, className = '' }: { weather: WeatherAt; size?: number; className?: string }) {
+  const Icon = ICONS[weather.sky];
+  const text = weatherText(weather);
+  return (
+    <span role="img" aria-label={`날씨 ${text}`} title={text} className={`inline-flex shrink-0 text-ink-3 ${className}`}>
+      <Icon size={size} strokeWidth={1.5} aria-hidden />
+    </span>
+  );
+}
+
+/** 아이콘 + '비 8° · 강수 70%'. */
+export function WeatherLine({ weather, className = '' }: { weather: WeatherAt; className?: string }) {
+  const Icon = ICONS[weather.sky];
+  return (
+    <span className={`inline-flex items-center gap-1.5 tabular-nums ${className}`}>
+      <Icon size={14} strokeWidth={1.5} aria-hidden className="shrink-0 text-ink-3" />
+      {weatherText(weather)}
+    </span>
+  );
+}

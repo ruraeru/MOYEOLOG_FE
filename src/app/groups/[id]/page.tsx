@@ -25,6 +25,8 @@ import { type TopicResponse } from '@/types/topic';
 import { getApiErrorMessage } from '@/lib/axios';
 import { stripMarkdown, getThemeColors } from '@/lib/utils';
 import { useTimeFormat } from '@/lib/schedule-utils';
+import { useScheduleWeather } from '@/hooks/useWeather';
+import { WeatherIcon } from '@/components/Weather';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format, isSameDay, parseISO } from 'date-fns';
@@ -349,12 +351,15 @@ function GroupDetailContent() {
 
   const groupColor = getThemeColors(group?.colorTheme).hex;
 
+  const weatherOf = useScheduleWeather(schedules);
   const getTileContent = ({ date, view }: { date: Date, view: string }) => {
     if (view !== 'month') return null;
     const daySchedules = schedules.filter(s => isSameDay(parseISO(s.startTime), date));
     if (daySchedules.length === 0) return null;
+    const weather = daySchedules.map(weatherOf).find(Boolean);
     return (
       <div className="mt-1 flex w-full flex-col gap-0.5 overflow-hidden">
+        {weather && <WeatherIcon weather={weather} className="absolute right-1.5 top-1.5 md:right-2.5 md:top-2.5" />}
         {daySchedules.slice(0, 2).map(s => (
           <div key={s.id} className="flex w-full min-w-0 items-center gap-1 text-left text-[11px] leading-4 text-ink-2">
             <span aria-hidden className="h-3 w-[3px] shrink-0 rounded-full bg-group" />
