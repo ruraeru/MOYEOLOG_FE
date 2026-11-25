@@ -19,7 +19,7 @@ import {
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { groupTopicApi } from '@/lib/group-topic-api';
-import { type ScheduleResponse } from '@/lib/schedule-api';
+import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -356,11 +356,11 @@ function GroupDetailContent() {
         {daySchedules.slice(0, 2).map(s => (
           <div
             key={s.id}
-            title={s.departureNeeded ? '출발지 미입력' : undefined}
-            className={`flex w-full min-w-0 items-center gap-1 text-left text-[11px] leading-4 ${s.departureNeeded ? 'rounded bg-negative-soft px-0.5 text-negative' : 'text-ink-2'}`}
+            title={scheduleAlert(s) ?? undefined}
+            className={`flex w-full min-w-0 items-center gap-1 text-left text-[11px] leading-4 ${scheduleAlert(s) ? 'rounded bg-negative-soft px-0.5 text-negative' : 'text-ink-2'}`}
           >
             <span aria-hidden className="h-3 w-[3px] shrink-0 rounded-full bg-group" />
-            <span className={`hidden shrink-0 tabular-nums sm:inline ${s.departureNeeded ? '' : 'text-ink-3'}`}>{format(parseISO(s.startTime), tf)}</span>
+            <span className={`hidden shrink-0 tabular-nums sm:inline ${scheduleAlert(s) ? '' : 'text-ink-3'}`}>{format(parseISO(s.startTime), tf)}</span>
             <span className="truncate">{s.title}</span>
           </div>
         ))}

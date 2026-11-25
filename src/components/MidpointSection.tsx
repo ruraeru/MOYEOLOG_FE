@@ -9,6 +9,10 @@ import { getApiErrorMessage } from '@/lib/axios';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { useAlert } from '@/hooks/useAlert';
 import { useLivePollMs } from '@/lib/live';
+import { usePlaceWeather } from '@/hooks/useWeather';
+import { recommendFor, weatherAt } from '@/lib/weather';
+import { WeatherLine } from './Weather';
+import ImageWithFallback from './ImageWithFallback';
 
 /** 가운데 좌표 근처에서 찾은 지하철역. 같은 역의 여러 노선은 한 줄로 묶는다 */
 interface Station {
@@ -26,16 +30,23 @@ const STATION_LIMIT = 5;
  * 일정의 중간 지점 찾기.
  * 각자 출발지를 적으면 서버가 가운데 좌표를 주고, 여기서 Kakao 지도 SDK 로 그 근처 지하철역을 찾아 보여 준다.
  * 일정을 만든 사람은 역 하나를 골라 일정 장소로 정한다.
+ * 장소가 정해지면 그 역 근처의 추천 장소를 일정 시작 시각의 날씨에 맞춰 아래에 보여 준다.
  * 대상이 한 명뿐인 일정(혼자인 모임, 참여자가 나뿐인 일정)에서는 아무것도 그리지 않는다.
  * 그래서 바깥 행(아이콘)까지 같이 숨길 수 있게 wrap 으로 감싸서 그린다.
  */
 export default function MidpointSection({
   scheduleId,
+  startTime,
+  place,
   onLocationChange,
   onDepartureChange,
   wrap = (content) => content,
 }: {
   scheduleId: string;
+  /** 일정 시작 시각('yyyy-MM-ddTHH:mm:ss'). 그 시각의 날씨로 추천 순서를 정한다 */
+  startTime: string;
+  /** 지금 일정에 적힌 장소 (좌표가 있을 때만 추천에 쓴다) */
+  place?: { name?: string | null; latitude?: number | null; longitude?: number | null };
   onLocationChange?: (place: MidpointPlace) => void;
   /** 내 출발지를 적거나 지웠을 때 (일정 목록의 '출발지 미입력' 표시를 다시 불러오게) */
   onDepartureChange?: () => void;
@@ -57,9 +68,39 @@ export default function MidpointSection({
   const [editing, setEditing] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [busy, setBusy] = useState(false);
-  const { searchResults, isSearching, searchPlaces, clearSearchResults } = usePlaceSearch();
+  const { searchResults, isSearching, recommendations, isRecommending, searchPlaces, fetchRecommendations, clearSearchResults } = usePlaceSearch();
 
   const stations = useStations(data?.center ?? null);
+
+  // 추천의 기준점: 정해진 장소가 추천 목록의 역이면 그 역, 아니면 일정에 저장된 좌표.
+  // 추천 장소를 일정 장소로 정한 직후에는 목록이 바뀌지 않게 방금까지의 기준 역(anchor)을 그대로 둔다.
+  const [anchor, setAnchor] = useState<MidpointPlace | null>(null);
+  const confirmedName = data?.location?.trim() || '';
+  const confirmedStation = confirmedName ? stations.items.find((s) => s.name === confirmedName) : undefined;
+  const savedPlace = confirmedName && place?.name === confirmedName ? place : undefined;
+  const baseName = anchor?.name ?? confirmedName;
+  const chosenLat = anchor?.latitude ?? confirmedStation?.latitude ?? savedPlace?.latitude ?? null;
+  const chosenLng = anchor?.longitude ?? confirmedStation?.longitude ?? savedPlace?.longitude ?? null;
+  const hasChosen = !!data?.center && chosenLat != null && chosenLng != null;
+
+  // 역이 아닌 곳(추천 장소 등)으로 장소가 정해졌으면 지하철역 목록은 접어 둔다. 사용자가 누르면 그 선택을 따른다.
+  const [stationsToggle, setStationsToggle] = useState<boolean | null>(null);
+  const pickedNonStation = !!confirmedName && !confirmedStation;
+  const stationsOpen = stationsToggle ?? !pickedNonStation;
+  // 추천 장소 목록도 같다: 추천 장소 등으로 정해졌으면 접어 두고, 누르면 그 선택을 따른다.
+  const [recsToggle, setRecsToggle] = useState<boolean | null>(null);
+  const recsOpen = recsToggle ?? !pickedNonStation;
+
+  // 일정 시작 시각의 그 역 날씨. 예보 범위(10일) 밖이거나 못 받으면 null → 기본 순서로 추천한다
+  const { data: forecast, isLoading: isWeatherLoading } = usePlaceWeather(hasChosen ? chosenLat : null, hasChosen ? chosenLng : null);
+  const weather = forecast ? weatherAt(forecast, startTime) : null;
+  const recommend = recommendFor(weather);
+  const categoryKey = recommend.categories.join(',');
+
+  useEffect(() => {
+    if (!hasChosen || isWeatherLoading || chosenLat == null || chosenLng == null) return;
+    fetchRecommendations(chosenLat, chosenLng, categoryKey.split(','));
+  }, [hasChosen, chosenLat, chosenLng, isWeatherLoading, categoryKey, fetchRecommendations]);
 
   const apply = (next: MidpointResponse) => queryClient.setQueryData(queryKey, next);
 
@@ -101,7 +142,26 @@ export default function MidpointSection({
     await run(async () => {
       const place = { name: station.name, latitude: station.latitude, longitude: station.longitude };
       apply(await midpointApi.confirm(scheduleId, place, session));
+      setAnchor(null);
+      setStationsToggle(null);
+      setRecsToggle(null);
       onLocationChange?.(place);
+      toast.success('일정 장소를 정했어요');
+    });
+  };
+
+  /** 추천 장소를 일정 장소로 정한다. 추천 목록은 지금 기준 역 그대로 둔다 */
+  const confirmRecommendation = async (rec: { name: string; y: string; x: string }) => {
+    if (chosenLat == null || chosenLng == null) return;
+    if (!(await confirm(`일정 장소를 ${rec.name}(으)로 정할까요?`))) return;
+    const base = { name: baseName, latitude: chosenLat, longitude: chosenLng };
+    await run(async () => {
+      const picked = { name: rec.name.slice(0, 255), latitude: Number(rec.y), longitude: Number(rec.x) };
+      apply(await midpointApi.confirm(scheduleId, picked, session));
+      setAnchor(base);
+      setStationsToggle(null);
+      setRecsToggle(null);
+      onLocationChange?.(picked);
       toast.success('일정 장소를 정했어요');
     });
   };
@@ -244,7 +304,23 @@ export default function MidpointSection({
         <p className="mt-3 text-[13px] text-ink-3">가운데 근처에서 지하철역을 찾지 못했어요</p>
       ) : (
         <div className="mt-3">
-          <p className="text-[13px] text-ink-3">가운데에서 가까운 지하철역</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[13px] text-ink-3">
+              가운데에서 가까운 지하철역{!stationsOpen && <> <span className="stamp">{stations.items.length}</span>곳</>}
+            </p>
+            {(!stationsOpen || stationsToggle !== null || pickedNonStation) && (
+              <button
+                type="button"
+                onClick={() => setStationsToggle(!stationsOpen)}
+                aria-expanded={stationsOpen}
+                className="btn-ghost btn-sm"
+              >
+                {stationsOpen ? '접기' : '펼치기'}
+              </button>
+            )}
+          </div>
+          {stationsOpen && (
+          <>
           <ul className="mt-1 divide-y divide-line rounded-lg border border-line">
             {stations.items.map((station, index) => (
               <li key={station.id} className="flex items-center gap-2 px-3 py-2">
@@ -282,6 +358,77 @@ export default function MidpointSection({
             ))}
           </ul>
           {!data.canConfirm && <p className="mt-1.5 text-[13px] text-ink-3">장소는 일정을 만든 사람이 정해요</p>}
+          </>
+          )}
+        </div>
+      )}
+
+      {/* 정해진 역 근처 추천 장소 (날씨 기반) */}
+      {hasChosen && (isRecommending || recommendations.length > 0) && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 text-[13px] text-ink-3">
+              <span className="text-ink-2">{baseName} 근처 추천 장소</span>
+              {!recsOpen && !isRecommending && <> <span className="stamp">{recommendations.length}</span>곳</>}
+              {recsOpen && recommend.reason && <span className="ml-2">{recommend.reason}</span>}
+            </p>
+            {(!recsOpen || recsToggle !== null || pickedNonStation) && (
+              <button
+                type="button"
+                onClick={() => setRecsToggle(!recsOpen)}
+                aria-expanded={recsOpen}
+                className="btn-ghost btn-sm shrink-0"
+              >
+                {recsOpen ? '접기' : '펼치기'}
+              </button>
+            )}
+          </div>
+          {!recsOpen ? null : (
+          <>
+          {weather && <WeatherLine weather={weather} className="mt-1 text-[13px] text-ink-2" />}
+          {isRecommending ? (
+            <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-3">
+              <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> 추천 장소를 찾는 중
+            </p>
+          ) : (
+            <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
+              {recommendations.map((rec, index) => (
+                <li key={`${rec.id}-${index}`} className="flex items-center gap-3 px-3 py-2">
+                  <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-raised">
+                    <ImageWithFallback src={rec.image} alt="" fill containerClassName="w-full h-full" className="object-cover" unoptimized />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-display text-[15px] text-ink">{rec.name}</span>
+                    <span className="block truncate text-[13px] text-ink-3">
+                      {rec.category}
+                      {rec.distance && <> · 역에서 <span className="stamp">{rec.distance}</span></>}
+                    </span>
+                  </span>
+                  <a
+                    href={`https://map.kakao.com/link/map/${rec.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-icon size-7 shrink-0"
+                    title="카카오맵에서 보기"
+                  >
+                    <ExternalLink size={14} strokeWidth={1.5} />
+                  </a>
+                  {data.canConfirm && (
+                    <button
+                      type="button"
+                      onClick={() => confirmRecommendation(rec)}
+                      disabled={busy || data.location === rec.name}
+                      className="btn-secondary btn-sm shrink-0"
+                    >
+                      {data.location === rec.name ? '정한 장소' : '여기로 정하기'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          </>
+          )}
         </div>
       )}
     </div>

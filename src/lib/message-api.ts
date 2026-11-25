@@ -53,6 +53,13 @@ export const messageApi = {
     });
   },
 
+  /** 대화 지우기: 지금까지의 메시지를 내 쪽에서만 안 보이게 한다 (상대에게는 남는다) */
+  async deleteConversation(friendId: string, session: Session | null): Promise<void> {
+    await axiosInstance.delete(`/api/messages/${encodeURIComponent(friendId)}`, {
+      headers: getAuthHeaders(session),
+    });
+  },
+
   async getUnreadCount(session: Session | null): Promise<number> {
     const response = await axiosInstance.get<{ count: number }>('/api/messages/unread-count', {
       headers: getAuthHeaders(session),

@@ -37,7 +37,7 @@ import {
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useSession } from 'next-auth/react';
-import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
+import { scheduleApi, scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -75,7 +75,7 @@ const VIEW_ITEMS: { key: ScheduleView; label: string }[] = [
 ];
 
 
-/** 출발지를 아직 적지 않은 일정의 칸: 옅은 붉은 바탕 + 붉은 글자 */
+/** 내가 할 일이 남은 일정(출발지 미입력, 내가 만들었는데 장소 미정)의 칸: 옅은 붉은 바탕 + 붉은 글자 */
 const DEPARTURE_NEEDED_BOX = 'bg-negative-soft text-negative hover:bg-negative-soft/70';
 export default function SchedulePage() {
   const { data: session } = useSession();
@@ -480,8 +480,8 @@ function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, weather
               e.stopPropagation();
               onScheduleClick(e, s);
             }}
-            title={`${s.title} · ${formatScheduleRange(s, tf)}${s.departureNeeded ? ' · 출발지 미입력' : ''}`}
-            className={`${idx === 2 ? 'hidden md:flex' : 'flex'} items-center gap-1 md:gap-1.5 h-5 md:h-6 px-1 md:px-1.5 rounded-md text-[11px] md:text-xs cursor-pointer transition-colors duration-150 ease-out shrink-0 min-w-0 ${s.departureNeeded ? DEPARTURE_NEEDED_BOX : 'bg-raised text-ink hover:bg-line'}`}
+            title={`${s.title} · ${formatScheduleRange(s, tf)}${scheduleAlert(s) ? ` · ${scheduleAlert(s)}` : ''}`}
+            className={`${idx === 2 ? 'hidden md:flex' : 'flex'} items-center gap-1 md:gap-1.5 h-5 md:h-6 px-1 md:px-1.5 rounded-md text-[11px] md:text-xs cursor-pointer transition-colors duration-150 ease-out shrink-0 min-w-0 ${scheduleAlert(s) ? DEPARTURE_NEEDED_BOX : 'bg-raised text-ink hover:bg-line'}`}
           >
             <Ribbon color={scheduleHex(s, userGroups)} className="h-3" />
             <span className="stamp shrink-0 hidden md:inline">{formatTimeOnDay(s, day, tf)}</span>
@@ -539,14 +539,14 @@ function WeekView({ days, schedules, userGroups, weatherOf, onDayClick, onAddCli
                     key={s.id}
                     type="button"
                     onClick={() => onScheduleClick(s)}
-                    title={`${s.title} · ${formatScheduleRange(s, tf)}${s.departureNeeded ? ' · 출발지 미입력' : ''}`}
-                    className={`w-full text-left flex items-stretch gap-2 rounded-lg px-2 py-1.5 transition-colors duration-150 ease-out ${s.departureNeeded ? DEPARTURE_NEEDED_BOX : 'bg-raised hover:bg-line'}`}
+                    title={`${s.title} · ${formatScheduleRange(s, tf)}${scheduleAlert(s) ? ` · ${scheduleAlert(s)}` : ''}`}
+                    className={`w-full text-left flex items-stretch gap-2 rounded-lg px-2 py-1.5 transition-colors duration-150 ease-out ${scheduleAlert(s) ? DEPARTURE_NEEDED_BOX : 'bg-raised hover:bg-line'}`}
                   >
                     <Ribbon color={scheduleHex(s, userGroups)} className="h-auto" />
                     <span className="flex-1 min-w-0">
                       <span className="stamp block">{formatTimeOnDay(s, day, tf)}</span>
-                      <span className={`block text-[13px] line-clamp-2 break-words ${s.departureNeeded ? '' : 'text-ink'}`}>{s.title}</span>
-                      {s.departureNeeded && <span className="block text-[11px]">출발지 미입력</span>}
+                      <span className={`block text-[13px] line-clamp-2 break-words ${scheduleAlert(s) ? '' : 'text-ink'}`}>{s.title}</span>
+                      {scheduleAlert(s) && <span className="block text-[11px]">{scheduleAlert(s)}</span>}
                     </span>
                   </button>
                 ))}
@@ -621,13 +621,13 @@ function ListView({ currentDate, schedules, userGroups, onAddClick, onScheduleCl
                     key={s.id}
                     type="button"
                     onClick={() => onScheduleClick(s)}
-                    className={`card w-full text-left flex items-center gap-4 px-4 py-3 min-h-16 transition-colors duration-150 ease-out ${s.departureNeeded ? 'bg-negative-soft' : 'hover:bg-raised'}`}
+                    className={`card w-full text-left flex items-center gap-4 px-4 py-3 min-h-16 transition-colors duration-150 ease-out ${scheduleAlert(s) ? 'bg-negative-soft' : 'hover:bg-raised'}`}
                   >
                     <span className="w-14 shrink-0 text-[13px] font-medium tabular-nums text-ink-2">{formatTimeOnDay(s, day, tf)}</span>
                     <Ribbon color={scheduleHex(s, userGroups)} className="h-9" />
                     <span className="flex-1 min-w-0">
                       <span className="block font-display text-base leading-6 text-ink truncate">{s.title}</span>
-                      {s.departureNeeded && <span className="block text-[13px] text-negative">출발지 미입력</span>}
+                      {scheduleAlert(s) && <span className="block text-[13px] text-negative">{scheduleAlert(s)}</span>}
                       <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-ink-3">
                         {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
                         <span className="min-w-0 truncate">

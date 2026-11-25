@@ -8,7 +8,7 @@ import axios from 'axios';
 import { format, isSameDay } from 'date-fns';
 import { useTimeFormat } from '@/lib/schedule-utils';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, User } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, Trash2, User } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { messageApi, MESSAGE_MAX_LENGTH, type ConversationResponse, type MessageResponse } from '@/lib/message-api';
@@ -74,6 +74,8 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
   const [convLoading, setConvLoading] = useState(true);
   const [convError, setConvError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { confirm, toast } = useAlert();
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -107,6 +109,24 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
   }, [fetchConversations]);
   useVisiblePolling(pollConversations, status === 'authenticated' && !convError, POLL_MS);
   useLiveTopics(['messages', 'friends'], pollConversations, status === 'authenticated' && !convError);
+
+  /** 대화 지우기: 내 화면에서만 지운다. 열려 있던 대화면 목록으로 돌아간다 */
+  const handleDelete = async (c: ConversationResponse) => {
+    const ok = await confirm(`${c.friend.nickname}님과의 대화를 지울까요?\n내 화면에서만 지워지고 상대에게는 남아요.`);
+    if (!ok) return;
+    setDeletingId(c.friend.id);
+    try {
+      await messageApi.deleteConversation(c.friend.id, session);
+      setConversations((prev) => prev.map((x) => (x.friend.id === c.friend.id ? { ...x, lastMessage: null, unreadCount: 0 } : x)));
+      refreshUnreadCounts();
+      fetchConversations(true);
+      if (c.friend.id === friendId) router.push('/messages');
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, '대화를 지우지 못했어요.'));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleRead = useCallback((id: string) => {
     setConversations((prev) => prev.map((c) => (c.friend.id === id ? { ...c, unreadCount: 0 } : c)));
@@ -174,11 +194,11 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
                   const last = c.lastMessage;
                   const unreadNow = c.unreadCount > 0;
                   return (
-                    <li key={c.friend.id}>
+                    <li key={c.friend.id} className="flex items-center gap-1">
                       <Link
                         href={`/messages/${c.friend.id}`}
                         aria-current={active ? 'page' : undefined}
-                        className={`flex min-h-16 items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
+                        className={`flex min-h-16 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-3 transition-colors ${
                           active ? 'bg-surface shadow-[inset_0_0_0_1px_var(--line)]' : 'hover:bg-raised'
                         }`}
                       >
@@ -200,6 +220,20 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
                           </span>
                         </span>
                       </Link>
+                      {last && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(c)}
+                          disabled={deletingId === c.friend.id}
+                          className="btn-icon shrink-0 hover:text-negative"
+                          title="대화 지우기"
+                          aria-label={`${c.friend.nickname}님과의 대화 지우기`}
+                        >
+                          {deletingId === c.friend.id
+                            ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
+                            : <Trash2 size={16} strokeWidth={1.5} />}
+                        </button>
+                      )}
                     </li>
                   );
                 })}
