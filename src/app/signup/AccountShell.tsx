@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { Logo } from '@/components/Logo';
 
 /**
  * 로그인 없이 여는 계정 화면(/signup, /verify, /reset-password)의 껍데기.
@@ -9,9 +10,8 @@ export function AccountShell({ title, description, children }: { title: string; 
   return (
     <main className="flex min-h-screen items-start justify-center bg-canvas px-4 py-12 sm:items-center">
       <div className="w-full max-w-[400px]">
-        <Link href="/" className="inline-flex items-center gap-2.5">
-          <span aria-hidden className="h-[22px] w-[3px] rounded-full bg-mark" />
-          <span className="font-display text-2xl leading-none text-ink">모여로그</span>
+        <Link href="/" className="inline-flex items-center">
+          <Logo size={56} />
         </Link>
         <div className="card mt-8 p-6">
           <h1 className="font-display text-2xl leading-8 text-ink">{title}</h1>

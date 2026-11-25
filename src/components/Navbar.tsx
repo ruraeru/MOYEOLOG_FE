@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import ImageWithFallback from './ImageWithFallback';
+import { Logo } from './Logo';
 import { usePathname } from 'next/navigation';
 import {
   Home,
@@ -37,10 +38,9 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-line bg-canvas/95 backdrop-blur supports-[backdrop-filter]:bg-canvas/85">
       <div className="mx-auto flex h-14 w-full items-center justify-between px-4 lg:h-16 lg:px-8">
-        {/* 로고: 주황 띠 + 주아 */}
-        <Link href="/home" className="flex shrink-0 items-center gap-2.5">
-          <span aria-hidden className="h-[18px] w-[3px] rounded-full bg-mark" />
-          <span className="font-display text-[20px] leading-none text-ink lg:text-[22px]">모여로그</span>
+        {/* 로고: 두 줄 "모여 / 로그" 그림 (이름이 그림 안에 있다) */}
+        <Link href="/home" className="flex shrink-0 items-center">
+          <Logo size={40} className="size-9 lg:size-10" />
         </Link>
 
         {/* 가운데 메뉴 (넓은 화면): 글자만, 선택은 주아 + 주황 밑줄 */}
