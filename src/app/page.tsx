@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { safeCallbackPath } from '@/lib/url-safety';
 import { normalizeEmail } from '@/lib/account-api';
 import { Ribbon } from '@/components/ui';
+import { Logo } from '@/components/Logo';
 import { getThemeColors } from '@/lib/utils';
 
 const emptySubscribe = () => () => {};
@@ -97,10 +98,7 @@ export default function LoginPage() {
       <div className="mx-auto grid w-full max-w-[1200px] items-center gap-16 lg:grid-cols-[minmax(0,1fr)_620px]">
         {/* 왼쪽: 로고, 제목, 설명, 카카오 버튼 */}
         <div className="flex flex-col items-start">
-          <div className="flex items-center gap-2.5">
-            <span aria-hidden className="h-[22px] w-[3px] rounded-full bg-mark" />
-            <span className="font-display text-2xl leading-none text-ink">모여로그</span>
-          </div>
+          <Logo size={56} />
 
           <h1 className="mt-8 font-display text-[36px] leading-[48px] text-ink lg:text-[52px] lg:leading-[64px]">
             모임의 메모와 일정을
