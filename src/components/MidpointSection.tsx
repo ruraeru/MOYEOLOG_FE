@@ -8,6 +8,10 @@ import { midpointApi, type MidpointPlace, type MidpointResponse } from '@/lib/mi
 import { getApiErrorMessage } from '@/lib/axios';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { useAlert } from '@/hooks/useAlert';
+import { usePlaceWeather } from '@/hooks/useWeather';
+import { recommendFor, weatherAt } from '@/lib/weather';
+import { WeatherLine } from './Weather';
+import ImageWithFallback from './ImageWithFallback';
 
 /** 가운데 좌표 근처에서 찾은 지하철역. 같은 역의 여러 노선은 한 줄로 묶는다 */
 interface Station {
@@ -25,16 +29,23 @@ const STATION_LIMIT = 5;
  * 일정의 중간 지점 찾기.
  * 각자 출발지를 적으면 서버가 가운데 좌표를 주고, 여기서 Kakao 지도 SDK 로 그 근처 지하철역을 찾아 보여 준다.
  * 일정을 만든 사람은 역 하나를 골라 일정 장소로 정한다.
+ * 장소가 정해지면 그 역 근처의 추천 장소를 일정 시작 시각의 날씨에 맞춰 아래에 보여 준다.
  * 대상이 한 명뿐인 일정(혼자인 모임, 참여자가 나뿐인 일정)에서는 아무것도 그리지 않는다.
  * 그래서 바깥 행(아이콘)까지 같이 숨길 수 있게 wrap 으로 감싸서 그린다.
  */
 export default function MidpointSection({
   scheduleId,
+  startTime,
+  place,
   onLocationChange,
   onDepartureChange,
   wrap = (content) => content,
 }: {
   scheduleId: string;
+  /** 일정 시작 시각('yyyy-MM-ddTHH:mm:ss'). 그 시각의 날씨로 추천 순서를 정한다 */
+  startTime: string;
+  /** 지금 일정에 적힌 장소 (좌표가 있을 때만 추천에 쓴다) */
+  place?: { name?: string | null; latitude?: number | null; longitude?: number | null };
   onLocationChange?: (place: MidpointPlace) => void;
   /** 내 출발지를 적거나 지웠을 때 (일정 목록의 '출발지 미입력' 표시를 다시 불러오게) */
   onDepartureChange?: () => void;
@@ -55,9 +66,27 @@ export default function MidpointSection({
   const [editing, setEditing] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [busy, setBusy] = useState(false);
-  const { searchResults, isSearching, searchPlaces, clearSearchResults } = usePlaceSearch();
+  const { searchResults, isSearching, recommendations, isRecommending, searchPlaces, fetchRecommendations, clearSearchResults } = usePlaceSearch();
 
   const stations = useStations(data?.center ?? null);
+
+  // 정해진 중간 지점: 추천 목록의 역이면 그 역 좌표, 목록에서 빠졌으면 일정에 저장된 좌표
+  const confirmedName = data?.location?.trim() || '';
+  const confirmedStation = confirmedName ? stations.items.find((s) => s.name === confirmedName) : undefined;
+  const chosenLat = confirmedStation?.latitude ?? (confirmedName && place?.name === confirmedName ? place.latitude ?? null : null);
+  const chosenLng = confirmedStation?.longitude ?? (confirmedName && place?.name === confirmedName ? place.longitude ?? null : null);
+  const hasChosen = !!data?.center && chosenLat != null && chosenLng != null;
+
+  // 일정 시작 시각의 그 역 날씨. 예보 범위(10일) 밖이거나 못 받으면 null → 기본 순서로 추천한다
+  const { data: forecast, isLoading: isWeatherLoading } = usePlaceWeather(hasChosen ? chosenLat : null, hasChosen ? chosenLng : null);
+  const weather = forecast ? weatherAt(forecast, startTime) : null;
+  const recommend = recommendFor(weather);
+  const categoryKey = recommend.categories.join(',');
+
+  useEffect(() => {
+    if (!hasChosen || isWeatherLoading || chosenLat == null || chosenLng == null) return;
+    fetchRecommendations(chosenLat, chosenLng, categoryKey.split(','));
+  }, [hasChosen, chosenLat, chosenLng, isWeatherLoading, categoryKey, fetchRecommendations]);
 
   const apply = (next: MidpointResponse) => queryClient.setQueryData(queryKey, next);
 
@@ -280,6 +309,47 @@ export default function MidpointSection({
             ))}
           </ul>
           {!data.canConfirm && <p className="mt-1.5 text-[13px] text-ink-3">장소는 일정을 만든 사람이 정해요</p>}
+        </div>
+      )}
+
+      {/* 정해진 역 근처 추천 장소 (날씨 기반) */}
+      {hasChosen && (isRecommending || recommendations.length > 0) && (
+        <div className="mt-4">
+          <p className="text-[13px] text-ink-3">
+            <span className="text-ink-2">{confirmedName} 근처 추천 장소</span>
+            {recommend.reason && <span className="ml-2">{recommend.reason}</span>}
+          </p>
+          {weather && <WeatherLine weather={weather} className="mt-1 text-[13px] text-ink-2" />}
+          {isRecommending ? (
+            <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-3">
+              <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> 추천 장소를 찾는 중
+            </p>
+          ) : (
+            <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
+              {recommendations.map((rec, index) => (
+                <li key={`${rec.id}-${index}`}>
+                  <a
+                    href={`https://map.kakao.com/link/map/${rec.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-raised"
+                  >
+                    <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-raised">
+                      <ImageWithFallback src={rec.image} alt="" fill containerClassName="w-full h-full" className="object-cover" unoptimized />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[15px] text-ink">{rec.name}</span>
+                      <span className="block truncate text-[13px] text-ink-3">
+                        {rec.category}
+                        {rec.distance && <> · 역에서 <span className="stamp">{rec.distance}</span></>}
+                      </span>
+                    </span>
+                    <ExternalLink size={14} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>
