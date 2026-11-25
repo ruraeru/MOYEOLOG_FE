@@ -319,3 +319,20 @@ body {
   animation: scale-in 0.2s var(--ease) forwards;
 }
 
+
+/* ─── 모바일: 입력칸을 누를 때 화면이 확대되지 않게 ───────────────────────────
+   iOS Safari 는 글자가 16px 보다 작은 입력칸에 포커스가 가면 화면을 확대한다.
+   터치 기기에서만 입력 글자를 16px 로 올린다(데스크톱은 14px 그대로, 손가락 확대는 막지 않는다).
+   레이어 밖에 둬서 text-sm 같은 유틸리티보다 앞선다. 이미 16px 보다 큰 입력칸(제목 등)은 건드리지 않는다. */
+@media (pointer: coarse) {
+  :is(input, textarea, select):not(:is(.text-lg, .text-xl, .text-2xl, .text-3xl)) {
+    font-size: 16px !important;
+  }
+
+  /* 마크다운 편집기는 입력칸(textarea)과 그 아래 색칠용 글자(pre)가 겹쳐 있어 둘의 크기·줄 높이가 같아야 한다 */
+  .w-md-editor .w-md-editor-text,
+  .w-md-editor .w-md-editor-text-pre > code {
+    font-size: 16px !important;
+    line-height: 22px !important;
+  }
+}

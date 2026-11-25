@@ -302,16 +302,17 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
 
           {/* 시간 */}
           <Row icon={Clock} label="시간">
+            {/* 모바일은 입력 글자가 16px 라(확대 방지, globals.css) 날짜 칸을 넓히고 안쪽 여백을 줄인다 */}
             <div className="space-y-2">
-              <div className="grid grid-cols-[32px_minmax(0,1fr)_minmax(128px,40%)] items-center gap-2">
+              <div className="grid grid-cols-[32px_minmax(0,1fr)_116px] items-center gap-2 md:grid-cols-[32px_minmax(0,1fr)_minmax(128px,40%)]">
                 <span className="text-[13px] text-ink-3">시작</span>
-                <input type="date" aria-label="시작 날짜" value={date} onChange={(e) => changeStart(e.target.value, time)} className="form-input tabular-nums" />
-                <input type="time" aria-label="시작 시간" value={time} onChange={(e) => changeStart(date, e.target.value)} className="form-input tabular-nums" />
+                <input type="date" aria-label="시작 날짜" value={date} onChange={(e) => changeStart(e.target.value, time)} className="form-input px-2 tabular-nums md:px-3" />
+                <input type="time" aria-label="시작 시간" value={time} onChange={(e) => changeStart(date, e.target.value)} className="form-input px-2 tabular-nums md:px-3" />
               </div>
-              <div className="grid grid-cols-[32px_minmax(0,1fr)_minmax(128px,40%)] items-center gap-2">
+              <div className="grid grid-cols-[32px_minmax(0,1fr)_116px] items-center gap-2 md:grid-cols-[32px_minmax(0,1fr)_minmax(128px,40%)]">
                 <span className="text-[13px] text-ink-3">종료</span>
-                <input type="date" aria-label="종료 날짜" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} className="form-input tabular-nums" />
-                <input type="time" aria-label="종료 시간" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="form-input tabular-nums" />
+                <input type="date" aria-label="종료 날짜" value={endDate} min={date} onChange={(e) => setEndDate(e.target.value)} className="form-input px-2 tabular-nums md:px-3" />
+                <input type="time" aria-label="종료 시간" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="form-input px-2 tabular-nums md:px-3" />
               </div>
             </div>
           </Row>
