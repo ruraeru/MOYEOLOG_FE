@@ -19,10 +19,11 @@
   --positive: #4f7a3a;
   --negative: #c2410c;
   --negative-soft: #fdf0ea;
-  /* 날씨 아이콘 색. 흰 바탕에서 3:1 이상. 흐림은 --ink-3 를 그대로 쓴다 */
-  --wx-sun: #bf7d0c;     /* 맑음, 구름 많음 */
-  --wx-rain: #3f6f99;    /* 비, 비 또는 눈 */
-  --wx-snow: #3f93a8;    /* 눈 */
+  /* 날씨 아이콘 색: 한눈에 띄게 선명한 색 + 굵은 선 + 옅은 채움(Weather.tsx). 흐림은 --ink-3 를 그대로 쓴다.
+     해 색은 흰 바탕 대비가 3:1 에 못 미친다. 아이콘 전용이고 뜻은 title·aria-label 과 옆 글자로도 전한다 */
+  --wx-sun: #f59f00;     /* 맑음, 구름 많음 */
+  --wx-rain: #1c7ed6;    /* 비, 비 또는 눈 */
+  --wx-snow: #0cb0c9;    /* 눈 */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
