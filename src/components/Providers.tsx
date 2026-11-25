@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import AlertContainer from './AlertContainer';
 import SessionGuard from './SessionGuard';
+import LiveEvents from './LiveEvents';
 import { getApiErrorStatus } from '@/lib/axios';
 
 // 세션을 주기적으로 다시 읽어 다른 기기·탭에서의 로그아웃이나 토큰 만료를 알아챕니다 (초 단위).
@@ -59,6 +60,7 @@ export default function Providers({
     <SessionProvider refetchInterval={SESSION_REFETCH_INTERVAL_S} refetchOnWindowFocus>
       <SessionGuard />
       <QueryClientProvider client={queryClient}>
+        <LiveEvents />
         <AppShell bottomNav={bottomNav}>{children}</AppShell>
         <AlertContainer />
         <ReactQueryDevtools initialIsOpen={false} />

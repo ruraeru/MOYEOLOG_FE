@@ -85,7 +85,7 @@ function GroupsLayoutContent({ children }: { children: React.ReactNode }) {
       <GroupCreateModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={refreshGroups}
+        onSuccess={() => refreshGroups()}
         onOpenGroup={(id) => router.push(`/groups/${id}`)}
       />
       <InviteCodeModal open={isCodeOpen} onClose={() => setIsCodeOpen(false)} />

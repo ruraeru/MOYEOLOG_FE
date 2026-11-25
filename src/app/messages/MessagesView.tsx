@@ -19,6 +19,10 @@ import { useAlert } from '@/hooks/useAlert';
 import { initialOf } from '@/lib/utils';
 import { EmptyState } from '@/components/ui';
 
+import { useVisiblePolling } from '@/hooks/useVisiblePolling';
+import { useLiveTopics } from '@/lib/live';
+
+// SSE 가 끊겨 있을 때의 주기. 붙어 있으면 메시지 보내기·읽음이 `messages` 토픽으로 와서 60초 안전망으로 늘어난다
 const POLL_MS = 5000;
 const PAGE_SIZE = 50;
 
@@ -39,27 +43,6 @@ const mergeMessages = (a: MessageResponse[], b: MessageResponse[]) => {
   for (const m of a) map.set(m.id, m);
   for (const m of b) map.set(m.id, m);
   return [...map.values()].sort((x, y) => (x.createdAt < y.createdAt ? -1 : x.createdAt > y.createdAt ? 1 : 0));
-};
-
-const useVisiblePolling = (fn: () => void, enabled: boolean) => {
-  const fnRef = useRef(fn);
-  useEffect(() => {
-    fnRef.current = fn;
-  }, [fn]);
-  useEffect(() => {
-    if (!enabled) return;
-    const id = setInterval(() => {
-      if (document.visibilityState === 'visible') fnRef.current();
-    }, POLL_MS);
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') fnRef.current();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [enabled]);
 };
 
 function Avatar({ src, name, className = 'size-10' }: { src?: string | null; name: string; className?: string }) {
@@ -122,7 +105,8 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
   const pollConversations = useCallback(() => {
     fetchConversations(true);
   }, [fetchConversations]);
-  useVisiblePolling(pollConversations, status === 'authenticated' && !convError);
+  useVisiblePolling(pollConversations, status === 'authenticated' && !convError, POLL_MS);
+  useLiveTopics(['messages', 'friends'], pollConversations, status === 'authenticated' && !convError);
 
   const handleRead = useCallback((id: string) => {
     setConversations((prev) => prev.map((c) => (c.friend.id === id ? { ...c, unreadCount: 0 } : c)));
@@ -347,7 +331,8 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const poll = useCallback(() => {
     fetchLatest(false);
   }, [fetchLatest]);
-  useVisiblePolling(poll, !error);
+  useVisiblePolling(poll, !error, POLL_MS);
+  useLiveTopics(['messages'], poll, !error);
 
   const loadOlder = async () => {
     if (loadingOlder || messages.length === 0) return;

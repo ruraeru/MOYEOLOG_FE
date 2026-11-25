@@ -42,6 +42,7 @@ import '@uiw/react-markdown-preview/markdown.css';
 import { initialOf } from '@/lib/utils';
 import { EmptyState } from './ui';
 import { GroupAvatar, groupStyle } from './groups/GroupIdentity';
+import { useLivePollMs } from '@/lib/live';
 
 const EdMarkdown = dynamic(
   () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
@@ -120,6 +121,7 @@ export default function GroupTopicDetailModal({
   const router = useRouter();
   const { confirm, toast } = useAlert();
   const queryClient = useQueryClient();
+  const pollMs = useLivePollMs(5000);
   const [commentInput, setCommentInput] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -156,7 +158,8 @@ export default function GroupTopicDetailModal({
     queryKey: ['topic', topicId],
     queryFn: () => groupTopicApi.getById(topicId!, session),
     enabled: !!topicId && !!session && isOpen,
-    refetchInterval: (query) => (query.state.error ? false : 5000),
+    // 토픽·댓글 변경은 `group:{id}` 토픽으로 와서 LiveEvents 가 무효화한다. 폴링은 SSE 가 끊겨 있을 때 5초, 붙어 있으면 60초 안전망
+    refetchInterval: (query) => (query.state.error ? false : pollMs),
     retry: (count, error) => {
       const status = statusOf(error);
       if (status === 403 || status === 404) return false;

@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { create } from 'zustand';
 import { axiosInstance, getAuthHeaders } from './axios';
 import { messageApi } from './message-api';
+import { LIVE_POLL_MS, onVisibleAgain, useLiveStore } from './live';
 
 export type NotificationType =
   | 'FRIEND_REQUEST'
@@ -64,6 +65,7 @@ export const safeNotificationLink = (link: string | null | undefined): string | 
 };
 
 // ── 헤더·하단 내비 배지: 알림 + 메시지 안 읽은 수 (30초 폴링, 여러 컴포넌트가 하나의 타이머를 공유) ──
+// 실시간 갱신(SSE)이 붙어 있으면 `notifications`·`messages` 토픽으로 바로 갱신되고(LiveEvents) 폴링은 60초 안전망이 된다.
 
 const POLL_INTERVAL_MS = 30 * 1000;
 
@@ -97,23 +99,34 @@ export async function refreshUnreadCounts(): Promise<void> {
   }
 }
 
-const onVisible = () => {
-  if (document.visibilityState === 'visible') refreshUnreadCounts();
-};
+let offVisible: (() => void) | null = null;
+let offLive: (() => void) | null = null;
+
+function startTimer() {
+  if (timer) clearInterval(timer);
+  const ms = useLiveStore.getState().connected ? Math.max(POLL_INTERVAL_MS, LIVE_POLL_MS) : POLL_INTERVAL_MS;
+  timer = setInterval(() => {
+    if (document.visibilityState === 'visible') refreshUnreadCounts();
+  }, ms);
+}
 
 function startPolling() {
   if (timer) return;
   refreshUnreadCounts();
-  timer = setInterval(() => {
-    if (document.visibilityState === 'visible') refreshUnreadCounts();
-  }, POLL_INTERVAL_MS);
-  document.addEventListener('visibilitychange', onVisible);
+  startTimer();
+  // 탭 복귀: SSE 가 3초 안에 다시 붙으면 재접속 새로 고침이 배지도 갱신하므로 겹쳐 부르지 않는다
+  offVisible = onVisibleAgain(refreshUnreadCounts);
+  offLive = useLiveStore.subscribe((s, prev) => {
+    if (s.connected !== prev.connected) startTimer();
+  });
 }
 
 function stopPolling() {
   if (timer) clearInterval(timer);
   timer = null;
-  document.removeEventListener('visibilitychange', onVisible);
+  offVisible?.();
+  offLive?.();
+  offVisible = offLive = null;
 }
 
 /** 로그인 상태에서 안 읽은 알림·메시지 수를 돌려줍니다. */

@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { useLiveTopics } from '@/lib/live';
 
 interface GroupModalContextType {
   isModalOpen: boolean;
@@ -12,7 +13,8 @@ interface GroupModalContextType {
   groups: GroupResponse[];
   groupsLoading: boolean;
   groupsError: boolean;
-  refreshGroups: () => Promise<void>;
+  /** silent: 자동 갱신(실시간·재접속). 실패해도 오류·로딩 표시를 바꾸지 않고 보던 목록을 둔다. */
+  refreshGroups: (opts?: { silent?: boolean }) => Promise<void>;
 }
 
 const GroupModalContext = createContext<GroupModalContextType | undefined>(undefined);
@@ -26,7 +28,7 @@ export function GroupModalProvider({ children }: { children: React.ReactNode }) 
 
   const openCreateModal = () => setIsModalOpen(true);
 
-  const refreshGroups = useCallback(async () => {
+  const refreshGroups = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!session) return;
     try {
       const data = await groupApi.getAll(session);
@@ -34,15 +36,18 @@ export function GroupModalProvider({ children }: { children: React.ReactNode }) 
       setGroupsError(false);
     } catch (error) {
       console.error('Failed to fetch groups:', error);
-      setGroupsError(true);
+      if (!opts.silent) setGroupsError(true);
     } finally {
-      setGroupsLoading(false);
+      if (!opts.silent) setGroupsLoading(false);
     }
   }, [session]);
 
   useEffect(() => {
     refreshGroups();
   }, [refreshGroups]);
+
+  // 실시간 갱신: 가입·탈퇴·내보내짐·수정·삭제를 사이드바 목록에 바로 반영한다
+  useLiveTopics(['groups'], () => refreshGroups({ silent: true }), !!session);
 
   return (
     <GroupModalContext.Provider

@@ -47,6 +47,8 @@ import { TopicCard } from '@/components/groups/TopicCard';
 import { GroupModals } from '@/components/groups/GroupModals';
 import { useGroupModal } from '../GroupModalContext';
 import { useAlert } from '@/hooks/useAlert';
+import { useVisiblePolling } from '@/hooks/useVisiblePolling';
+import { useLivePollMs, useLiveTopics } from '@/lib/live';
 
 type FilterType = 'all' | 'my' | 'favorites' | 'tag';
 type TabType = 'memos' | 'calendar' | 'topics' | 'members';
@@ -154,7 +156,7 @@ function GroupDetailContent() {
       setGroup(null);
       if (status === 403 || status === 404) {
         // 내보내졌거나 삭제된 모임은 사이드바에서도 바로 빠지게
-        refreshGroups();
+        refreshGroups({ silent });
       }
       return;
     }
@@ -187,23 +189,14 @@ function GroupDetailContent() {
     fetchGroupData();
   }, [fetchGroupData]);
 
-  // 새 토픽·메모와 내보내짐·삭제를 반영하기 위해 화면이 보일 때만 주기적으로 다시 불러온다
-  useEffect(() => {
-    if (!group || groupError) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') fetchGroupData(true);
-    }, POLL_INTERVAL_MS);
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') fetchGroupData(true);
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      window.clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [!!group, groupError, fetchGroupData]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 새 토픽·메모와 내보내짐·삭제를 반영하기 위해 화면이 보일 때만 주기적으로 다시 불러온다(SSE 가 붙어 있으면 60초 안전망)
+  const watching = !!group && !groupError;
+  useVisiblePolling(() => fetchGroupData(true), watching, POLL_INTERVAL_MS);
+  // 실시간 갱신: 이 모임 안의 것(멤버·메모·일정·토픽·댓글)이나 모임 정보가 바뀌면 바로 다시 불러온다
+  useLiveTopics(['groups', `group:${groupId}`], () => fetchGroupData(true), watching);
 
-  // 토픽 탭이 열려 있는 동안은 토픽 목록을 더 자주(10초) 다시 불러온다. 문서가 hidden 이면 건너뛴다.
+  // 토픽 탭이 열려 있는 동안은 토픽 목록을 더 자주(10초, SSE 가 붙어 있으면 60초) 다시 불러온다. 문서가 hidden 이면 건너뛴다.
+  const topicPollMs = useLivePollMs(TOPIC_POLL_INTERVAL_MS);
   useEffect(() => {
     if (activeTab !== 'topics' || !group || groupError || !session) return;
     const timer = window.setInterval(async () => {
@@ -213,9 +206,9 @@ function GroupDetailContent() {
       } catch {
         // 일시적인 오류는 다음 주기에 다시 시도한다 (모임 접근 오류는 15초 주기 갱신이 처리)
       }
-    }, TOPIC_POLL_INTERVAL_MS);
+    }, topicPollMs);
     return () => window.clearInterval(timer);
-  }, [activeTab, !!group, groupError, session, groupId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab, !!group, groupError, session, groupId, topicPollMs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ?topic={id} 로 들어오면 그 토픽 상세를 연다 (활동·알림에서 이동). 닫으면 쿼리를 지운다.
   const openTopicId = topicParam || (isTopicDetailOpen ? selectedTopicId : null);
