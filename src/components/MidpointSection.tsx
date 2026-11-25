@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Loader2, Search, X } from 'lucide-react';
@@ -25,13 +25,17 @@ const STATION_LIMIT = 5;
  * 일정의 중간 지점 찾기.
  * 각자 출발지를 적으면 서버가 가운데 좌표를 주고, 여기서 Kakao 지도 SDK 로 그 근처 지하철역을 찾아 보여 준다.
  * 일정을 만든 사람은 역 하나를 골라 일정 장소로 정한다.
+ * 대상이 한 명뿐인 일정(혼자인 모임, 참여자가 나뿐인 일정)에서는 아무것도 그리지 않는다.
+ * 그래서 바깥 행(아이콘)까지 같이 숨길 수 있게 wrap 으로 감싸서 그린다.
  */
 export default function MidpointSection({
   scheduleId,
   onLocationChange,
+  wrap = (content) => content,
 }: {
   scheduleId: string;
   onLocationChange?: (place: MidpointPlace) => void;
+  wrap?: (content: ReactNode) => ReactNode;
 }) {
   const { data: session } = useSession();
   const { confirm, toast } = useAlert();
@@ -95,17 +99,18 @@ export default function MidpointSection({
     });
   };
 
-  if (isLoading) {
-    return <Loader2 size={16} strokeWidth={1.5} className="animate-spin text-ink-3" />;
-  }
+  // 대상 수를 알기 전에는 그리지 않는다 (한 명뿐인 일정에서 행이 잠깐 보였다 사라지지 않게)
+  if (isLoading) return null;
   if (error || !data) {
-    return <p className="text-sm text-ink-3">중간 지점을 불러오지 못했어요. {error ? getApiErrorMessage(error) : ''}</p>;
+    return wrap(<p className="text-sm text-ink-3">중간 지점을 불러오지 못했어요. {error ? getApiErrorMessage(error) : ''}</p>);
   }
+  // 만날 사람이 나뿐이면 중간 지점을 찾을 일이 없다
+  if (data.expectedCount <= 1) return null;
 
   const showForm = editing || !data.myDeparture;
   const waiting = data.expectedCount - data.enteredCount;
 
-  return (
+  return wrap(
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-ink-3">
