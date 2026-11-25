@@ -141,12 +141,12 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
   }, [selectedGroupId, userGroups, participants, currentUserId]);
 
   // 이미 추가한 참여자·메모는 후보에서 뺀다.
-  // 모임 일정이고 두 명 이상 남았으면 맨 위에 '전체'를 둔다 ('@', '@전', '@전체' 일 때).
+  // 모임 일정이고 아직 안 고른 멤버가 있으면 맨 위에 '전체'를 둔다 ('@', '@전', '@전체' 일 때). 둘뿐인 모임에서도 나온다.
   const participantCandidates = useMemo(() => {
     const chosen = new Set(participants.map((p) => p.id).filter(Boolean));
     const people = filteredParticipants.filter((m) => !chosen.has(m.id));
     const typed = (participantInput.split('@').pop() ?? '').trim();
-    if (remainingMembers.length >= 2 && '전체'.includes(typed)) {
+    if (remainingMembers.length >= 1 && '전체'.includes(typed)) {
       return [{ id: ALL_MEMBERS_ID, nickname: `전체 (${remainingMembers.length}명)` }, ...people];
     }
     return people;
