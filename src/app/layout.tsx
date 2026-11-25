@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Script from "next/script";
@@ -11,6 +11,16 @@ const jua = Jua({ weight: "400", subsets: ["latin"], display: "swap", preload: f
 export const metadata: Metadata = {
   title: '모여로그 | MOYEOLOG',
   description: '일정, 메모, 모임을 친구와 한곳에서 함께 쓰는 서비스',
+  // 홈 화면에 추가하면 앱처럼(브라우저 틀 없이) 뜬다. 매니페스트는 app/manifest.ts, iOS 아이콘은 app/apple-icon.png
+  applicationName: '모여로그',
+  appleWebApp: { capable: true, title: '모여로그', statusBarStyle: 'default' },
+  // Next 는 capable 을 mobile-web-app-capable 로만 내보낸다. 매니페스트를 읽지 않는 예전 iOS 를 위해 같이 둔다
+  other: { 'apple-mobile-web-app-capable': 'yes' },
+};
+
+// 상태 막대·앱 전환 화면의 바탕색(globals.css 의 --canvas)
+export const viewport: Viewport = {
+  themeColor: '#f5f6f3',
 };
 
 export default function RootLayout({
