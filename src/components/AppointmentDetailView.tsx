@@ -396,6 +396,8 @@ export default function AppointmentDetailView({
           {(schedule.groupId || participants.length > 0) && (
             <MidpointSection
               scheduleId={schedule.id}
+              startTime={schedule.startTime}
+              place={{ name: schedule.location, latitude: schedule.latitude, longitude: schedule.longitude }}
               onLocationChange={(place) => {
                 setSchedule((prev) => (prev ? { ...prev, location: place.name, latitude: place.latitude, longitude: place.longitude } : prev));
                 onSuccess?.();
