@@ -4,15 +4,18 @@ import Providers from "@/components/Providers";
 import Script from "next/script";
 import BottomNavbar from "@/components/BottomNavbar";
 import { Jua } from "next/font/google";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, pageMeta } from "@/lib/site-meta";
 
 // 제목·날짜·로고용 글꼴. 빌드 때 받아서 같은 도메인에서 내려준다(외부 글꼴 CDN 을 CSP 에 열지 않는다)
 const jua = Jua({ weight: "400", subsets: ["latin"], display: "swap", preload: false, variable: "--font-jua" });
 
 export const metadata: Metadata = {
-  title: '모여로그 | MOYEOLOG',
-  description: '장소 정하기부터 함께 보는 일정과 메모까지, 모임의 모든 일을 한곳에서 해결해요',
+  // 링크를 공유했을 때의 미리보기(Open Graph). og:image·og:url 의 상대 경로는 metadataBase 로 절대 주소가 된다.
+  // 초대 링크는 app/invite/*/page.tsx 의 generateMetadata 가 모임 이름·보낸 사람으로 바꾼다
+  metadataBase: new URL(SITE_URL),
+  ...pageMeta({ title: SITE_TITLE, description: SITE_DESCRIPTION, path: '/' }),
   // 홈 화면에 추가하면 앱처럼(브라우저 틀 없이) 뜬다. 매니페스트는 app/manifest.ts, iOS 아이콘은 app/apple-icon.png
-  applicationName: '모여로그',
+  applicationName: SITE_NAME,
   appleWebApp: { capable: true, title: '모여로그', statusBarStyle: 'default' },
   // Next 는 capable 을 mobile-web-app-capable 로만 내보낸다. 매니페스트를 읽지 않는 예전 iOS 를 위해 같이 둔다
   other: { 'apple-mobile-web-app-capable': 'yes' },
