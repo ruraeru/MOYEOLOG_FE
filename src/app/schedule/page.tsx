@@ -42,6 +42,8 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import { getApiErrorMessage } from '@/lib/axios';
 import { getThemeColors } from '@/lib/utils';
+import { useVisiblePolling, LIST_POLL_MS } from '@/hooks/useVisiblePolling';
+import { useLiveTopics } from '@/lib/live';
 import { useScheduleWeather } from '@/hooks/useWeather';
 import { WeatherIcon } from '@/components/Weather';
 import type { WeatherAt } from '@/lib/weather';
@@ -100,22 +102,26 @@ export default function SchedulePage() {
   // Filtering state
   const [activeFilter, setActiveFilter] = useState<{ type: 'all' | 'my' | 'group', id?: string }>({ type: 'all' });
 
-  const fetchSchedules = useCallback(async () => {
+  /** silent: 자동 갱신. 로딩 표시를 띄우지 않고, 실패해도 보던 목록을 그대로 둔다(다음 주기에 다시 시도). */
+  const fetchSchedules = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!session) return;
     try {
-      setLoading(true);
-      setLoadError(null);
+      if (!opts.silent) {
+        setLoading(true);
+        setLoadError(null);
+      }
       const [scheduleData, groupData] = await Promise.all([
         scheduleApi.getAll(session),
         groupApi.getAll(session)
       ]);
       setSchedules(scheduleData);
       setUserGroups(groupData);
+      setLoadError(null);
     } catch (error) {
       console.error('Failed to fetch schedule data:', error);
-      setLoadError(getApiErrorMessage(error));
+      if (!opts.silent) setLoadError(getApiErrorMessage(error));
     } finally {
-      setLoading(false);
+      if (!opts.silent) setLoading(false);
     }
   // 세션 객체는 포커스 때마다 새로 만들어지므로 토큰이 바뀔 때만 다시 불러온다.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,6 +130,11 @@ export default function SchedulePage() {
   useEffect(() => {
     fetchSchedules();
   }, [fetchSchedules]);
+
+  // 다른 사람이 추가·수정한 일정을 새로고침 없이 반영한다
+  useVisiblePolling(() => fetchSchedules({ silent: true }), !!session, LIST_POLL_MS);
+  // 실시간 갱신: 일정이나 모임(필터에 쓰는 이름·색)이 바뀌면 바로 다시 불러온다
+  useLiveTopics(['schedules', 'groups'], () => fetchSchedules({ silent: true }), !!session);
 
   const handleOpenListModal = (date: Date) => {
     setSelectedDate(format(date, 'yyyy-MM-dd'));
@@ -327,7 +338,7 @@ export default function SchedulePage() {
                 className="flex-1"
                 title="일정을 불러오지 못했어요"
                 description={loadError}
-                action={<button onClick={fetchSchedules} className="btn-secondary">다시 시도</button>}
+                action={<button onClick={() => fetchSchedules()} className="btn-secondary">다시 시도</button>}
               />
             ) : view === 'week' ? (
               <WeekView
@@ -378,7 +389,7 @@ export default function SchedulePage() {
         </main>
       </div>
 
-      <AppointmentModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedSchedule(null); }} initialDate={selectedDate} onSuccess={fetchSchedules} initialSchedule={selectedSchedule} />
+      <AppointmentModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedSchedule(null); }} initialDate={selectedDate} onSuccess={() => fetchSchedules({ silent: true })} initialSchedule={selectedSchedule} />
       <AppointmentListModal
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}
@@ -388,7 +399,7 @@ export default function SchedulePage() {
         onCreateNew={() => { setSelectedSchedule(null); setIsModalOpen(true); }}
         onAppointmentClick={handleOpenDetail}
       />
-      <AppointmentDetailModal isOpen={isDetailOpen} onClose={() => { setIsDetailOpen(false); setSelectedSchedule(null); }} schedule={selectedSchedule} onSuccess={fetchSchedules} onEdit={handleEdit} />
+      <AppointmentDetailModal isOpen={isDetailOpen} onClose={() => { setIsDetailOpen(false); setSelectedSchedule(null); }} schedule={selectedSchedule} onSuccess={() => fetchSchedules({ silent: true })} onEdit={handleEdit} />
     </div>
   );
 }

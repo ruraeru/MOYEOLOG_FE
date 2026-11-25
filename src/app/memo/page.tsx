@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState, useMemo, Suspense } from 'react';
+import { useVisiblePolling, LIST_POLL_MS } from '@/hooks/useVisiblePolling';
+import { useLiveTopics } from '@/lib/live';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -90,11 +92,14 @@ function MemoContent() {
     try { window.localStorage.setItem(MEMO_VIEW_KEY, mode); } catch { /* 저장 못 해도 화면은 그대로 */ }
   };
 
-  const loadData = useCallback(async () => {
+  /** silent: 자동 갱신. 로딩 표시를 띄우지 않고, 실패해도 보던 목록을 그대로 둔다. */
+  const loadData = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!session) return;
     try {
-      setLoading(true);
-      setLoadError(null);
+      if (!opts.silent) {
+        setLoading(true);
+        setLoadError(null);
+      }
       const [memoData, sharedData, groupData] = await Promise.all([
         memoApi.getAll(session),
         memoApi.getSharedMemos(session),
@@ -108,13 +113,15 @@ function MemoContent() {
       setSharedMemos(sharedData);
       setUserGroups(groupData);
       setGroupMemos(Object.fromEntries(groupEntries));
-      setFavoriteMemos(null);
+      // 즐겨찾기는 조용한 갱신에서 비우지 않는다(비우면 즐겨찾기 탭이 15초마다 로딩으로 깜빡인다)
+      if (!opts.silent) setFavoriteMemos(null);
       setLoaded(true);
+      setLoadError(null);
     } catch (error) {
       console.error('Failed to load data:', error);
-      setLoadError(getApiErrorMessage(error));
+      if (!opts.silent) setLoadError(getApiErrorMessage(error));
     } finally {
-      setLoading(false);
+      if (!opts.silent) setLoading(false);
     }
   }, [session]);
 
@@ -122,19 +129,33 @@ function MemoContent() {
     loadData();
   }, [loadData]);
 
-  const loadFavorites = useCallback(async () => {
+  /** silent: 자동 갱신. 로딩 표시를 띄우지 않고, 실패해도 보던 목록을 그대로 둔다. */
+  const loadFavorites = useCallback(async (opts: { silent?: boolean } = {}) => {
     if (!session) return;
     try {
-      setFavoritesLoading(true);
-      setFavoritesError(null);
+      if (!opts.silent) {
+        setFavoritesLoading(true);
+        setFavoritesError(null);
+      }
       setFavoriteMemos(await memoApi.getFavorites(session));
     } catch (error) {
       console.error('Failed to load favorites:', error);
-      setFavoritesError(getApiErrorMessage(error));
+      if (!opts.silent) setFavoritesError(getApiErrorMessage(error));
     } finally {
-      setFavoritesLoading(false);
+      if (!opts.silent) setFavoritesLoading(false);
     }
   }, [session]);
+
+  /** 자동 갱신: 목록과, 즐겨찾기 탭을 보고 있으면 즐겨찾기도 조용히 다시 불러온다. */
+  const refreshSilently = () => {
+    loadData({ silent: true });
+    if (filter.type === 'favorites' && favoriteMemos !== null) loadFavorites({ silent: true });
+  };
+
+  // 공유받은 메모·모임 메모를 새로고침 없이 반영한다. 모임마다 요청을 하나씩 보내므로 주기를 두 배로 둔다
+  useVisiblePolling(refreshSilently, !!session && loaded, LIST_POLL_MS * 2);
+  // 실시간 갱신: 메모(공유·모임 메모·즐겨찾기 포함)나 모임 목록이 바뀌면 바로 다시 불러온다
+  useLiveTopics(['memos', 'groups'], refreshSilently, !!session && loaded);
 
   useEffect(() => {
     if (filter.type === 'favorites' && favoriteMemos === null && !favoritesLoading && !favoritesError && loaded) {
@@ -391,7 +412,7 @@ function MemoContent() {
                   title="메모를 불러오지 못했어요"
                   description={listError}
                   action={
-                    <button type="button" onClick={loadError ? loadData : loadFavorites} className="btn-secondary">
+                    <button type="button" onClick={() => (loadError ? loadData() : loadFavorites())} className="btn-secondary">
                       <RefreshCw size={16} strokeWidth={1.5} />
                       다시 시도
                     </button>
@@ -427,7 +448,7 @@ function MemoContent() {
       </Modal>
 
       {userId && (
-        <MemoCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} userId={userId} onSuccess={loadData} />
+        <MemoCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} userId={userId} onSuccess={() => loadData({ silent: true })} />
       )}
     </div>
   );

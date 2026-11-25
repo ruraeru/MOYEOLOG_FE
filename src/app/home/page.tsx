@@ -18,6 +18,7 @@ import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
+import { useVisiblePolling } from '@/hooks/useVisiblePolling';
 import { stripMarkdown, initialOf, getThemeColors, getFileUrl } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
 import { useScheduleWeather } from '@/hooks/useWeather';
@@ -41,6 +42,10 @@ const dayLabel = (day: Date, today: Date) => {
   if (isSameDay(day, addDays(today, 1))) return '내일';
   return format(day, 'EEEE', { locale: ko });
 };
+
+// 다른 사람이 바꾼 일정·메모·모임을 새로고침 없이 반영한다: 화면이 보이는 동안 15초마다, 탭으로 돌아오면(SSE 가 3초 안에 못 붙으면) 바로.
+// 실시간 갱신(SSE)이 붙어 있으면 바뀔 때 바로 다시 불러오고(components/LiveEvents.tsx 의 쿼리 무효화) 폴링은 60초 안전망으로 남는다
+const POLL_MS = 15000;
 
 export default function HomePage() {
   const tf = useTimeFormat();
@@ -79,6 +84,7 @@ export default function HomePage() {
     queryClient.invalidateQueries({ queryKey: ['schedules'] });
     queryClient.invalidateQueries({ queryKey: ['groups'] });
   };
+  useVisiblePolling(refreshData, !!session, POLL_MS);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);

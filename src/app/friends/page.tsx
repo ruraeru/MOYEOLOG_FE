@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useVisiblePolling, LIST_POLL_MS } from '@/hooks/useVisiblePolling';
+import { useLiveTopics } from '@/lib/live';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import { UserPlus, MessageCircle, Loader2, Users, AlertCircle, RotateCw, Search, MoreHorizontal, Link2, Check, Inbox, Send } from 'lucide-react';
@@ -72,7 +74,7 @@ export default function FriendsPage() {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchFriendsData = useCallback(async (opts: { silent?: boolean } = {}) => {
+  const fetchFriendsData = useCallback(async (opts: { silent?: boolean; auto?: boolean } = {}) => {
     if (!session) return;
     try {
       if (!opts.silent) setLoading(true);
@@ -88,7 +90,7 @@ export default function FriendsPage() {
     } catch (error) {
       console.error('Failed to fetch friends data:', error);
       if (!opts.silent) setLoadError(getApiErrorMessage(error, '친구 목록을 불러오지 못했어요.'));
-      else toast.error(getApiErrorMessage(error, '친구 목록을 새로 불러오지 못했어요.'));
+      else if (!opts.auto) toast.error(getApiErrorMessage(error, '친구 목록을 새로 불러오지 못했어요.'));
     } finally {
       if (!opts.silent) setLoading(false);
     }
@@ -99,6 +101,10 @@ export default function FriendsPage() {
   useEffect(() => {
     fetchFriendsData();
   }, [fetchFriendsData]);
+
+  // 받은 친구 요청·수락을 새로고침 없이 반영한다. 자동 갱신 실패는 알리지 않고 다음 주기에 다시 시도한다
+  useVisiblePolling(() => fetchFriendsData({ silent: true, auto: true }), !!session, LIST_POLL_MS);
+  useLiveTopics(['friends'], () => fetchFriendsData({ silent: true, auto: true }), !!session);
 
   /** 이미 처리됐거나 사라진 요청(404/409)이면 목록을 새로 고칩니다. */
   const isStale = (error: unknown) =>

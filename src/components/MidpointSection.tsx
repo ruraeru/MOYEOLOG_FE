@@ -8,6 +8,7 @@ import { midpointApi, type MidpointPlace, type MidpointResponse } from '@/lib/mi
 import { getApiErrorMessage } from '@/lib/axios';
 import { usePlaceSearch } from '@/hooks/usePlaceSearch';
 import { useAlert } from '@/hooks/useAlert';
+import { useLivePollMs } from '@/lib/live';
 import { usePlaceWeather } from '@/hooks/useWeather';
 import { recommendFor, weatherAt } from '@/lib/weather';
 import { WeatherLine } from './Weather';
@@ -60,7 +61,8 @@ export default function MidpointSection({
     queryKey,
     queryFn: () => midpointApi.get(scheduleId, session!),
     enabled: !!session,
-    refetchInterval: 15000,
+    // `schedule:{id}` 토픽이 오면 LiveEvents 가 무효화한다. 폴링은 SSE 가 끊겨 있을 때 15초, 붙어 있으면 60초 안전망
+    refetchInterval: useLivePollMs(15000),
   });
 
   const [editing, setEditing] = useState(false);
