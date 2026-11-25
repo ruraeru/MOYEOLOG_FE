@@ -156,7 +156,7 @@ export function checkRemoteUrl(raw: string): UrlCheckResult {
  * 로그인 후 이동할 callbackUrl이 같은 사이트 내 상대 경로인지 검사합니다.
  * ("/"로 시작, "//" 또는 "/\" 금지, 스킴/제어문자 금지) 안전하지 않으면 fallback을 반환합니다.
  */
-export function safeCallbackPath(value: string | null | undefined, fallback = '/memo'): string {
+export function safeCallbackPath(value: string | null | undefined, fallback = '/home'): string {
   if (!value || typeof value !== 'string') return fallback;
   if (value.length > 2048) return fallback;
   if (!value.startsWith('/')) return fallback;
