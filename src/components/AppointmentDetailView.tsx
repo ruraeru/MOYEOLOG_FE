@@ -392,17 +392,16 @@ export default function AppointmentDetailView({
             </InfoRow>
           )}
 
-          {/* 중간 지점: 여럿이 만나는 일정(모임 일정, 참여자가 있는 일정)에서만 */}
+          {/* 중간 지점: 여럿이 만나는 일정에서만. 대상이 한 명뿐이면 MidpointSection 이 행째로 숨긴다 */}
           {(schedule.groupId || participants.length > 0) && (
-            <InfoRow icon={TrainFront} label="중간 지점">
-              <MidpointSection
-                scheduleId={schedule.id}
-                onLocationChange={(place) => {
-                  setSchedule((prev) => (prev ? { ...prev, location: place.name, latitude: place.latitude, longitude: place.longitude } : prev));
-                  onSuccess?.();
-                }}
-              />
-            </InfoRow>
+            <MidpointSection
+              scheduleId={schedule.id}
+              onLocationChange={(place) => {
+                setSchedule((prev) => (prev ? { ...prev, location: place.name, latitude: place.latitude, longitude: place.longitude } : prev));
+                onSuccess?.();
+              }}
+              wrap={(content) => <InfoRow icon={TrainFront} label="중간 지점">{content}</InfoRow>}
+            />
           )}
 
           {/* 연결된 메모 */}
