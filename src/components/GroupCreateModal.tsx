@@ -187,7 +187,6 @@ export default function GroupCreateModal({
       open={isOpen}
       onClose={handleClose}
       size="sm"
-      zIndex="z-50"
       title={createdGroup ? '모임을 만들었어요' : '새 모임 만들기'}
       subtitle={createdGroup ? createdGroup.name : undefined}
       footer={
