@@ -55,6 +55,9 @@ type TaggedMemo = { id: string; title: string };
 
 const toDateTime = (d: string, t: string) => parseISO(`${d}T${t || '00:00'}`);
 
+/** 참여자 멘션 목록의 '전체' 항목 (모임 멤버를 한 번에 넣는다) */
+const ALL_MEMBERS_ID = '__all__';
+
 export default function AppointmentModal({ isOpen, onClose, initialDate, onSuccess, initialSchedule, defaultGroupId }: AppointmentModalProps) {
   const { data: session } = useSession();
   const { toast } = useAlert();
@@ -129,11 +132,25 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
     handleInputChange
   } = useMentions({ allMemos: mentionableMemos, friends, userGroups, selectedGroupId, currentUserId });
 
+  // 모임 일정에서 '전체'로 한 번에 넣을 사람들: 그 모임의 멤버 중 나와 이미 고른 사람을 뺀 나머지
+  const remainingMembers = useMemo(() => {
+    if (!selectedGroupId) return [];
+    const chosen = new Set(participants.map((p) => p.id).filter(Boolean));
+    const members = userGroups.find((g) => g.id === selectedGroupId)?.members ?? [];
+    return members.filter((m) => m.id !== currentUserId && !chosen.has(m.id));
+  }, [selectedGroupId, userGroups, participants, currentUserId]);
+
   // 이미 추가한 참여자·메모는 후보에서 뺀다.
+  // 모임 일정이고 두 명 이상 남았으면 맨 위에 '전체'를 둔다 ('@', '@전', '@전체' 일 때).
   const participantCandidates = useMemo(() => {
     const chosen = new Set(participants.map((p) => p.id).filter(Boolean));
-    return filteredParticipants.filter((m) => !chosen.has(m.id));
-  }, [filteredParticipants, participants]);
+    const people = filteredParticipants.filter((m) => !chosen.has(m.id));
+    const typed = (participantInput.split('@').pop() ?? '').trim();
+    if (remainingMembers.length >= 2 && '전체'.includes(typed)) {
+      return [{ id: ALL_MEMBERS_ID, nickname: `전체 (${remainingMembers.length}명)` }, ...people];
+    }
+    return people;
+  }, [filteredParticipants, participants, participantInput, remainingMembers]);
 
   const memoCandidates = useMemo(() => {
     const chosen = new Set(taggedMemos.map((m) => m.id));
@@ -358,12 +375,17 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
           {/* 참여자 */}
           <Row icon={UserPlus} label="참여자">
             <div className="relative">
-              <input type="text" aria-label="참여자" value={participantInput} onChange={(e) => { setParticipantInput(e.target.value); handleInputChange(e.target.value, 'participant'); }} placeholder="친구 이름을 입력하거나 @를 눌러요" className="form-input" />
+              <input type="text" aria-label="참여자" value={participantInput} onChange={(e) => { setParticipantInput(e.target.value); handleInputChange(e.target.value, 'participant'); }} placeholder={selectedGroupId ? '모임원 이름을 입력하거나 @를 눌러요. @전체도 돼요' : '친구 이름을 입력하거나 @를 눌러요'} className="form-input" />
               {showParticipantMentions && (
                 <MentionList
                   items={participantCandidates}
                   onSelect={(m) => {
-                    if (!participants.some((p) => p.id === m.id)) {
+                    if (m.id === ALL_MEMBERS_ID) {
+                      setParticipants([
+                        ...participants,
+                        ...remainingMembers.map((x) => ({ id: x.id, nickname: x.nickname || '', profileImage: x.profileImage })),
+                      ]);
+                    } else if (!participants.some((p) => p.id === m.id)) {
                       setParticipants([...participants, { id: m.id, nickname: m.nickname || '', profileImage: m.profileImage }]);
                     }
                     setShowParticipantMentions(false);
