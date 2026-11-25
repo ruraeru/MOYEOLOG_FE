@@ -41,6 +41,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
 
   const isMounted = useSyncExternalStore(
     emptySubscribe,
@@ -68,6 +69,8 @@ export default function LoginPage() {
   if (status === 'authenticated') return null;
 
   const loginError = getLoginError();
+  // 이메일 폼은 접어 둔다. 이메일 로그인 오류로 돌아왔으면 펼친 채로 보여 준다.
+  const showEmail = emailOpen || loginError === 'CredentialsSignin' || loginError === 'TooManyAttempts';
 
   const onEmailLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -125,13 +128,19 @@ export default function LoginPage() {
           </button>
           <p className="mt-3 text-[13px] text-ink-3">카카오로 처음 오면 가입도 함께 돼요</p>
 
-          {/* 이메일 로그인 */}
-          <div className="mt-8 flex w-full max-w-[400px] items-center gap-3 text-[13px] text-ink-3">
-            <span aria-hidden className="h-px flex-1 bg-line-strong" />
-            또는 이메일로
-            <span aria-hidden className="h-px flex-1 bg-line-strong" />
-          </div>
-          <form onSubmit={onEmailLogin} noValidate className="mt-5 w-full max-w-[400px] space-y-3">
+          {/* 이메일 로그인: 누르면 그 자리에 폼이 펼쳐진다 */}
+          {!showEmail && (
+            <button
+              type="button"
+              onClick={() => setEmailOpen(true)}
+              className="btn-secondary mt-6 h-12 w-full max-w-[400px] text-[15px]"
+            >
+              이메일로 계속하기
+            </button>
+          )}
+          {showEmail && (
+          <>
+          <form onSubmit={onEmailLogin} noValidate className="mt-6 w-full max-w-[400px] space-y-3">
             <div>
               <label htmlFor="login-email" className="sr-only">
                 이메일
@@ -142,6 +151,7 @@ export default function LoginPage() {
                 inputMode="email"
                 autoComplete="username"
                 placeholder="이메일"
+                autoFocus={emailOpen}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="form-input h-11"
@@ -178,6 +188,8 @@ export default function LoginPage() {
               비밀번호를 잊었어요
             </Link>
           </div>
+          </>
+          )}
         </div>
 
         {/* 오른쪽: 앱 미리보기 (넓은 화면만) */}
