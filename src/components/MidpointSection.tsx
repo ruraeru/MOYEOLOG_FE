@@ -83,7 +83,11 @@ export default function MidpointSection({
 
   // 역이 아닌 곳(추천 장소 등)으로 장소가 정해졌으면 지하철역 목록은 접어 둔다. 사용자가 누르면 그 선택을 따른다.
   const [stationsToggle, setStationsToggle] = useState<boolean | null>(null);
-  const stationsOpen = stationsToggle ?? !(confirmedName && !confirmedStation);
+  const pickedNonStation = !!confirmedName && !confirmedStation;
+  const stationsOpen = stationsToggle ?? !pickedNonStation;
+  // 추천 장소 목록도 같다: 추천 장소 등으로 정해졌으면 접어 두고, 누르면 그 선택을 따른다.
+  const [recsToggle, setRecsToggle] = useState<boolean | null>(null);
+  const recsOpen = recsToggle ?? !pickedNonStation;
 
   // 일정 시작 시각의 그 역 날씨. 예보 범위(10일) 밖이거나 못 받으면 null → 기본 순서로 추천한다
   const { data: forecast, isLoading: isWeatherLoading } = usePlaceWeather(hasChosen ? chosenLat : null, hasChosen ? chosenLng : null);
@@ -137,6 +141,8 @@ export default function MidpointSection({
       const place = { name: station.name, latitude: station.latitude, longitude: station.longitude };
       apply(await midpointApi.confirm(scheduleId, place, session));
       setAnchor(null);
+      setStationsToggle(null);
+      setRecsToggle(null);
       onLocationChange?.(place);
       toast.success('일정 장소를 정했어요');
     });
@@ -152,6 +158,7 @@ export default function MidpointSection({
       apply(await midpointApi.confirm(scheduleId, picked, session));
       setAnchor(base);
       setStationsToggle(null);
+      setRecsToggle(null);
       onLocationChange?.(picked);
       toast.success('일정 장소를 정했어요');
     });
@@ -299,7 +306,7 @@ export default function MidpointSection({
             <p className="text-[13px] text-ink-3">
               가운데에서 가까운 지하철역{!stationsOpen && <> <span className="stamp">{stations.items.length}</span>곳</>}
             </p>
-            {(!stationsOpen || stationsToggle !== null || (confirmedName && !confirmedStation)) && (
+            {(!stationsOpen || stationsToggle !== null || pickedNonStation) && (
               <button
                 type="button"
                 onClick={() => setStationsToggle(!stationsOpen)}
@@ -357,10 +364,25 @@ export default function MidpointSection({
       {/* 정해진 역 근처 추천 장소 (날씨 기반) */}
       {hasChosen && (isRecommending || recommendations.length > 0) && (
         <div className="mt-4">
-          <p className="text-[13px] text-ink-3">
-            <span className="text-ink-2">{baseName} 근처 추천 장소</span>
-            {recommend.reason && <span className="ml-2">{recommend.reason}</span>}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 text-[13px] text-ink-3">
+              <span className="text-ink-2">{baseName} 근처 추천 장소</span>
+              {!recsOpen && !isRecommending && <> <span className="stamp">{recommendations.length}</span>곳</>}
+              {recsOpen && recommend.reason && <span className="ml-2">{recommend.reason}</span>}
+            </p>
+            {(!recsOpen || recsToggle !== null || pickedNonStation) && (
+              <button
+                type="button"
+                onClick={() => setRecsToggle(!recsOpen)}
+                aria-expanded={recsOpen}
+                className="btn-ghost btn-sm shrink-0"
+              >
+                {recsOpen ? '접기' : '펼치기'}
+              </button>
+            )}
+          </div>
+          {!recsOpen ? null : (
+          <>
           {weather && <WeatherLine weather={weather} className="mt-1 text-[13px] text-ink-2" />}
           {isRecommending ? (
             <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-3">
@@ -402,6 +424,8 @@ export default function MidpointSection({
                 </li>
               ))}
             </ul>
+          )}
+          </>
           )}
         </div>
       )}
