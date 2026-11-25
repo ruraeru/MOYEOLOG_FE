@@ -98,7 +98,7 @@ export default function LoginPage() {
       <div className="mx-auto grid w-full max-w-[1200px] items-center gap-16 lg:grid-cols-[minmax(0,1fr)_620px]">
         {/* 왼쪽: 로고, 제목, 설명, 카카오 버튼 */}
         <div className="flex flex-col items-start">
-          <Logo size={56} />
+          <Logo height={34} />
 
           <h1 className="mt-8 font-display text-[36px] leading-[48px] text-ink lg:text-[52px] lg:leading-[64px]">
             모임의 메모와 일정을
