@@ -1,10 +1,12 @@
 'use client';
 
-import { useSyncExternalStore, useEffect } from 'react';
+import { useSyncExternalStore, useEffect, useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useSession, signIn } from 'next-auth/react';
 import { Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { safeCallbackPath } from '@/lib/url-safety';
+import { normalizeEmail } from '@/lib/account-api';
 import { Ribbon } from '@/components/ui';
 import { getThemeColors } from '@/lib/utils';
 
@@ -18,6 +20,13 @@ const getCallbackPath = () =>
 
 const getLoginError = () => new URLSearchParams(window.location.search).get('error');
 
+/** NextAuth 오류 코드 → 문구. CredentialsSignin·TooManyAttempts 는 auth.ts 의 credentials 로그인이 낸다 */
+const loginErrorMessage = (code: string | null | undefined) => {
+  if (code === 'CredentialsSignin') return '이메일 또는 비밀번호가 올바르지 않아요.';
+  if (code === 'TooManyAttempts') return '로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요.';
+  return '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.';
+};
+
 /** 오른쪽 미리보기 카드에 쓰는 예시 일정(화면 설명용) */
 const PREVIEW_ROWS = [
   { day: '오늘', time: '14:00', title: '캡스톤 2차 정기 회의', meta: '캡스톤 디자인 3조 · 공학관 302호', theme: 'emerald', people: ['윤', '오', '한', '정'] },
@@ -28,6 +37,10 @@ const PREVIEW_ROWS = [
 export default function LoginPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const isMounted = useSyncExternalStore(
     emptySubscribe,
@@ -56,6 +69,26 @@ export default function LoginPage() {
 
   const loginError = getLoginError();
 
+  const onEmailLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      setFormError('이메일과 비밀번호를 입력해 주세요.');
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      const result = await signIn('credentials', { redirect: false, email: normalizeEmail(email), password });
+      if (result?.ok && !result.error) return; // 세션이 갱신되면 위 useEffect 가 callbackUrl 로 보낸다
+      setFormError(loginErrorMessage(result?.error));
+    } catch {
+      // nginx rate limit(429) 등 NextAuth 가 아닌 응답이면 signIn 이 던진다
+      setFormError(loginErrorMessage(null));
+    }
+    setPassword('');
+    setSubmitting(false);
+  };
+
   return (
     <main className="flex min-h-screen items-center bg-canvas px-6 py-12 lg:px-16">
       <div className="mx-auto grid w-full max-w-[1200px] items-center gap-16 lg:grid-cols-[minmax(0,1fr)_620px]">
@@ -77,20 +110,74 @@ export default function LoginPage() {
 
           {loginError && (
             <p role="alert" className="mt-6 w-full max-w-[400px] rounded-[10px] bg-negative-soft px-4 py-3 text-sm text-negative">
-              로그인에 실패했어요. 잠시 후 다시 시도해 주세요.
+              {loginErrorMessage(loginError)}
             </p>
           )}
 
           <button
             onClick={() => signIn('kakao', { callbackUrl: getCallbackPath() })}
-            className="mt-8 flex h-12 items-center justify-center gap-2 rounded-[10px] bg-[#FEE500] px-6 text-[15px] font-medium text-[#191919] transition-[background-color,transform] hover:bg-[#FEE500]/90 active:scale-[0.98] max-sm:w-full"
+            className="mt-8 flex h-12 w-full max-w-[400px] items-center justify-center gap-2 rounded-[10px] bg-[#FEE500] px-6 text-[15px] font-medium text-[#191919] transition-[background-color,transform] hover:bg-[#FEE500]/90 active:scale-[0.98]"
           >
             <svg className="size-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <path d="M12 3C6.477 3 2 6.48 2 10.8c0 2.8 1.88 5.25 4.72 6.57-.19.7-.7 2.54-.8 2.92-.12.46.16.45.34.33.14-.09 2.24-1.52 3.14-2.13.84.23 1.73.35 2.64.35 5.523 0 10-3.48 10-7.8S17.523 3 12 3z" />
             </svg>
             카카오로 시작하기
           </button>
-          <p className="mt-4 text-[13px] text-ink-3">처음이면 가입도 함께 돼요</p>
+          <p className="mt-3 text-[13px] text-ink-3">카카오로 처음 오면 가입도 함께 돼요</p>
+
+          {/* 이메일 로그인 */}
+          <div className="mt-8 flex w-full max-w-[400px] items-center gap-3 text-[13px] text-ink-3">
+            <span aria-hidden className="h-px flex-1 bg-line-strong" />
+            또는 이메일로
+            <span aria-hidden className="h-px flex-1 bg-line-strong" />
+          </div>
+          <form onSubmit={onEmailLogin} noValidate className="mt-5 w-full max-w-[400px] space-y-3">
+            <div>
+              <label htmlFor="login-email" className="sr-only">
+                이메일
+              </label>
+              <input
+                id="login-email"
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                placeholder="이메일"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="form-input h-11"
+              />
+            </div>
+            <div>
+              <label htmlFor="login-password" className="sr-only">
+                비밀번호
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="비밀번호"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="form-input h-11"
+              />
+            </div>
+            {formError && (
+              <p role="alert" className="rounded-[10px] bg-negative-soft px-4 py-3 text-sm text-negative">
+                {formError}
+              </p>
+            )}
+            <button type="submit" disabled={submitting} className="btn-primary h-11 w-full text-[15px]">
+              {submitting ? '로그인하는 중...' : '이메일로 로그인'}
+            </button>
+          </form>
+          <div className="mt-4 flex w-full max-w-[400px] items-center justify-between text-[13px]">
+            <Link href="/signup" className="text-accent underline-offset-2 hover:underline">
+              이메일로 가입
+            </Link>
+            <Link href="/reset-password" className="text-ink-2 underline-offset-2 hover:text-ink hover:underline">
+              비밀번호를 잊었어요
+            </Link>
+          </div>
         </div>
 
         {/* 오른쪽: 앱 미리보기 (넓은 화면만) */}

@@ -1,5 +1,6 @@
-import type { NextAuthOptions } from 'next-auth';
+import type { Account, NextAuthOptions, Profile, User } from 'next-auth';
 import KakaoProvider from 'next-auth/providers/kakao';
+import CredentialsProvider from 'next-auth/providers/credentials';
 import type { JWT as Token } from 'next-auth/jwt';
 
 interface KakaoProfile {
@@ -23,7 +24,7 @@ interface KakaoProfile {
 
 interface BackendAuthUser {
   id: string;
-  kakaoId?: string;
+  kakaoId?: string | null; // 이메일 가입 계정은 없음
   customId?: string;
   nickname?: string;
   profileImage?: string | null;
@@ -44,6 +45,25 @@ const REFRESH_TIMEOUT_MS = 5000;
 
 const LOGOUT_TIMEOUT_MS = 5000;
 const VERIFY_TIMEOUT_MS = 5000;
+const LOGIN_TIMEOUT_MS = 5000;
+const LINK_TIMEOUT_MS = 5000;
+
+/** 설정 화면 '카카오 연결' 이 심는 쿠키(값: 연결을 요청한 사용자 id, 5분). link-intent 라우트가 만든다. */
+export const KAKAO_LINK_COOKIE = 'moyeolog.kakao-link';
+export const KAKAO_LINK_COOKIE_PATH = '/api/auth';
+const LINKED_URL = '/settings?menu=security&linked=kakao';
+export const LINK_ERROR_URL = '/settings?menu=security&linkError=';
+
+/**
+ * 카카오 콜백 한 번에 대한 연결 모드 정보. `[...nextauth]/route.ts` 가 요청마다 만든다.
+ * - accessToken: 연결 쿠키의 사용자와 오류 없는 지금 세션의 사용자가 같을 때만 채운다.
+ *   비어 있으면 signIn 은 sync 하지 않고 LinkFailed 로 보낸다(다른 계정으로 로그인되지 않게).
+ * - redirect: 연결에 성공하면 signIn 콜백이 채운다. route.ts 가 응답의 Location 을 이것으로 바꾼다.
+ */
+export interface KakaoLinkRequest {
+  accessToken?: string;
+  redirect?: string;
+}
 
 const MAX_NAME_LENGTH = 20;
 const MAX_IMAGE_URL_LENGTH = 2048;
@@ -164,6 +184,175 @@ async function revalidateToken(token: Token, internalApiUrl: string): Promise<To
   return refreshed;
 }
 
+/** 프론트 서버만 부르는 백엔드 내부 API(/api/auth/*)에 JSON 을 보냅니다. */
+function postInternal(path: string, body: unknown, timeoutMs: number): Promise<Response> {
+  const internalApiUrl = process.env.BACKEND_INTERNAL_URL || 'http://app:8080';
+  return fetch(`${internalApiUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      // 서버 간 호출임을 증명하는 공유 시크릿 (런타임 환경 변수, 브라우저에 노출되지 않음)
+      'X-Internal-Secret': process.env.INTERNAL_API_SECRET ?? '',
+    },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+}
+
+/** sync·login·link-kakao 응답(AuthSyncResponse)을 user 에 담습니다. 모양이 이상하면 false. */
+async function applyBackendAuth(user: User, response: Response): Promise<boolean> {
+  const data = (await response.json()) as BackendAuthResponse;
+  if (!data?.accessToken || !data?.refreshToken || !data?.user?.id) return false;
+  user.accessToken = data.accessToken;
+  user.refreshToken = data.refreshToken;
+  user.backendUser = data.user;
+  return true;
+}
+
+/** 카카오 프로필에서 백엔드에 보낼 값을 꺼냅니다. */
+function readKakaoProfile(user: User, kakaoProfile: KakaoProfile) {
+  const rawNickname = kakaoProfile.kakao_account?.name ||
+                   user.name ||
+                   kakaoProfile.properties?.nickname ||
+                   kakaoProfile.kakao_account?.profile?.nickname ||
+                   '';
+  const nickname = trimToGraphemes(rawNickname, MAX_NAME_LENGTH) || '사용자';
+
+  // 카카오가 유효하고 인증된 이메일이라고 확인해 준 경우에만 백엔드가 기존 계정과 연결할 수 있습니다.
+  const emailVerified =
+    kakaoProfile.kakao_account?.is_email_valid === true &&
+    kakaoProfile.kakao_account?.is_email_verified === true;
+
+  const email = kakaoProfile.kakao_account?.email || user.email || '';
+  const profileImage = user.image ||
+                       kakaoProfile.properties?.profile_image ||
+                       kakaoProfile.kakao_account?.profile?.profile_image_url || '';
+
+  return { kakaoId: kakaoProfile.id.toString(), email, emailVerified, nickname, profileImage };
+}
+
+type KakaoFields = ReturnType<typeof readKakaoProfile>;
+
+/** 일반 카카오 로그인: 백엔드와 사용자 정보를 동기화합니다. */
+async function syncKakao(user: User, fields: KakaoFields): Promise<string | boolean> {
+  try {
+    const response = await postInternal('/api/auth/sync', fields, SYNC_TIMEOUT_MS);
+    if (!response.ok) {
+      console.error('Backend sync failed:', response.status);
+      return '/?error=SyncFailed';
+    }
+    if (!(await applyBackendAuth(user, response))) {
+      console.error('Backend sync returned an unexpected response');
+      return '/?error=SyncFailed';
+    }
+    return true;
+  } catch (error) {
+    console.error('Backend sync error:', error);
+    return '/?error=SyncFailed';
+  }
+}
+
+/**
+ * 카카오 연결 모드: 지금 로그인한 사용자에게 이 카카오 계정을 붙입니다.
+ * 실패하면 문자열(주소)을 돌려줘 세션 쿠키를 건드리지 않습니다 → 기존 세션 그대로, 다른 계정으로 로그인되지 않음.
+ */
+async function linkKakao(user: User, fields: KakaoFields, link: KakaoLinkRequest): Promise<string | boolean> {
+  try {
+    const response = await postInternal(
+      '/api/auth/link-kakao',
+      {
+        accessToken: link.accessToken,
+        kakaoId: fields.kakaoId,
+        email: fields.email,
+        emailVerified: fields.emailVerified,
+        profileImage: fields.profileImage,
+      },
+      LINK_TIMEOUT_MS
+    );
+    if (response.status === 409) return `${LINK_ERROR_URL}KakaoInUse`;
+    if (!response.ok) {
+      console.error('Backend link-kakao failed:', response.status);
+      return `${LINK_ERROR_URL}LinkFailed`;
+    }
+    if (!(await applyBackendAuth(user, response))) {
+      console.error('Backend link-kakao returned an unexpected response');
+      return `${LINK_ERROR_URL}LinkFailed`;
+    }
+    link.redirect = LINKED_URL;
+    return true;
+  } catch (error) {
+    console.error('Backend link-kakao error:', error);
+    return `${LINK_ERROR_URL}LinkFailed`;
+  }
+}
+
+async function handleSignIn(
+  { user, account, profile }: { user: User; account: Account | null; profile?: Profile },
+  link?: KakaoLinkRequest
+): Promise<string | boolean> {
+  // 비밀번호 로그인은 authorize 가 이미 백엔드 로그인을 마쳤습니다(sync 를 부르지 않음).
+  if (account?.provider === 'credentials') return !!user.accessToken;
+
+  // 연결 모드(연결 쿠키가 있는 카카오 콜백)는 어긋나도 일반 로그인으로 넘어가지 않습니다.
+  if (link) {
+    if (!link.accessToken || !account || !profile) return `${LINK_ERROR_URL}LinkFailed`;
+    return linkKakao(user, readKakaoProfile(user, profile as unknown as KakaoProfile), link);
+  }
+
+  if (!account || !profile) return '/?error=SyncFailed';
+  return syncKakao(user, readKakaoProfile(user, profile as unknown as KakaoProfile));
+}
+
+/**
+ * 로그인 잠금을 (이메일, IP) 로 묶을 때 쓰는 접속 IP. nginx 가 $remote_addr 로 덮어쓰는 X-Real-IP 만 쓴다
+ * (X-Forwarded-For 첫 값은 클라이언트가 조작할 수 있어 쓰지 않음). 없으면 undefined → 백엔드가 'unknown' 한 묶음으로 센다.
+ */
+function clientIpFrom(headers: Record<string, unknown> | undefined): string | undefined {
+  const realIp = headers?.['x-real-ip'];
+  return typeof realIp === 'string' && realIp.trim() ? realIp.trim() : undefined;
+}
+
+/**
+ * 이메일·비밀번호 로그인. 실패는 null(→ error=CredentialsSignin, 계정 유무를 드러내지 않음),
+ * 잠금(429)은 'TooManyAttempts', 백엔드 장애는 'LoginFailed' 로 구분합니다.
+ * 비밀번호는 로그에 남기지 않습니다.
+ */
+async function authorizeCredentials(
+  credentials: Record<'email' | 'password', string> | undefined,
+  headers: Record<string, unknown> | undefined
+): Promise<User | null> {
+  const email = credentials?.email;
+  const password = credentials?.password;
+  if (!email || !password) return null;
+
+  let response: Response;
+  try {
+    response = await postInternal(
+      '/api/auth/login',
+      { email, password, clientIp: clientIpFrom(headers) },
+      LOGIN_TIMEOUT_MS
+    );
+  } catch (error) {
+    console.error('Backend login error:', error);
+    throw new Error('LoginFailed');
+  }
+  if (response.status === 429) throw new Error('TooManyAttempts');
+  if (response.status === 400 || response.status === 401) return null;
+  if (!response.ok) {
+    console.error('Backend login failed:', response.status);
+    throw new Error('LoginFailed');
+  }
+
+  const user: User = { id: '' };
+  if (!(await applyBackendAuth(user, response).catch(() => false)) || !user.backendUser) {
+    console.error('Backend login returned an unexpected response');
+    throw new Error('LoginFailed');
+  }
+  user.id = String(user.backendUser.id);
+  user.name = user.backendUser.nickname;
+  return user;
+}
+
 function toPublicImageUrl(image: string | null | undefined, publicApiUrl: string): string | null {
   if (!image) return null;
   return image.startsWith('/uploads/') ? `${publicApiUrl}${image}` : image;
@@ -174,6 +363,15 @@ export const authOptions: NextAuthOptions = {
     KakaoProvider({
       clientId: process.env.KAKAO_CLIENT_ID ?? '',
       clientSecret: process.env.KAKAO_CLIENT_SECRET ?? '',
+    }),
+    CredentialsProvider({
+      id: 'credentials',
+      name: '이메일',
+      credentials: {
+        email: { label: '이메일', type: 'email' },
+        password: { label: '비밀번호', type: 'password' },
+      },
+      authorize: (credentials, req) => authorizeCredentials(credentials, req.headers),
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
@@ -212,73 +410,10 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     /**
-     * 카카오 인증 직후 백엔드와 사용자 정보를 동기화합니다.
-     * 동기화에 실패하면 (accessToken 없는) 반쪽짜리 세션을 만들지 않고 로그인을 실패 처리합니다.
-     * 성공 시 결과를 user 객체에 담아 jwt 콜백으로 전달합니다.
+     * 로그인 직후 백엔드 결과를 user 객체에 담아 jwt 콜백으로 넘깁니다.
+     * 실패하면 (accessToken 없는) 반쪽짜리 세션을 만들지 않고 로그인을 실패 처리합니다.
      */
-    async signIn({ user, account, profile }) {
-      if (!account || !profile) return '/?error=SyncFailed';
-
-      const internalApiUrl = process.env.BACKEND_INTERNAL_URL || 'http://app:8080';
-      const kakaoProfile = profile as unknown as KakaoProfile;
-
-      const rawNickname = kakaoProfile.kakao_account?.name ||
-                       user.name ||
-                       kakaoProfile.properties?.nickname ||
-                       kakaoProfile.kakao_account?.profile?.nickname ||
-                       '';
-      const nickname = trimToGraphemes(rawNickname, MAX_NAME_LENGTH) || '사용자';
-
-      // 카카오가 유효하고 인증된 이메일이라고 확인해 준 경우에만 백엔드가 기존 계정과 연결할 수 있습니다.
-      const emailVerified =
-        kakaoProfile.kakao_account?.is_email_valid === true &&
-        kakaoProfile.kakao_account?.is_email_verified === true;
-
-      const email = kakaoProfile.kakao_account?.email || user.email || '';
-      const profileImage = user.image ||
-                           kakaoProfile.properties?.profile_image ||
-                           kakaoProfile.kakao_account?.profile?.profile_image_url || '';
-
-      try {
-        const syncData = {
-          kakaoId: kakaoProfile.id.toString(),
-          email: email,
-          emailVerified,
-          nickname: nickname,
-          profileImage: profileImage,
-        };
-
-        const response = await fetch(`${internalApiUrl}/api/auth/sync`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // 서버 간 호출임을 증명하는 공유 시크릿 (런타임 환경 변수, 브라우저에 노출되지 않음)
-            'X-Internal-Secret': process.env.INTERNAL_API_SECRET ?? '',
-          },
-          body: JSON.stringify(syncData),
-          signal: AbortSignal.timeout(SYNC_TIMEOUT_MS),
-        });
-
-        if (!response.ok) {
-          console.error('Backend sync failed:', response.status);
-          return '/?error=SyncFailed';
-        }
-
-        const data = (await response.json()) as BackendAuthResponse;
-        if (!data?.accessToken || !data?.refreshToken || !data?.user?.id) {
-          console.error('Backend sync returned an unexpected response');
-          return '/?error=SyncFailed';
-        }
-
-        user.accessToken = data.accessToken;
-        user.refreshToken = data.refreshToken;
-        user.backendUser = data.user;
-        return true;
-      } catch (error) {
-        console.error('Backend sync error:', error);
-        return '/?error=SyncFailed';
-      }
-    },
+    signIn: (params) => handleSignIn(params),
     async jwt({ token, user, account, trigger, session }) {
       const internalApiUrl = process.env.BACKEND_INTERNAL_URL || 'http://app:8080';
       const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://moyeolog.ruraeru.xyz';
@@ -326,7 +461,7 @@ export const authOptions: NextAuthOptions = {
         token.refreshToken = user.refreshToken;
         token.accessTokenExpires = getAccessTokenExpires(user.accessToken);
         token.userId = user.backendUser.id;
-        token.kakaoId = user.backendUser.kakaoId;
+        token.kakaoId = user.backendUser.kakaoId ?? undefined; // 이메일 가입 계정은 비어 있음
         token.customId = user.backendUser.customId;
 
         // 백엔드 DB의 정보를 최우선으로 토큰에 저장 (수동 수정된 정보 유지)
@@ -359,7 +494,7 @@ export const authOptions: NextAuthOptions = {
         // accessToken은 브라우저가 백엔드를 직접 호출할 때 Bearer 헤더로 쓰이므로 노출합니다.
         // refreshToken은 서버(JWT 쿠키) 안에만 두고 클라이언트로 내보내지 않습니다.
         session.user.accessToken = token.error ? undefined : (token.accessToken as string);
-        session.user.kakaoId = token.kakaoId as string;
+        session.user.kakaoId = token.kakaoId;
         session.user.customId = token.customId as string;
         session.user.error = token.error as string;
         
@@ -371,3 +506,11 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+/** 카카오 연결 모드로 처리할 콜백 요청용 옵션. signIn 만 연결 모드로 바꿉니다. */
+export function createAuthOptions(link: KakaoLinkRequest): NextAuthOptions {
+  return {
+    ...authOptions,
+    callbacks: { ...authOptions.callbacks, signIn: (params) => handleSignIn(params, link) },
+  };
+}

@@ -10,6 +10,12 @@ export interface UserResponse {
   bio: string | null;
   emailVisible: boolean;
   createdAt?: string;
+  /** 비밀번호로 로그인할 수 있는지 */
+  hasPassword?: boolean;
+  /** 카카오 로그인이 붙어 있는지 */
+  kakaoLinked?: boolean;
+  /** email 의 주인임을 메일로 확인했는지 */
+  emailVerified?: boolean;
 }
 
 /** PUT /api/users/me 에 보낼 값. 넣은 필드만 바뀝니다. */
@@ -72,6 +78,43 @@ export const userApi = {
       headers: getAuthHeaders(session),
     });
     return response.data;
+  },
+
+  /** 비밀번호 설정·변경. 이미 있으면 currentPassword 가 필요하고, 바꾸면 모든 기기에서 로그아웃됩니다. */
+  async updatePassword(
+    body: { currentPassword?: string; newPassword: string },
+    session: Session | null
+  ): Promise<void> {
+    await axiosInstance.put('/api/users/me/password', body, {
+      headers: getAuthHeaders(session),
+    });
+  },
+
+  /** 이메일 등록·변경 요청. 인증 메일의 링크를 눌러야 바뀝니다. 비밀번호가 있는 계정은 currentPassword 가 필요합니다. */
+  async requestEmailChange(
+    body: { email: string; currentPassword?: string },
+    session: Session | null
+  ): Promise<void> {
+    await axiosInstance.post('/api/users/me/email', body, {
+      headers: getAuthHeaders(session),
+    });
+  },
+
+  /** 카카오 연결 해제 (비밀번호와 인증된 이메일이 있어야 하고, 현재 비밀번호로 재인증합니다) */
+  async unlinkKakao(currentPassword: string, session: Session | null): Promise<UserResponse> {
+    const response = await axiosInstance.delete('/api/users/me/kakao', {
+      headers: getAuthHeaders(session),
+      data: { currentPassword },
+    });
+    return response.data;
+  },
+
+  /**
+   * 카카오 연결 시작: 프론트 서버가 5분짜리 연결 쿠키를 심습니다.
+   * 이어서 signIn('kakao') 를 부르면 로그인 대신 지금 계정에 카카오가 붙습니다.
+   */
+  async startKakaoLink(): Promise<void> {
+    await axiosInstance.post('/api/auth/link-intent');
   },
 
   /** 회원 탈퇴 */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { User as UserIcon, Bell, Lock, Monitor, Globe, LogOut, Loader2 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
@@ -29,6 +29,14 @@ const NEEDS_USER: MenuId[] = ['profile', 'security'];
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [activeMenu, setActiveMenu] = useState<MenuId>('profile');
+
+  // ?menu=security 처럼 메뉴를 지정해 들어온 경우(카카오 연결·이메일 인증 뒤 돌아올 때). 서버 렌더와 어긋나지 않게 마운트 뒤에 바꾼다.
+  useEffect(() => {
+    const menu = new URLSearchParams(window.location.search).get('menu');
+    const found = menuItems.find((item) => item.id === menu);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (found) setActiveMenu(found.id);
+  }, []);
 
   const userQuery = useQuery({
     queryKey: ['user', 'me'],
