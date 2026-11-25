@@ -20,13 +20,16 @@ const COLORS: Record<Sky, string> = {
   SNOW: 'text-wx-snow',
 };
 
+// 작은 크기에서도 보이게: 굵은 선 + 같은 색의 옅은 채움
+const SHAPE = { strokeWidth: 2, fill: 'currentColor', fillOpacity: 0.22 } as const;
+
 /** 날씨 아이콘 하나. 설명은 title·aria-label 로 준다. */
-export function WeatherIcon({ weather, size = 14, className = '' }: { weather: WeatherAt; size?: number; className?: string }) {
+export function WeatherIcon({ weather, size = 16, className = '' }: { weather: WeatherAt; size?: number; className?: string }) {
   const Icon = ICONS[weather.sky];
   const text = weatherText(weather);
   return (
     <span role="img" aria-label={`날씨 ${text}`} title={text} className={`inline-flex shrink-0 ${COLORS[weather.sky]} ${className}`}>
-      <Icon size={size} strokeWidth={1.5} aria-hidden />
+      <Icon size={size} {...SHAPE} aria-hidden />
     </span>
   );
 }
@@ -36,7 +39,7 @@ export function WeatherLine({ weather, className = '' }: { weather: WeatherAt; c
   const Icon = ICONS[weather.sky];
   return (
     <span className={`inline-flex items-center gap-1.5 tabular-nums ${className}`}>
-      <Icon size={14} strokeWidth={1.5} aria-hidden className={`shrink-0 ${COLORS[weather.sky]}`} />
+      <Icon size={16} {...SHAPE} aria-hidden className={`shrink-0 ${COLORS[weather.sky]}`} />
       {weatherText(weather)}
     </span>
   );
