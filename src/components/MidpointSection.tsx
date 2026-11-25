@@ -70,11 +70,15 @@ export default function MidpointSection({
 
   const stations = useStations(data?.center ?? null);
 
-  // 정해진 중간 지점: 추천 목록의 역이면 그 역 좌표, 목록에서 빠졌으면 일정에 저장된 좌표
+  // 추천의 기준점: 정해진 장소가 추천 목록의 역이면 그 역, 아니면 일정에 저장된 좌표.
+  // 추천 장소를 일정 장소로 정한 직후에는 목록이 바뀌지 않게 방금까지의 기준 역(anchor)을 그대로 둔다.
+  const [anchor, setAnchor] = useState<MidpointPlace | null>(null);
   const confirmedName = data?.location?.trim() || '';
   const confirmedStation = confirmedName ? stations.items.find((s) => s.name === confirmedName) : undefined;
-  const chosenLat = confirmedStation?.latitude ?? (confirmedName && place?.name === confirmedName ? place.latitude ?? null : null);
-  const chosenLng = confirmedStation?.longitude ?? (confirmedName && place?.name === confirmedName ? place.longitude ?? null : null);
+  const savedPlace = confirmedName && place?.name === confirmedName ? place : undefined;
+  const baseName = anchor?.name ?? confirmedName;
+  const chosenLat = anchor?.latitude ?? confirmedStation?.latitude ?? savedPlace?.latitude ?? null;
+  const chosenLng = anchor?.longitude ?? confirmedStation?.longitude ?? savedPlace?.longitude ?? null;
   const hasChosen = !!data?.center && chosenLat != null && chosenLng != null;
 
   // 일정 시작 시각의 그 역 날씨. 예보 범위(10일) 밖이거나 못 받으면 null → 기본 순서로 추천한다
@@ -128,7 +132,22 @@ export default function MidpointSection({
     await run(async () => {
       const place = { name: station.name, latitude: station.latitude, longitude: station.longitude };
       apply(await midpointApi.confirm(scheduleId, place, session));
+      setAnchor(null);
       onLocationChange?.(place);
+      toast.success('일정 장소를 정했어요');
+    });
+  };
+
+  /** 추천 장소를 일정 장소로 정한다. 추천 목록은 지금 기준 역 그대로 둔다 */
+  const confirmRecommendation = async (rec: { name: string; y: string; x: string }) => {
+    if (chosenLat == null || chosenLng == null) return;
+    if (!(await confirm(`일정 장소를 ${rec.name}(으)로 정할까요?`))) return;
+    const base = { name: baseName, latitude: chosenLat, longitude: chosenLng };
+    await run(async () => {
+      const picked = { name: rec.name.slice(0, 255), latitude: Number(rec.y), longitude: Number(rec.x) };
+      apply(await midpointApi.confirm(scheduleId, picked, session));
+      setAnchor(base);
+      onLocationChange?.(picked);
       toast.success('일정 장소를 정했어요');
     });
   };
@@ -316,7 +335,7 @@ export default function MidpointSection({
       {hasChosen && (isRecommending || recommendations.length > 0) && (
         <div className="mt-4">
           <p className="text-[13px] text-ink-3">
-            <span className="text-ink-2">{confirmedName} 근처 추천 장소</span>
+            <span className="text-ink-2">{baseName} 근처 추천 장소</span>
             {recommend.reason && <span className="ml-2">{recommend.reason}</span>}
           </p>
           {weather && <WeatherLine weather={weather} className="mt-1 text-[13px] text-ink-2" />}
@@ -327,25 +346,36 @@ export default function MidpointSection({
           ) : (
             <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
               {recommendations.map((rec, index) => (
-                <li key={`${rec.id}-${index}`}>
+                <li key={`${rec.id}-${index}`} className="flex items-center gap-3 px-3 py-2">
+                  <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-raised">
+                    <ImageWithFallback src={rec.image} alt="" fill containerClassName="w-full h-full" className="object-cover" unoptimized />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-display text-[15px] text-ink">{rec.name}</span>
+                    <span className="block truncate text-[13px] text-ink-3">
+                      {rec.category}
+                      {rec.distance && <> · 역에서 <span className="stamp">{rec.distance}</span></>}
+                    </span>
+                  </span>
                   <a
                     href={`https://map.kakao.com/link/map/${rec.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-raised"
+                    className="btn-icon size-7 shrink-0"
+                    title="카카오맵에서 보기"
                   >
-                    <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-raised">
-                      <ImageWithFallback src={rec.image} alt="" fill containerClassName="w-full h-full" className="object-cover" unoptimized />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-display text-[15px] text-ink">{rec.name}</span>
-                      <span className="block truncate text-[13px] text-ink-3">
-                        {rec.category}
-                        {rec.distance && <> · 역에서 <span className="stamp">{rec.distance}</span></>}
-                      </span>
-                    </span>
-                    <ExternalLink size={14} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
+                    <ExternalLink size={14} strokeWidth={1.5} />
                   </a>
+                  {data.canConfirm && (
+                    <button
+                      type="button"
+                      onClick={() => confirmRecommendation(rec)}
+                      disabled={busy || data.location === rec.name}
+                      className="btn-secondary btn-sm shrink-0"
+                    >
+                      {data.location === rec.name ? '정한 장소' : '여기로 정하기'}
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
