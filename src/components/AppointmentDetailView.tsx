@@ -3,7 +3,7 @@
 import {
   X, Calendar, Clock, MapPin, Trash2, Loader2, FileText,
   ChevronRight, ExternalLink, AlignLeft,
-  Pencil, ChevronLeft, Users, CloudSun, type LucideIcon
+  Pencil, ChevronLeft, Users, CloudSun, TrainFront, type LucideIcon
 } from 'lucide-react';
 import { EmptyState, Ribbon } from './ui';
 import { GroupAvatar } from './groups/GroupIdentity';
@@ -20,6 +20,7 @@ import { getThemeColors, initialOf } from '@/lib/utils';
 import { formatScheduleRange, formatStamp, isMultiDaySchedule, useTimeFormat } from '@/lib/schedule-utils';
 import ImageWithFallback from './ImageWithFallback';
 import AppointmentModal from './AppointmentModal';
+import MidpointSection from './MidpointSection';
 import { useAlert } from '@/hooks/useAlert';
 import { usePlaceWeather } from '@/hooks/useWeather';
 import { weatherAt } from '@/lib/weather';
@@ -388,6 +389,19 @@ export default function AppointmentDetailView({
                   </div>
                 ))}
               </div>
+            </InfoRow>
+          )}
+
+          {/* 중간 지점: 여럿이 만나는 일정(모임 일정, 참여자가 있는 일정)에서만 */}
+          {(schedule.groupId || participants.length > 0) && (
+            <InfoRow icon={TrainFront} label="중간 지점">
+              <MidpointSection
+                scheduleId={schedule.id}
+                onLocationChange={(place) => {
+                  setSchedule((prev) => (prev ? { ...prev, location: place.name, latitude: place.latitude, longitude: place.longitude } : prev));
+                  onSuccess?.();
+                }}
+              />
             </InfoRow>
           )}
 
