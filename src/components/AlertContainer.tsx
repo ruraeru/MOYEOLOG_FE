@@ -52,7 +52,7 @@ export default function AlertContainer() {
   if (!mounted) return null;
 
   // 되돌릴 수 없는 동작이면 확인 버튼을 위험색으로 (본문·확인 버튼 글자로 판단)
-  const destructiveWords = ['삭제', '내보내기', '내보낼', '나가기', '거절', '지울'];
+  const destructiveWords = ['삭제', '내보내기', '내보낼', '나가기', '거절', '지울', '지우기'];
   const isDestructive = modal
     ? destructiveWords.some((w) => modal.message?.includes(w) || modal.confirmText?.includes(w))
     : false;

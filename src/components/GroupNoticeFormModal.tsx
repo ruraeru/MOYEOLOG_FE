@@ -194,8 +194,8 @@ export default function GroupNoticeFormModal({
       subtitle={editing ? undefined : '올리면 모임 멤버 모두에게 알림이 가요'}
       footer={
         <>
-          <button type="button" onClick={handleClose} disabled={saving} className="btn-ghost">취소</button>
-          <button type="button" onClick={submit} disabled={saving} className="btn-primary">
+          <button type="button" onClick={handleClose} disabled={saving} className="btn-ghost max-sm:h-11">취소</button>
+          <button type="button" onClick={submit} disabled={saving} className="btn-primary max-sm:h-11 max-sm:px-4">
             {saving && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
             {editing ? '저장' : '올리기'}
           </button>
@@ -258,7 +258,10 @@ export default function GroupNoticeFormModal({
                           optionRefs.current[i] = el;
                         }}
                         value={o}
-                        onChange={(e) => setOption(i, e.target.value)}
+                        onChange={(e) => {
+                          setOption(i, e.target.value);
+                          setError(null);
+                        }}
                         onKeyDown={onOptionKeyDown(i)}
                         enterKeyHint={i < options.length - 1 || options.length < OPTIONS_MAX ? 'next' : 'done'}
                         maxLength={OPTION_MAX}

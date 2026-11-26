@@ -1,4 +1,5 @@
 import { Session } from 'next-auth';
+import { parseISO } from 'date-fns';
 import { axiosInstance, getAuthHeaders } from './axios';
 
 export interface NoticeUser {
@@ -54,6 +55,11 @@ export interface NoticeCreateInput {
   content: string;
   /** 만들 때만 붙인다. closesAt 은 yyyy-MM-dd'T'HH:mm:ss(한국 시간, 오프셋 없음) */
   poll?: { options: string[]; multiple: boolean; anonymous: boolean; closesAt?: string | null };
+}
+
+/** 작성 뒤 내용을 고쳤나(고정은 updatedAt 을 바꾸지 않는다). 같은 요청 안의 작은 차이는 무시한다 */
+export function isNoticeEdited(notice: Pick<NoticeSummary, 'createdAt' | 'updatedAt'>): boolean {
+  return parseISO(notice.updatedAt).getTime() - parseISO(notice.createdAt).getTime() > 1000;
 }
 
 const base = (groupId: string) => `/api/groups/${groupId}/notices`;

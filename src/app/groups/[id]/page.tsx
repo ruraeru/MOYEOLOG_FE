@@ -26,7 +26,7 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { datePollApi, type DatePollSummary } from '@/lib/date-poll-api';
 import DatePollModal, { DatePollCreateModal, pollDateLabel, pollRangeLabel } from '@/components/DatePollModal';
-import { groupNoticeApi, type NoticeSummary } from '@/lib/group-notice-api';
+import { groupNoticeApi, isNoticeEdited, type NoticeSummary } from '@/lib/group-notice-api';
 import GroupNoticeModal, { msUntil } from '@/components/GroupNoticeModal';
 import GroupNoticeFormModal from '@/components/GroupNoticeFormModal';
 import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
@@ -114,7 +114,7 @@ function GroupDetailContent() {
   const groupId = params?.id as string;
   const topicParam = searchParams.get('topic');
   const tabParam = searchParams.get('tab');
-  // ?notice={id}: 공지 알림에서 들어오면 그 공지를 연다
+  // 열린 공지는 주소(?notice=)로 둔다: 뒤로 가기로 창만 닫히고, 알림 링크로 바로 열린다
   const noticeParam = searchParams.get('notice');
 
   const [group, setGroup] = useState<GroupResponse | null>(null);
@@ -127,13 +127,11 @@ function GroupDetailContent() {
   const [openPollId, setOpenPollId] = useState<string | null>(null);
   const [isPollCreateOpen, setIsPollCreateOpen] = useState(false);
   const [notices, setNotices] = useState<NoticeSummary[]>([]);
-  const [openNoticeId, setOpenNoticeId] = useState<string | null>(null);
+  const openNoticeId = noticeParam;
+  /** 이 화면에서 push 로 연 공지인가(닫을 때 뒤로 가기로 기록을 되돌린다) */
+  const [pushedNotice, setPushedNotice] = useState(false);
+  if (!noticeParam && pushedNotice) setPushedNotice(false);
   const [isNoticeFormOpen, setIsNoticeFormOpen] = useState(false);
-  const [seenNoticeParam, setSeenNoticeParam] = useState<string | null>(null);
-  if (noticeParam !== seenNoticeParam) {
-    setSeenNoticeParam(noticeParam);
-    if (noticeParam) setOpenNoticeId(noticeParam);
-  }
   const hadGroupRef = useRef(false);
 
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
@@ -158,6 +156,12 @@ function GroupDetailContent() {
   const [activeTab, setActiveTab] = useState<TabType>(
     TABS.includes(tabParam as TabType) ? (tabParam as TabType) : topicParam ? 'topics' : 'notice'
   );
+  // 같은 화면에서 주소의 ?tab= 만 바뀌어도(알림 등) 탭을 따라 바꾼다
+  const [prevTabParam, setPrevTabParam] = useState(tabParam);
+  if (tabParam !== prevTabParam) {
+    setPrevTabParam(tabParam);
+    if (TABS.includes(tabParam as TabType)) setActiveTab(tabParam as TabType);
+  }
   const [memoFilter, setMemoFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -333,11 +337,23 @@ function GroupDetailContent() {
 
   const refreshQuietly = useCallback(() => { fetchGroupData(true); }, [fetchGroupData]);
   const closePoll = useCallback(() => setOpenPollId(null), [setOpenPollId]);
-  const closeNotice = useCallback(() => {
-    setOpenNoticeId(null);
-    // 알림으로 열었으면 쿼리를 지워 새로고침해도 다시 열리지 않게
-    if (noticeParam) router.replace(`/groups/${groupId}?tab=notice`, { scroll: false });
-  }, [setOpenNoticeId, noticeParam, router, groupId]);
+  const openNotice = (id: string) => {
+    setPushedNotice(true);
+    router.push(`/groups/${groupId}?tab=notice&notice=${id}`, { scroll: false });
+  };
+  const closeNotice = () => {
+    if (pushedNotice) {
+      setPushedNotice(false);
+      router.back();
+    } else {
+      router.replace(`/groups/${groupId}?tab=notice`, { scroll: false });
+    }
+  };
+  // 탭을 바꾸면 주소에도 남긴다(새로고침해도 보던 탭)
+  const changeTab = (key: TabType) => {
+    setActiveTab(key);
+    router.replace(`/groups/${groupId}?tab=${key}`, { scroll: false });
+  };
 
   // 목록의 '투표 중' 칩이 마감 시각에 '투표 마감'으로 바뀌도록 가장 이른 마감 시각에 다시 부른다(서버는 그 시각에 알려 주지 않는다)
   const nextNoticeClose = notices
@@ -354,7 +370,7 @@ function GroupDetailContent() {
 
   // 상세를 열면 서버가 읽음 처리한다. 읽음 이벤트는 방장에게만 가므로 내 목록의 점·읽음 수는 여기서 바로 고친다
   const handleOpenNotice = (notice: NoticeSummary) => {
-    setOpenNoticeId(notice.id);
+    openNotice(notice.id);
     if (!notice.read) {
       setNotices(prev => prev.map(n => (n.id === notice.id ? { ...n, read: true, readCount: n.readCount + 1 } : n)));
     }
@@ -535,10 +551,9 @@ function GroupDetailContent() {
     .sort((a, b) => parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime())
     .slice(0, 3);
 
-  const unreadNotices = notices.filter(n => !n.read).length;
   const tabItems: { key: TabType; label: string; count?: number }[] = [
-    // 공지 탭 숫자는 안 읽은 공지 수(0이면 숨김)
-    { key: 'notice', label: '공지', count: unreadNotices || undefined },
+    // 탭 숫자는 모두 전체 개수(안 읽은 공지는 목록 카드의 점으로 보인다)
+    { key: 'notice', label: '공지', count: notices.length },
     { key: 'calendar', label: '일정', count: schedules.length },
     { key: 'memos', label: '메모', count: memos.length },
     { key: 'topics', label: '토픽', count: topics.length },
@@ -641,7 +656,7 @@ function GroupDetailContent() {
             </div>
           </header>
 
-          <UnderlineTabs className="sticky top-0 z-10 mt-5 bg-canvas lg:mt-6" items={tabItems} active={activeTab} onChange={setActiveTab} />
+          <UnderlineTabs className="sticky top-0 z-10 mt-5 bg-canvas lg:mt-6" items={tabItems} active={activeTab} onChange={changeTab} />
 
           <div className="mt-5 min-h-[400px] outline-none lg:mt-6">
             {activeTab === 'notice' ? (
@@ -673,9 +688,10 @@ function GroupDetailContent() {
                             <span className="truncate font-display text-[15px] leading-5 text-ink">{n.title}</span>
                             {!n.read && <span role="img" className="size-1.5 shrink-0 rounded-full bg-mark" aria-label="안 읽음" />}
                           </span>
-                          {n.preview && <span className="mt-1 line-clamp-2 block break-words text-sm text-ink-2">{n.preview}</span>}
+                          {n.preview && <span className="mt-1 line-clamp-2 break-words text-sm text-ink-2">{n.preview}</span>}
                           <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-3">
                             <span className="stamp">{formatStamp(n.createdAt, tf)}</span>
+                            {isNoticeEdited(n) && <span>수정됨</span>}
                             <span>{n.memberCount}명 중 {n.readCount}명 읽음</span>
                             {n.hasPoll && (
                               <span className={n.pollClosed ? 'chip' : 'chip bg-accent-soft text-accent'}>
@@ -971,7 +987,7 @@ function GroupDetailContent() {
         onClose={() => setIsNoticeFormOpen(false)}
         onSaved={(notice) => {
           setIsNoticeFormOpen(false);
-          setOpenNoticeId(notice.id);
+          openNotice(notice.id);
           fetchGroupData(true);
         }}
       />

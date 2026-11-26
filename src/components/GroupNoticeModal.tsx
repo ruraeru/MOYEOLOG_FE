@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes, type ImgHTMLAttributes } from 'react';
 import { useSession } from 'next-auth/react';
 import type { Session } from 'next-auth';
 import dynamic from 'next/dynamic';
 import { Check, Loader2, Pin } from 'lucide-react';
-import { groupNoticeApi, type NoticeDetail, type NoticeUser } from '@/lib/group-notice-api';
+import { groupNoticeApi, isNoticeEdited, type NoticeDetail, type NoticeUser } from '@/lib/group-notice-api';
 import { getApiErrorMessage, getApiErrorStatus } from '@/lib/axios';
 import { useAlert } from '@/hooks/useAlert';
 import { useVisiblePolling } from '@/hooks/useVisiblePolling';
@@ -17,10 +17,28 @@ import GroupNoticeFormModal from './GroupNoticeFormModal';
 import { Modal } from './ui';
 import { Avatar } from './groups/GroupUI';
 
-const EdMarkdown = dynamic(
-  () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown),
-  { ssr: false },
-);
+const loadMarkdown = () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown);
+const EdMarkdown = dynamic(loadMarkdown, { ssr: false });
+
+/** 본문 링크: 바깥 주소는 새 탭에서 연다(모임 화면을 떠나지 않게) */
+function NoticeLink({ href, children, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const external = !!href && /^https?:\/\//i.test(href);
+  return (
+    <a href={href} {...rest} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+      {children}
+    </a>
+  );
+}
+
+/** 본문 그림: 못 불러오면 깨진 그림 표시 대신 숨긴다 */
+function NoticeImage(props: ImgHTMLAttributes<HTMLImageElement>) {
+  const [broken, setBroken] = useState(false);
+  if (broken || !props.src) return null;
+  // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+  return <img {...props} onError={() => setBroken(true)} />;
+}
+
+const markdownComponents = { a: NoticeLink, img: NoticeImage };
 
 /** 열린 공지 창을 다시 불러오는 간격 (SSE 가 붙어 있으면 60초 안전망) */
 const POLL_MS = 15000;
@@ -83,6 +101,15 @@ function NoticeView({
   const [editing, setEditing] = useState(false);
   /** 이 창에서 재촉을 보냈나(연달아 누르지 않게) */
   const [reminded, setReminded] = useState(false);
+  /** 본문 렌더러를 받기 전에는 창을 비워 두지 않고 로딩을 보여 준다(뒤늦게 본문이 끼어들어 아래 내용이 밀리지 않게) */
+  const [markdownReady, setMarkdownReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    loadMarkdown().then(() => alive && setMarkdownReady(true), () => alive && setMarkdownReady(true));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // 부모가 바뀔 때마다 새 함수를 넘겨도 load 가 다시 만들어지지 않게
   const cbRef = useRef({ onChanged, onClose });
@@ -295,7 +322,7 @@ function NoticeView({
         open
         onClose={requestClose}
         size="md"
-        title={detail?.title ?? '공지'}
+        title={<span className="break-keep [overflow-wrap:anywhere]">{detail?.title ?? '공지'}</span>}
         subtitle={detail && (
           <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
             {detail.pinnedAt && (
@@ -305,6 +332,7 @@ function NoticeView({
             )}
             <span>{detail.author.nickname}</span>
             <span className="stamp">{formatStamp(detail.createdAt, tf)}</span>
+            {isNoticeEdited(detail) && <span title={formatStamp(detail.updatedAt, tf)}>수정됨</span>}
             <span aria-hidden>·</span>
             <span className="stamp">{detail.memberCount}명 중 {detail.readCount}명 읽음</span>
           </span>
@@ -331,8 +359,8 @@ function NoticeView({
           </>
         ) : undefined}
       >
-        {!detail ? (
-          loadError ? (
+        {!detail || !markdownReady ? (
+          loadError && !detail ? (
             <div className="py-8 text-center">
               <p className="text-sm text-ink-2">{loadError}</p>
               <button type="button" onClick={() => load()} className="btn-secondary mt-4">다시 시도</button>
@@ -347,6 +375,7 @@ function NoticeView({
             {detail.content.trim() && (
               <div className={`break-words leading-relaxed text-ink ${markdownListClassName}`} data-color-mode="light">
                 <EdMarkdown
+                  components={markdownComponents}
                   rehypePlugins={markdownRehypePlugins}
                   source={detail.content}
                   style={{ backgroundColor: 'transparent', fontSize: '0.9375rem', fontWeight: 400, color: 'inherit' }}
