@@ -27,6 +27,7 @@ declare module 'next-auth' {
       kakaoId?: string | null; // 이메일 가입 계정은 없음
       customId?: string;
       nickname?: string;
+      email?: string | null;
       profileImage?: string | null;
     };
   }

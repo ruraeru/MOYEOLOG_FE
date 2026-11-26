@@ -1,9 +1,9 @@
 'use client';
 
-import { useSyncExternalStore, useEffect, useState, type FormEvent } from 'react';
+import { useSyncExternalStore, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useSession, signIn } from 'next-auth/react';
-import { Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { safeCallbackPath } from '@/lib/url-safety';
 import { normalizeEmail } from '@/lib/account-api';
@@ -21,9 +21,18 @@ const getCallbackPath = () =>
 
 const getLoginError = () => new URLSearchParams(window.location.search).get('error');
 
+/** 이메일 폼을 펼쳤는지·입력한 이메일을 기억해 가입·비밀번호 찾기에서 뒤로 와도 그대로 두는 키 */
+const EMAIL_FORM_KEY = 'login-email-form';
+
+/** 아주 기본적인 형식 검사(@ 앞뒤에 글자, 뒤에 점). 실제 확인은 서버가 한다 */
+const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
 /** NextAuth 오류 코드 → 문구. CredentialsSignin·TooManyAttempts 는 auth.ts 의 credentials 로그인이 낸다 */
 const loginErrorMessage = (code: string | null | undefined) => {
-  if (code === 'CredentialsSignin') return '이메일 또는 비밀번호가 올바르지 않아요.';
+  // 백엔드는 잠금(10회 실패)도 계정 유무를 숨기려고 같은 401 을 준다. 그래서 두 경우를 한 문구로 알린다.
+  if (code === 'CredentialsSignin')
+    return '이메일 또는 비밀번호가 올바르지 않아요. 여러 번 틀렸다면 10분 동안 로그인이 막힐 수 있어요.';
+  if (code === 'AccessDenied') return '카카오 로그인을 취소했어요. 다시 시작하려면 카카오로 시작하기를 눌러 주세요.';
   if (code === 'TooManyAttempts') return '로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요.';
   return '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.';
 };
@@ -43,6 +52,11 @@ export default function LoginPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  // 주소의 error 를 이 화면에서 지웠는지(다시 시도하면 위쪽 오류는 내리고 폼 안 오류 하나만 보인다)
+  const [queryErrorCleared, setQueryErrorCleared] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const isMounted = useSyncExternalStore(
     emptySubscribe,
@@ -59,31 +73,92 @@ export default function LoginPage() {
     }
   }, [status, sessionError, router]);
 
-  if (!isMounted || status === 'loading') {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas">
-        <div className="size-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-      </main>
-    );
-  }
+  // 가입·비밀번호 찾기에 갔다가 뒤로 왔을 때 펼친 폼과 입력한 이메일을 되살린다
+  // (서버 렌더와 맞추려고 첫 렌더 뒤에 읽는다)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const saved = sessionStorage.getItem(EMAIL_FORM_KEY);
+        if (saved !== null) {
+          setEmailOpen(true);
+          setEmail(saved);
+        }
+      } catch {
+        // 저장소를 못 쓰면 처음 상태로 둔다
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
+  useEffect(() => {
+    if (!emailOpen) return;
+    try {
+      sessionStorage.setItem(EMAIL_FORM_KEY, email);
+    } catch {
+      // 무시
+    }
+  }, [emailOpen, email]);
+
+  // 로그인한 사용자는 미들웨어가 '/' 에서 먼저 보내므로, 세션 확인을 기다리지 않고 바로 화면을 그린다.
   if (status === 'authenticated') return null;
 
-  const loginError = getLoginError();
+  // 주소의 error·callbackUrl 은 브라우저에서만 읽는다(서버 렌더에서는 오류 없이 그린다).
+  const loginError = isMounted && !queryErrorCleared ? getLoginError() : null;
   // 이메일 폼은 접어 둔다. 이메일 로그인 오류로 돌아왔으면 펼친 채로 보여 준다.
   const showEmail = emailOpen || loginError === 'CredentialsSignin' || loginError === 'TooManyAttempts';
 
+  const closeEmail = () => {
+    setEmailOpen(false);
+    setFormError(null);
+    setPassword('');
+    if (loginError) clearQueryError();
+    try {
+      sessionStorage.removeItem(EMAIL_FORM_KEY);
+    } catch {
+      // 무시
+    }
+  };
+
+  /** 주소의 ?error= 를 지운다(callbackUrl 은 남긴다) */
+  const clearQueryError = () => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('error')) {
+      url.searchParams.delete('error');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
+    setQueryErrorCleared(true);
+  };
+
   const onEmailLogin = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password) {
+    if (loginError) {
+      // 주소의 오류로 펼쳐진 폼이 접히지 않게 펼침 상태로 옮긴 뒤 지운다
+      setEmailOpen(true);
+      clearQueryError();
+    }
+    const trimmed = email.trim();
+    if (!trimmed || !password) {
       setFormError('이메일과 비밀번호를 입력해 주세요.');
+      (trimmed ? passwordRef : emailRef).current?.focus();
+      return;
+    }
+    if (!looksLikeEmail(trimmed)) {
+      setFormError('이메일 형식이 아니에요. 예: name@example.com');
+      emailRef.current?.focus();
       return;
     }
     setFormError(null);
     setSubmitting(true);
     try {
       const result = await signIn('credentials', { redirect: false, email: normalizeEmail(email), password });
-      if (result?.ok && !result.error) return; // 세션이 갱신되면 위 useEffect 가 callbackUrl 로 보낸다
+      if (result?.ok && !result.error) {
+        try {
+          sessionStorage.removeItem(EMAIL_FORM_KEY);
+        } catch {
+          // 무시
+        }
+        return; // 세션이 갱신되면 위 useEffect 가 callbackUrl 로 보낸다
+      }
       setFormError(loginErrorMessage(result?.error));
     } catch {
       // nginx rate limit(429) 등 NextAuth 가 아닌 응답이면 signIn 이 던진다
@@ -91,25 +166,29 @@ export default function LoginPage() {
     }
     setPassword('');
     setSubmitting(false);
+    // 비운 비밀번호칸으로 바로 다시 입력할 수 있게(버튼이 다시 켜진 뒤 포커스)
+    setTimeout(() => passwordRef.current?.focus(), 0);
   };
 
   return (
-    <main className="flex min-h-screen items-center bg-canvas px-6 py-12 lg:px-16">
-      <div className="mx-auto grid w-full max-w-[1200px] items-center gap-16 lg:grid-cols-[minmax(0,1fr)_620px]">
+    // 위쪽 기준으로 놓아 폼을 펼치거나 오류가 떠도 로고·제목이 위로 튀지 않는다
+    <main className="flex min-h-screen items-start bg-canvas px-6 pb-12 pt-[max(3rem,calc(50vh-18rem))] lg:px-16">
+      {/* 두 열은 xl(1280) 부터: lg(1024)에서는 왼쪽 열이 212px 로 줄어 제목이 다섯 줄로 깨졌다 */}
+      <div className="mx-auto grid w-full max-w-[1200px] items-start gap-16 xl:grid-cols-[minmax(0,1fr)_620px]">
         {/* 왼쪽: 로고, 제목, 설명, 카카오 버튼 */}
         <div className="flex flex-col items-start">
           <Logo height={46} />
 
-          <h1 className="mt-8 font-display text-[36px] leading-[48px] text-ink lg:text-[52px] lg:leading-[64px]">
+          <h1 className="mt-8 font-display text-[36px] leading-[48px] break-keep text-ink lg:text-[52px] lg:leading-[64px]">
             모임장도 모임원도,
             <br />
             모이기 쉽게 잊지 않게
           </h1>
-          <p className="mt-6 max-w-[480px] text-base leading-relaxed text-ink-2 lg:text-lg">
+          <p className="mt-6 max-w-[480px] break-keep text-base leading-relaxed text-ink-2 lg:text-lg">
             장소 정하기부터 함께 보는 일정과 메모까지, 모임의 모든 일을 한곳에서 해결해요
           </p>
 
-          {loginError && (
+          {loginError && !formError && (
             <p role="alert" className="mt-6 w-full max-w-[400px] rounded-[10px] bg-negative-soft px-4 py-3 text-sm text-negative">
               {loginErrorMessage(loginError)}
             </p>
@@ -151,7 +230,12 @@ export default function LoginPage() {
                 placeholder="이메일"
                 autoFocus={emailOpen}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                ref={emailRef}
+                aria-invalid={formError ? true : undefined}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setFormError(null);
+                }}
                 className="form-input h-11"
               />
             </div>
@@ -159,15 +243,31 @@ export default function LoginPage() {
               <label htmlFor="login-password" className="sr-only">
                 비밀번호
               </label>
-              <input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="비밀번호"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="form-input h-11"
-              />
+              <div className="relative">
+                <input
+                  id="login-password"
+                  ref={passwordRef}
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="비밀번호"
+                  value={password}
+                  aria-invalid={formError ? true : undefined}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFormError(null);
+                  }}
+                  className="form-input h-11 pr-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 보기'}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-3 hover:text-ink"
+                >
+                  {showPassword ? <EyeOff size={18} strokeWidth={1.5} /> : <Eye size={18} strokeWidth={1.5} />}
+                </button>
+              </div>
             </div>
             {formError && (
               <p role="alert" className="rounded-[10px] bg-negative-soft px-4 py-3 text-sm text-negative">
@@ -178,11 +278,19 @@ export default function LoginPage() {
               {submitting ? '로그인하는 중...' : '이메일로 로그인'}
             </button>
           </form>
-          <div className="mt-4 flex w-full max-w-[400px] items-center justify-between text-[13px]">
-            <Link href="/signup" className="text-accent underline-offset-2 hover:underline">
+          {/* 링크는 터치 높이 44px(h-11). 글자 위치는 전처럼 제출 버튼 아래 16px 쯤 */}
+          <div className="mt-1 flex w-full max-w-[400px] items-center justify-between text-[13px]">
+            <Link href="/signup" className="inline-flex h-11 items-center text-accent underline-offset-2 hover:underline">
               이메일로 가입
             </Link>
-            <Link href="/reset-password" className="text-ink-2 underline-offset-2 hover:text-ink hover:underline">
+            <button
+              type="button"
+              onClick={closeEmail}
+              className="inline-flex h-11 items-center px-2 text-ink-3 underline-offset-2 hover:text-ink hover:underline"
+            >
+              접기
+            </button>
+            <Link href="/reset-password" className="inline-flex h-11 items-center text-ink-2 underline-offset-2 hover:text-ink hover:underline">
               비밀번호를 잊었어요
             </Link>
           </div>
@@ -191,7 +299,7 @@ export default function LoginPage() {
         </div>
 
         {/* 오른쪽: 앱 미리보기 (넓은 화면만) */}
-        <div aria-hidden className="hidden rounded-2xl border border-line bg-surface p-8 shadow-float lg:block">
+        <div aria-hidden className="hidden rounded-2xl border border-line bg-surface p-8 shadow-float xl:mt-[60px] xl:block">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="font-display text-[26px] leading-8 text-ink">11월 23일 월요일</p>
