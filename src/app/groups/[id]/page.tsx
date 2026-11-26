@@ -16,6 +16,7 @@ import {
   X,
   Image as ImageIcon,
   CalendarCheck,
+  ChevronLeft,
   ChevronRight,
   Megaphone,
   Pin,
@@ -133,6 +134,9 @@ function GroupDetailContent() {
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // '표지 바꾸기': 파일을 먼저 고르고, 고른 사진이 표지로 들어간 수정 창을 연다
+  const [coverPick, setCoverPick] = useState<File | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [isTopicDetailOpen, setIsTopicDetailOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -512,19 +516,42 @@ function GroupDetailContent() {
         <div className="mx-auto max-w-7xl px-4 pt-4 md:px-8 lg:pt-6">
           {/* 머리: 표지 + 표지에 걸친 모임 얼굴 / 이름·설명·방장 / 얼굴 묶음 + 친구 초대 + 링크 복사 + 설정 */}
           <header>
+            {/* 모바일에는 사이드바가 없다. 목록(모임 만들기)으로 돌아가는 길을 둔다 */}
+            <button
+              type="button"
+              onClick={() => router.push('/groups')}
+              className="btn-ghost -ml-2 mb-2 !px-2 lg:hidden"
+            >
+              <ChevronLeft size={16} strokeWidth={1.5} /> 모임 목록
+            </button>
             <GroupCover
               src={group.backgroundImage}
               theme={group.colorTheme}
               className="h-28 rounded-xl border border-line sm:h-32 lg:h-44"
             >
               {isOwner && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="btn-secondary btn-sm absolute right-3 top-3 border-line bg-surface/90"
-                >
-                  <ImageIcon size={14} strokeWidth={1.5} /> 표지 바꾸기
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    className="btn-secondary btn-sm absolute right-3 top-3 border-line bg-surface/90"
+                  >
+                    <ImageIcon size={14} strokeWidth={1.5} /> 표지 바꾸기
+                  </button>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      setCoverPick(file);
+                      setIsEditModalOpen(true);
+                    }}
+                  />
+                </>
               )}
             </GroupCover>
 
@@ -542,7 +569,7 @@ function GroupDetailContent() {
                   {group.name}
                 </h1>
                 {group.description && (
-                  <p className="mt-1 line-clamp-2 break-words text-sm text-ink-2">{group.description}</p>
+                  <p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-sm text-ink-2">{group.description}</p>
                 )}
                 <p className="mt-1 text-[13px] text-ink-3">
                   <span className="tabular-nums">멤버 {group.memberCount}명</span> · 방장 {group.createdByNickname}
@@ -912,7 +939,9 @@ function GroupDetailContent() {
         isScheduleModalOpen={isScheduleModalOpen} setIsScheduleModalOpen={setIsScheduleModalOpen}
         isListModalOpen={isListModalOpen} setIsListModalOpen={setIsListModalOpen}
         isDetailOpen={isDetailOpen} setIsDetailOpen={setIsDetailOpen}
-        isEditModalOpen={isEditModalOpen} setIsEditModalOpen={setIsEditModalOpen}
+        isEditModalOpen={isEditModalOpen}
+        setIsEditModalOpen={(o: boolean) => { setIsEditModalOpen(o); if (!o) setCoverPick(null); }}
+        editInitialBgFile={coverPick}
         isTopicModalOpen={isTopicModalOpen} setIsTopicModalOpen={setIsTopicModalOpen}
         isTopicDetailOpen={!!openTopicId}
         isInviteModalOpen={isInviteModalOpen} setIsInviteModalOpen={setIsInviteModalOpen}

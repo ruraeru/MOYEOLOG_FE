@@ -171,7 +171,8 @@ export default function GroupEditModal({
     if (!isOwner || isDeleting) return;
     // 제목은 짧게(긴 이름이 제목에 들어가 '삭제할까/요?'로 끊기던 것), 모임 이름은 본문 첫 줄에
     const ok = await confirm(
-      `'${group.name}'\n모임의 토픽과 댓글도 함께 지워지고, 되돌릴 수 없어요. 모임 메모와 일정은 작성자의 개인 메모·일정으로 남아요.`,
+      // 본문에 '삭제'가 있어야 확인 버튼이 위험색(btn-danger)이 된다(AlertContainer isDestructive)
+      `'${group.name}' 모임을 삭제하면 토픽과 댓글도 함께 지워지고, 되돌릴 수 없어요. 모임 메모와 일정은 작성자의 개인 메모·일정으로 남아요.`,
       '이 모임을 삭제할까요?',
       '삭제',
       '취소',
