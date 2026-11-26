@@ -1,19 +1,9 @@
-'use client';
+import type { Metadata } from 'next';
+import MessagesShell from './MessagesShell';
 
-import { useParams } from 'next/navigation';
-import MessagesView from './MessagesView';
+// 탭·방문 기록에서 화면을 구분할 수 있게 화면마다 제목을 준다(화면은 클라이언트 컴포넌트라 여기서 정한다).
+export const metadata: Metadata = { title: '메시지 | 모여로그' };
 
-/**
- * 목록(/messages)과 대화(/messages/[friendId])가 같은 MessagesView 를 쓴다.
- * 레이아웃에 두면 대화를 고르거나 목록으로 돌아올 때 목록이 다시 마운트·로딩되지 않는다.
- */
-export default function MessagesLayout({ children }: { children: React.ReactNode }) {
-  const params = useParams();
-  const friendId = typeof params.friendId === 'string' ? params.friendId : undefined;
-  return (
-    <>
-      <MessagesView friendId={friendId} />
-      {children}
-    </>
-  );
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return <MessagesShell>{children}</MessagesShell>;
 }

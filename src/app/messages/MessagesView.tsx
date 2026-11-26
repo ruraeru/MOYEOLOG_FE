@@ -8,7 +8,7 @@ import axios from 'axios';
 import { format, isSameDay } from 'date-fns';
 import { useTimeFormat } from '@/lib/schedule-utils';
 import { ko } from 'date-fns/locale';
-import { ArrowDown, ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, Trash2, User, UserX, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, Trash2, User, X } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { messageApi, MESSAGE_MAX_LENGTH, isBlankMessage, type ConversationResponse, type MessageResponse } from '@/lib/message-api';
@@ -571,10 +571,10 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
           {profileMissing ? (
             <div className="h-full flex items-center justify-center">
               <EmptyState
-                icon={UserX}
-                title="사용자를 찾을 수 없어요"
-                description="주소가 맞는지 확인해 주세요"
-                action={<Link href="/messages" className="btn-secondary">대화 목록으로</Link>}
+                icon={AlertCircle}
+                title="대화 상대를 찾을 수 없어요"
+                description="탈퇴했거나 주소가 잘못됐을 수 있어요."
+                action={<Link href="/messages" className="btn-secondary">메시지 목록으로</Link>}
               />
             </div>
           ) : isSelf ? (
@@ -582,8 +582,8 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
               <EmptyState
                 icon={MessageCircle}
                 title="나에게는 메시지를 보낼 수 없어요"
-                description="친구를 골라 대화를 시작해요"
-                action={<Link href="/messages" className="btn-secondary">대화 목록으로</Link>}
+                description="친구를 골라 대화를 시작해요."
+                action={<Link href="/messages" className="btn-secondary">메시지 목록으로</Link>}
               />
             </div>
           ) : loading ? (
