@@ -58,6 +58,8 @@ interface GroupModalsProps {
   /** 모임 정보 수정 후 (상세 + 사이드바 갱신) */
   onGroupUpdated: () => void;
   onGroupDeleted: () => void;
+  /** 모임 머리의 '표지 바꾸기'에서 고른 표지 사진. 수정 창이 열리면 새 표지로 들어간다 */
+  editInitialBgFile?: File | null;
   handleTopicEdit: (t: TopicResponse) => void;
   handleMemoClick: (id: string) => void; 
   handleEdit: (s: ScheduleResponse) => void;
@@ -92,6 +94,7 @@ export function GroupModals({
   onTopicDetailClose,
   onSuccess, 
   onGroupUpdated,
+  editInitialBgFile,
   onGroupDeleted,
   handleTopicEdit, 
   handleMemoClick, 
@@ -140,6 +143,7 @@ export function GroupModals({
         group={group} 
         onSuccess={onGroupUpdated} 
         onDeleted={onGroupDeleted}
+        initialBgFile={editInitialBgFile}
       />}
       <GroupTopicCreateModal 
         isOpen={isTopicModalOpen} 

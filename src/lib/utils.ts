@@ -200,7 +200,9 @@ export const graphemeLength = (value: string) => splitGraphemes(value).length;
 
 /** 아바타 등에 쓰는 첫 글자. 이모지·조합 이모지를 쪼개지 않는다(name[0] 은 서로게이트 반쪽이 남아 '�' 가 된다). */
 export const initialOf = (name: string | null | undefined, fallback = '?'): string => {
-  const first = name ? splitGraphemes(name.trim())[0] : undefined;
+  const parts = name ? splitGraphemes(name.trim()) : [];
+  // '<', '"', '(' 같은 기호로 시작하면 알아볼 수 있는 첫 글자(글자·숫자·이모지)를 쓴다. 없으면 첫 글자 그대로.
+  const first = parts.find(g => /[\p{L}\p{N}\p{Extended_Pictographic}]/u.test(g)) ?? parts[0];
   return first || fallback;
 };
 
