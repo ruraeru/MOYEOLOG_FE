@@ -38,6 +38,8 @@ interface RichEditorProps {
   mentions?: { memos: MentionTarget[]; schedules: MentionTarget[] };
   /** 바깥 틀(높이·테두리). 내용은 그 안에서 스크롤된다. */
   className?: string;
+  /** 도구 막대가 붙을 위치(바깥 스크롤 안에 고정 머리가 있을 때 그 높이만큼, 예: 'max-lg:top-[60px]'). 기본은 맨 위. */
+  toolbarStickyClassName?: string;
 }
 
 type MentionState = { query: string; from: number; to: number } | null;
@@ -65,7 +67,7 @@ function findMention(editor: Editor): MentionState {
   return { query: match.query, from: $from.pos - (before.length - match.index), to: $from.pos };
 }
 
-export default function RichEditor({ value, onChange, placeholder, mentions, className = '' }: RichEditorProps) {
+export default function RichEditor({ value, onChange, placeholder, mentions, className = '', toolbarStickyClassName = 'top-0' }: RichEditorProps) {
   const [mention, setMentionState] = useState<MentionState>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
@@ -242,14 +244,15 @@ export default function RichEditor({ value, onChange, placeholder, mentions, cla
 
   return (
     <div
-      className={`relative flex flex-col overflow-hidden rounded-[10px] border border-line-strong bg-surface ${className}`}
+      // overflow-hidden 은 스크롤 상자가 되어 도구 막대 sticky 를 막는다. clip 은 둥근 모서리만 자른다.
+      className={`relative flex flex-col overflow-clip rounded-[10px] border border-line-strong bg-surface ${className}`}
       data-color-mode="light"
     >
       <div
         role="toolbar"
         aria-label="서식"
         // 터치 기기에서는 44px 버튼을 한 줄에 두고 가로로 민다. 창 본문이 스크롤될 때 위에 붙어 있다.
-        className="no-scrollbar sticky top-0 z-10 flex shrink-0 flex-wrap items-center gap-0.5 rounded-t-[10px] border-b border-line bg-surface px-1.5 py-1 pointer-coarse:flex-nowrap pointer-coarse:gap-2 pointer-coarse:overflow-x-auto"
+        className={`no-scrollbar sticky ${toolbarStickyClassName} z-10 flex shrink-0 flex-wrap items-center gap-0.5 rounded-t-[10px] border-b border-line bg-surface px-1.5 py-1 pointer-coarse:flex-nowrap pointer-coarse:gap-2 pointer-coarse:overflow-x-auto`}
       >
         {tools.map((tool) => (
           <button
