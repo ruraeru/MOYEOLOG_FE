@@ -15,17 +15,17 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   const session = await getServerSession(authOptions);
   
   if (!session) {
-    return { title: '메모 상세 | MOYEOLOG' };
+    return { title: '메모 상세 | 모여로그' };
   }
 
   try {
     const memo = await memoApi.getById(id, session);
     return {
-      title: `${memo.title} | MOYEOLOG`,
+      title: `${memo.title} | 모여로그`,
       description: memo.content ? memo.content.slice(0, 100) : '일정, 메모, 모임을 한곳에서 모아 보는 모여로그',
     };
   } catch {
-    return { title: '메모 상세 | MOYEOLOG' };
+    return { title: '메모 상세 | 모여로그' };
   }
 }
 

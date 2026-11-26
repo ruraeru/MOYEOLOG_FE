@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { UNAUTHORIZED_EVENT } from '@/lib/axios';
+import { isProtectedPath } from '@/lib/protected-paths';
 
 // 401이 연달아 발생해도 세션 재확인은 이 간격에 한 번만 수행합니다 (무한 루프 방지).
 const RECHECK_INTERVAL_MS = 15 * 1000;
@@ -51,12 +52,24 @@ export default function SessionGuard() {
       wasAuthenticated.current = true;
       return;
     }
-    if (status === 'unauthenticated' && wasAuthenticated.current && !signingOut.current) {
-      // 다른 탭에서 로그아웃함(next-auth 가 탭 사이에 알려 줌) 또는 세션 쿠키가 만료됨
-      signingOut.current = true;
-      goToLogin();
+    if (status === 'unauthenticated' && !signingOut.current) {
+      // 다른 탭에서 로그아웃함(next-auth 가 탭 사이에 알려 줌) 또는 세션 쿠키가 만료됨.
+      // 로그아웃한 뒤 뒤로 가기로 브라우저 캐시의 보호 화면이 열린 경우도(미들웨어를 거치지 않는다) 로그인 화면으로 보낸다.
+      if (wasAuthenticated.current || isProtectedPath(window.location.pathname)) {
+        signingOut.current = true;
+        goToLogin();
+      }
     }
   }, [status]);
+
+  // 뒤로·앞으로 가기 캐시(bfcache)에서 되살아난 화면은 예전 세션 상태를 그대로 들고 있으므로 다시 불러온다(미들웨어가 확인).
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && isProtectedPath(window.location.pathname)) window.location.reload();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
   useEffect(() => {
     const handleUnauthorized = () => {

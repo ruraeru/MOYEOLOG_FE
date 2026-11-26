@@ -460,6 +460,20 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
           <div className="h-full flex items-center justify-center">
             <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
           </div>
+        ) : profileMissing ? (
+          // 없는 사용자: 다시 시도해도 같으므로 목록으로만 안내한다(아래 입력칸 자리 문구도 숨김)
+          <div className="h-full flex items-center justify-center">
+            <EmptyState
+              icon={AlertCircle}
+              title="대화 상대를 찾을 수 없어요"
+              description="탈퇴했거나 주소가 잘못됐을 수 있어요"
+              action={
+                <Link href="/messages" className="btn-secondary">
+                  메시지 목록으로
+                </Link>
+              }
+            />
+          </div>
         ) : error ? (
           <div className="h-full flex items-center justify-center">
             <EmptyState
@@ -524,6 +538,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
         )}
       </div>
 
+      {!profileMissing && (
       <div className="border-t border-line px-3 sm:px-4 lg:px-7 py-3 shrink-0">
         {blocked ? (
           <p className="text-sm text-ink-3 text-center py-2">{blocked}</p>
@@ -564,6 +579,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
           </form>
         )}
       </div>
+      )}
     </>
   );
 }
