@@ -10,6 +10,7 @@ import {
   Trash2,
   Pencil,
   Star,
+  Pin,
   ChevronLeft,
   Upload,
   Check,
@@ -469,6 +470,19 @@ export default function MemoDetailView({
     }
   };
 
+  const handleTogglePin = async () => {
+    if (!memoId || !session || !memo) return;
+    try {
+      const updated = await memoApi.setPinned(memoId, !memo.pinnedAt, session);
+      setMemo(prev => (prev ? { ...prev, pinnedAt: updated.pinnedAt ?? null } : updated));
+    } catch (error) {
+      console.error('Failed to toggle pin:', error);
+      const status = getStatus(error);
+      toast.error(getApiErrorMessage(error, status ? undefined : '고정을 바꾸지 못했어요'));
+      if (status === 403 || status === 404) await fetchMemoDetail();
+    }
+  };
+
   const heightClass = isPage ? 'h-full' : 'h-[100dvh] sm:h-[85vh] w-full';
 
   if (loadError && !loadingMemo) {
@@ -560,15 +574,34 @@ export default function MemoDetailView({
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  onClick={handleToggleFavorite}
-                  className={`btn-icon ${memo.isFavorite ? 'text-accent hover:text-accent' : ''}`}
-                  title="즐겨찾기"
-                  aria-label="즐겨찾기"
-                >
-                  <Star size={18} strokeWidth={1.5} className={memo.isFavorite ? 'fill-current' : ''} />
-                </button>
+                {permissions.pin ? (
+                  <button
+                    type="button"
+                    onClick={handleTogglePin}
+                    className={`btn-icon ${memo.pinnedAt ? 'text-accent hover:text-accent' : ''}`}
+                    title={memo.pinnedAt ? '고정 해제' : '고정'}
+                    aria-label={memo.pinnedAt ? '고정 해제' : '고정'}
+                    aria-pressed={!!memo.pinnedAt}
+                  >
+                    <Pin size={18} strokeWidth={1.5} className={memo.pinnedAt ? 'fill-current' : ''} />
+                  </button>
+                ) : memo.pinnedAt && (
+                  <span className="inline-flex size-8 items-center justify-center text-ink-2" title="고정됨">
+                    <Pin size={18} strokeWidth={1.5} className="fill-current" aria-label="고정됨" />
+                  </span>
+                )}
+                {/* 모임 메모는 즐겨찾기 대상이 아니다 */}
+                {!memo.groupId && (
+                  <button
+                    type="button"
+                    onClick={handleToggleFavorite}
+                    className={`btn-icon ${memo.isFavorite ? 'text-accent hover:text-accent' : ''}`}
+                    title="즐겨찾기"
+                    aria-label="즐겨찾기"
+                  >
+                    <Star size={18} strokeWidth={1.5} className={memo.isFavorite ? 'fill-current' : ''} />
+                  </button>
+                )}
                 {permissions.edit && (
                   <button
                     type="button"

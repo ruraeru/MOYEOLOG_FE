@@ -12,6 +12,7 @@ import {
   User,
   Share2,
   Star,
+  Pin,
   Lock,
   Loader2,
   RefreshCw,
@@ -23,7 +24,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoCreateModal from '@/components/MemoCreateModal';
-import { memoApi, isSharedByMe, type MemoResponse } from '@/lib/memo-api';
+import { memoApi, isSharedByMe, getMemoPermissions, comparePinned, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import type { MemoCardView } from '@/types/memo';
@@ -33,8 +34,11 @@ import { useAlert } from '@/hooks/useAlert';
 
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
-/** 카드에 모임 띠 색(hex)과 작성자, 내가 공유했는지를 더한 것 */
-type MemoCardItem = MemoCardView & { ribbon: string; author?: string; groupId?: string; group?: GroupResponse; sharedByMe?: boolean };
+/** 카드에 모임 띠 색(hex)과 작성자, 내가 공유했는지, 고정·즐겨찾기 가능 여부를 더한 것 */
+type MemoCardItem = MemoCardView & {
+  ribbon: string; author?: string; groupId?: string; group?: GroupResponse; sharedByMe?: boolean;
+  pinned: boolean; canPin: boolean; canFavorite: boolean;
+};
 
 const TAG_PREVIEW_COUNT = 15;
 const MEMO_VIEW_KEY = 'moyeolog.memoView';
@@ -190,7 +194,8 @@ function MemoContent() {
     let filtered: MemoResponse[] = [];
 
     if (filter.type === 'favorites') {
-      filtered = (favoriteMemos ?? []).filter(m => m.isFavorite !== false);
+      // 모임 메모는 즐겨찾기 대상이 아니다(서버도 빼서 주지만 예전 행이 섞여도 안 보이게)
+      filtered = (favoriteMemos ?? []).filter(m => m.isFavorite !== false && !m.groupId);
     } else if (filter.type === 'shared') {
       filtered = sharedMemos;
     } else if (filter.type === 'my') {
@@ -214,7 +219,8 @@ function MemoContent() {
       );
     }
 
-    return filtered.map(m => {
+    // 고정된 메모를 맨 위로(고정 시각 최신순), 나머지는 지금 순서 그대로
+    return [...filtered].sort(comparePinned).map(m => {
       const group = m.groupId ? userGroups.find(g => g.id === m.groupId) : undefined;
       const isShared = !m.groupId && !!userId && m.authorId !== userId;
       const theme = getThemeColors(group?.colorTheme);
@@ -231,7 +237,10 @@ function MemoContent() {
         author: m.groupId || isShared ? m.authorNickname : undefined,
         date: format(new Date(m.createdAt), 'M.d', { locale: ko }),
         locked: false,
-        isFavorite: m.isFavorite,
+        isFavorite: !m.groupId && m.isFavorite,
+        pinned: !!m.pinnedAt,
+        canPin: getMemoPermissions(m, userId).pin,
+        canFavorite: !m.groupId,
         groupId: m.groupId,
         group,
         sharedByMe: isSharedByMe(m, userId)
@@ -269,6 +278,24 @@ function MemoContent() {
     }
   };
 
+  const handleTogglePin = async (e: React.MouseEvent, id: string, pinned: boolean) => {
+    e.stopPropagation();
+    if (!session) return;
+    try {
+      const updated = await memoApi.setPinned(id, !pinned, session);
+      const updateFn = (prev: MemoResponse[]) =>
+        prev.map(m => m.id === id ? { ...m, pinnedAt: updated.pinnedAt ?? null } : m);
+      setMyMemos(updateFn);
+      setSharedMemos(updateFn);
+      setGroupMemos(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, updateFn(v)])));
+      setFavoriteMemos(prev => (prev ? updateFn(prev) : prev));
+    } catch (error) {
+      console.error(error);
+      toast.error(getApiErrorMessage(error, '고정을 바꾸지 못했어요'));
+      loadData({ silent: true });
+    }
+  };
+
   const getPageTitle = () => {
     let baseTitle = '전체 메모';
     if (filter.type === 'group') baseTitle = userGroups.find(g => g.id === filter.id)?.name || '모임 메모';
@@ -293,7 +320,7 @@ function MemoContent() {
         all: combinedUniqueMemos.length,
         my: myMemos.filter(m => !m.groupId).length,
         shared: sharedMemos.length,
-        favorites: combinedUniqueMemos.filter(m => m.isFavorite).length,
+        favorites: combinedUniqueMemos.filter(m => m.isFavorite && !m.groupId).length,
       }
     : null;
 
@@ -434,6 +461,7 @@ function MemoContent() {
                       viewMode={viewMode}
                       onClick={() => router.push(`/memo/${memo.id}`)}
                       onToggleFavorite={(e: React.MouseEvent) => handleToggleFavorite(e, memo.id)}
+                      onTogglePin={(e: React.MouseEvent) => handleTogglePin(e, memo.id, memo.pinned)}
                       onTagClick={(e: React.MouseEvent, tag: string) => { e.stopPropagation(); toggleTag(tag); }}
                     />
                   ))}
@@ -556,10 +584,11 @@ interface MemoCardProps extends MemoCardItem {
   viewMode: 'grid' | 'list';
   onClick?: () => void;
   onToggleFavorite: (e: React.MouseEvent) => void;
+  onTogglePin: (e: React.MouseEvent) => void;
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, canFavorite, viewMode, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
     <div
@@ -574,14 +603,33 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
             {locked && <Lock size={16} strokeWidth={1.5} className="text-ink-3" />}
             {/* 내가 친구나 모임에 공유한 메모 */}
             {sharedByMe && <span className="chip">공유함</span>}
-            <button
-              type="button"
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
-              aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
-              className={`btn-icon ${isFavorite ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
-            >
-              <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
-            </button>
+            {canPin ? (
+              <button
+                type="button"
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onTogglePin(e); }}
+                aria-label={pinned ? '고정 해제' : '고정'}
+                aria-pressed={pinned}
+                title={pinned ? '고정 해제' : '고정'}
+                className={`btn-icon ${pinned ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
+              >
+                <Pin size={16} strokeWidth={1.5} className={pinned ? 'fill-current' : ''} />
+              </button>
+            ) : pinned && (
+              <span className="inline-flex size-8 items-center justify-center text-ink-2" title="고정됨">
+                <Pin size={16} strokeWidth={1.5} className="fill-current" aria-label="고정됨" />
+              </span>
+            )}
+            {/* 모임 메모는 즐겨찾기 대상이 아니다 */}
+            {canFavorite && (
+              <button
+                type="button"
+                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
+                aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
+                className={`btn-icon ${isFavorite ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
+              >
+                <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
+              </button>
+            )}
           </div>
         </div>
         {description && (

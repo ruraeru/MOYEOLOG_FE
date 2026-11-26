@@ -17,6 +17,8 @@ export interface MemoPermissions {
   share: boolean;
   tag: boolean;
   analyze: boolean;
+  /** 고정·해제 (모임 메모: 방장·작성자, 개인 메모: 작성자) */
+  pin: boolean;
 }
 
 export interface MemoSharedUser {
@@ -43,6 +45,8 @@ export interface MemoResponse {
   taggedSchedules?: { id: string; title: string }[];
   insight?: MemoInsight;
   isFavorite: boolean;
+  /** 고정 시각(오프셋 없는 한국 시간). 고정 안 됐으면 null */
+  pinnedAt?: string | null;
   /** 작성자에게만 채워짐 */
   sharedWith?: MemoSharedUser[];
   /** 이 개인 메모를 공유한 모임 (작성자에게만 채워짐) */
@@ -55,17 +59,23 @@ export interface MemoResponse {
 
 /**
  * 서버가 permissions 를 주지 않는 경우(구버전 응답)를 위한 보수적 기본값.
- * 작성자: 모두 허용, 모임 메모 멤버: 수정·태그만, 그 밖(공유받음): 모두 불가.
+ * 작성자: 모두 허용, 모임 메모 멤버: 수정·태그만(방장 고정 권한은 알 수 없어 끈다), 그 밖(공유받음): 모두 불가.
  */
 export function getMemoPermissions(memo: MemoResponse, userId?: string | null): MemoPermissions {
   if (memo.permissions) return memo.permissions;
   if (userId && memo.authorId === userId) {
-    return { edit: true, delete: true, share: true, tag: true, analyze: true };
+    return { edit: true, delete: true, share: true, tag: true, analyze: true, pin: true };
   }
   if (memo.groupId) {
-    return { edit: true, delete: false, share: false, tag: true, analyze: false };
+    return { edit: true, delete: false, share: false, tag: true, analyze: false, pin: false };
   }
-  return { edit: false, delete: false, share: false, tag: false, analyze: false };
+  return { edit: false, delete: false, share: false, tag: false, analyze: false, pin: false };
+}
+
+/** 정렬용: 고정된 것을 먼저(고정 시각 최신순), 나머지는 순서를 그대로 둔다(안정 정렬). */
+export function comparePinned(a: MemoResponse, b: MemoResponse): number {
+  if (a.pinnedAt && b.pinnedAt) return a.pinnedAt < b.pinnedAt ? 1 : a.pinnedAt > b.pinnedAt ? -1 : 0;
+  return a.pinnedAt ? -1 : b.pinnedAt ? 1 : 0;
 }
 
 /** 내가 다른 사람(친구·모임)에게 공유한 메모인가. 공유 목록은 작성자에게만 내려온다. */
@@ -209,6 +219,16 @@ export const memoApi = {
     return processMemoResponse(response.data);
   },
 
+  /** 고정(pinned=true)·해제. 모임 메모는 모든 멤버에게 고정으로 보인다 */
+  async setPinned(id: string, pinned: boolean, session: Session | null): Promise<MemoResponse> {
+    const url = `/api/memos/${id}/pin`;
+    const config = { headers: getAuthHeaders(session) };
+    const response = pinned
+      ? await axiosInstance.put<MemoResponse>(url, {}, config)
+      : await axiosInstance.delete<MemoResponse>(url, config);
+    return processMemoResponse(response.data);
+  },
+
   /** canEdit: 받은 사람이 고칠 수 있게. 이미 공유한 사람에게 보내면 권한만 바뀐다 */
   async share(id: string, friendIds: string[], canEdit: boolean, session: Session | null): Promise<void> {
     await axiosInstance.post(`/api/memos/${id}/share`, { friendIds, canEdit }, {
@@ -236,7 +256,7 @@ export const memoApi = {
     });
   },
 
-  /** 내가 즐겨찾기했고 지금 볼 수 있는 모든 메모(내 메모·공유받은 메모·모임 메모) */
+  /** 내가 즐겨찾기했고 지금 볼 수 있는 메모(내 메모·공유받은 메모. 모임 메모는 즐겨찾기 대상이 아니다) */
   async getFavorites(session: Session | null): Promise<MemoResponse[]> {
     const response = await axiosInstance.get<MemoResponse[]>('/api/memos/favorites', {
       headers: getAuthHeaders(session),

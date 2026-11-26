@@ -11,6 +11,10 @@ export interface TopicResponse {
   commentCount: number;
   createdAt: string;
   updatedAt: string;
+  /** 고정 시각(오프셋 없는 한국 시간). 고정 안 됐으면 null */
+  pinnedAt?: string | null;
+  /** 보는 사람이 고정·해제할 수 있는가(방장 또는 작성자) */
+  canPin?: boolean;
 }
 
 export interface TopicCommentResponse {
@@ -36,4 +40,7 @@ export interface TopicDetailResponse {
   topic: TopicResponse;
   comments: TopicCommentResponse[];
   insight?: TopicInsightResponse;
+  /** 계약상 '최상위' 가 상세 응답 최상위일 수도 있어 같이 받는다 */
+  pinnedAt?: string | null;
+  canPin?: boolean;
 }

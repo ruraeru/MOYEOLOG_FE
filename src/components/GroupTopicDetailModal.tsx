@@ -14,6 +14,8 @@ import {
   Maximize2,
   Minimize2,
   Check,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -256,6 +258,20 @@ export default function GroupTopicDetailModal({
     },
   });
 
+  // 7. 고정·해제 (방장 또는 작성자). 모임 목록 순서가 바뀌므로 목록도 다시 받는다
+  const pinMutation = useMutation({
+    mutationFn: (pinned: boolean) => groupTopicApi.setPinned(topicId!, pinned, session),
+    onSuccess: (_, pinned) => {
+      queryClient.invalidateQueries({ queryKey: ['topic', topicId] });
+      onDelete?.();
+      toast.success(pinned ? '토픽을 고정했어요' : '고정을 풀었어요');
+    },
+    onError: (error) => {
+      console.error('Failed to pin topic:', error);
+      toast.error(getApiErrorMessage(error, '고정을 바꾸지 못했어요'));
+    },
+  });
+
   const {
     showParticipantMentions, setShowParticipantMentions, filteredParticipants,
     handleInputChange,
@@ -407,6 +423,8 @@ export default function GroupTopicDetailModal({
   const { topic, comments, insight } = topicDetail;
   const isAuthor = session?.user?.id === topic.authorId;
   const isDeleting = deleteTopicMutation.isPending;
+  const isPinned = !!(topic.pinnedAt ?? topicDetail.pinnedAt);
+  const canPin = !!(topic.canPin ?? topicDetail.canPin);
   const isCommenting = createCommentMutation.isPending;
   const loadingInsight = analyzeMutation.isPending;
   const keywords = Array.from(new Set((insight?.keywords ?? []).map((k) => k?.trim()).filter(Boolean)));
@@ -437,6 +455,12 @@ export default function GroupTopicDetailModal({
             <div className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
               {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
               <span className="truncate">{group ? `${group.name} · 토픽` : '토픽'}</span>
+              {isPinned && (
+                <span className="inline-flex shrink-0 items-center gap-1 text-group-ink">
+                  <Pin size={12} strokeWidth={1.5} aria-hidden />
+                  고정
+                </span>
+              )}
             </div>
             <h2 className="mt-1 break-words font-display text-xl leading-7 text-ink md:text-2xl md:leading-8">
               {topic.title}
@@ -455,6 +479,24 @@ export default function GroupTopicDetailModal({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            {canPin && (
+              <button
+                onClick={() => pinMutation.mutate(!isPinned)}
+                disabled={pinMutation.isPending}
+                className={`btn-icon ${isPinned ? 'text-group-ink' : ''}`}
+                title={isPinned ? '고정 해제' : '고정하기'}
+                aria-label={isPinned ? '고정 해제' : '고정하기'}
+                aria-pressed={isPinned}
+              >
+                {pinMutation.isPending ? (
+                  <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
+                ) : isPinned ? (
+                  <PinOff size={16} strokeWidth={1.5} />
+                ) : (
+                  <Pin size={16} strokeWidth={1.5} />
+                )}
+              </button>
+            )}
             {isAuthor && (
               <>
                 <button
