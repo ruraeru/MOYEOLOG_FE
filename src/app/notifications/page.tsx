@@ -138,7 +138,9 @@ function NotificationsContent() {
   /** 보기 바꾸기. 뒤로 가기로 이전 보기에 돌아오도록 기록을 남긴다. */
   const changeView = (next: 'all' | 'unread' | 'invitations') => {
     const href = next === 'invitations' ? '/notifications?tab=invites' : next === 'unread' ? '/notifications?tab=unread' : '/notifications';
-    router.push(href, { scroll: false });
+    // router.push 는 쿼리를 달고 처음 연 화면에서 같은 경로·다른 쿼리로 이동하지 않을 때가 있어(Next 16) 기록을 직접 쌓는다.
+    // 앱 라우터가 pushState 를 받아 useSearchParams 를 맞춰 준다
+    window.history.pushState(null, '', href);
   };
 
   /** pages 쪽(0..pages-1)을 한 번에 불러온다 */
@@ -402,7 +404,7 @@ function NotificationsContent() {
     <div className="h-screen flex flex-col bg-canvas text-ink overflow-hidden">
       <Navbar />
 
-      <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-6 pb-24 lg:px-8 lg:pt-8 lg:pb-12">
+      <main ref={mainRef} className="flex-1 overflow-y-auto no-scrollbar px-4 pt-6 pb-24 lg:px-8 lg:pt-8 lg:pb-12">
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="min-w-0 space-y-5">
             <PageHeader
