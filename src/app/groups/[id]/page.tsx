@@ -638,7 +638,8 @@ function GroupDetailContent() {
       <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-24">
         <div className="mx-auto max-w-7xl px-4 pt-4 md:px-8 lg:pt-6">
           {/* 머리: 표지 + 표지에 걸친 모임 얼굴 / 이름·설명·방장 / 얼굴 묶음 + 친구 초대 + 링크 복사 + 설정 */}
-          <header>
+          {/* 모바일에서 공지 외 탭(일정·메모·토픽·멤버)은 머리를 접어(표지·소개·멤버 줄 숨김, 간격 줄임) 첫 카드가 화면 위쪽에 보이게 한다 */}
+          <header data-compact={activeTab !== 'notice' || undefined} className="group/head">
             {/* 모바일에는 사이드바가 없다. 목록(모임 만들기)으로 돌아가는 길을 둔다 */}
             <button
               type="button"
@@ -650,7 +651,7 @@ function GroupDetailContent() {
             <GroupCover
               src={group.backgroundImage}
               theme={group.colorTheme}
-              className="h-20 rounded-xl border border-line sm:h-32 lg:h-44"
+              className="h-20 rounded-xl border border-line sm:h-32 lg:h-44 max-md:group-data-[compact]/head:hidden"
             >
               {isOwner && (
                 <>
@@ -684,7 +685,7 @@ function GroupDetailContent() {
                 src={group.profileImage}
                 theme={group.colorTheme}
                 size="xl"
-                className="order-1 -mt-7 ring-4 ring-surface max-lg:size-14 max-lg:rounded-xl max-lg:text-2xl lg:-mt-10"
+                className="order-1 -mt-7 ring-4 ring-surface max-lg:size-14 max-lg:rounded-xl max-lg:text-2xl lg:-mt-10 max-md:group-data-[compact]/head:mt-0"
               />
 
               <div className="order-3 w-full min-w-0 lg:order-2 lg:w-auto lg:flex-1 lg:pt-4">
@@ -692,14 +693,14 @@ function GroupDetailContent() {
                   {group.name}
                 </h1>
                 {group.description && (
-                  <p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-sm text-ink-2">{group.description}</p>
+                  <p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-sm text-ink-2 max-md:group-data-[compact]/head:hidden">{group.description}</p>
                 )}
-                <p className="mt-1 text-[13px] text-ink-3">
+                <p className="mt-1 text-[13px] text-ink-3 max-md:group-data-[compact]/head:hidden">
                   <span className="tabular-nums">멤버 {group.memberCount}명</span> · 방장 {group.createdByNickname}
                 </p>
               </div>
 
-              <div className="order-2 -mr-3 ml-auto flex shrink-0 items-center gap-2 pt-3 sm:-mr-4 lg:order-3 lg:-mr-6 lg:pt-4">
+              <div className="order-2 -mr-3 ml-auto flex shrink-0 items-center gap-2 pt-3 sm:-mr-4 lg:order-3 lg:-mr-6 lg:pt-4 max-md:group-data-[compact]/head:pt-0">
                 <span className="mr-1 hidden lg:flex" title={`멤버 ${group.memberCount}명`}>
                   <AvatarStack people={group.members} max={4} size="size-8" />
                 </span>
@@ -729,9 +730,9 @@ function GroupDetailContent() {
             </div>
           </header>
 
-          <UnderlineTabs className="sticky top-0 z-10 mt-5 bg-canvas lg:mt-6" items={tabItems} active={activeTab} onChange={changeTab} />
+          <UnderlineTabs className="sticky top-0 z-10 mt-5 bg-canvas lg:mt-6 max-md:mt-3" items={tabItems} active={activeTab} onChange={changeTab} />
 
-          <div className="mt-5 min-h-[400px] outline-none lg:mt-6">
+          <div className="mt-5 min-h-[400px] outline-none lg:mt-6 max-md:mt-3">
             {activeTab === 'notice' ? (
               <div className="space-y-3">
                 {isOwner && (
