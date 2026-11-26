@@ -13,6 +13,7 @@ import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect, useCallback, isValidElement } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { groupApi } from '@/lib/group-api';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -206,19 +207,20 @@ export default function AppointmentDetailView({
       <div className={stateBox}>
         <EmptyState
           title="일정을 찾을 수 없어요"
-          description="삭제됐거나 볼 수 있는 권한이 없는 일정이에요"
-          action={isPage ? <button onClick={goBack} className="btn-secondary">뒤로</button> : undefined}
+          description="주소가 잘못됐거나 삭제된 일정이에요."
+          action={isPage ? <Link href="/schedule" className="btn-secondary">일정 목록으로</Link> : undefined}
         />
       </div>
     );
   }
 
   const handleDelete = async () => {
-    if (!(await confirm('이 일정을 삭제할까요?'))) return;
+    if (!(await confirm('이 일정을 삭제할까요?', undefined, '삭제', '취소'))) return;
 
     setIsDeleting(true);
     try {
       await scheduleApi.delete(schedule.id, session);
+      toast.success('일정을 삭제했어요.');
       onSuccess?.();
       if (isPage) {
         goBack();
@@ -273,7 +275,8 @@ export default function AppointmentDetailView({
               ) : (
                 <Ribbon color={ribbonColor} className="h-3.5" />
               )}
-              <span className="truncate">{groupLabel} · 일정</span>
+              {/* '개인 일정 · 일정' 처럼 '일정' 이 겹치지 않게: 모임 이름일 때만 ' · 일정' 을 붙인다 */}
+              <span className="truncate">{scheduleGroup ? `${groupLabel} · 일정` : groupLabel}</span>
             </p>
             <h1 className="mt-1 font-display text-2xl leading-8 text-ink break-keep break-words">
               {schedule.title}
@@ -283,7 +286,7 @@ export default function AppointmentDetailView({
                 {initialOf(schedule.authorNickname)}
               </span>
               <span className="truncate">{schedule.authorNickname}</span>
-              <span className="stamp shrink-0 whitespace-nowrap">{formatStamp(schedule.createdAt, tf)}</span>
+              <span className="shrink-0 whitespace-nowrap text-ink-3">작성 <span className="stamp">{formatStamp(schedule.createdAt, tf)}</span></span>
             </div>
           </div>
         </div>
