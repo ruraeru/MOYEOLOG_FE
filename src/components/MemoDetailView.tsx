@@ -39,6 +39,7 @@ import { markdownRehypePlugins } from '@/lib/markdown';
 import { useRouter } from 'next/navigation';
 import { fileToDataUrl, convertToWebP, initialOf } from '@/lib/utils';
 import { EmptyState } from './ui';
+import { markdownListClassName } from '@/lib/markdown';
 import { GroupAvatar } from './groups/GroupIdentity';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { useLiveTopics } from '@/lib/live';
@@ -210,6 +211,10 @@ export default function MemoDetailView({
   /** 수정 중 다른 곳에서 메모가 바뀌었는지 (실시간 이벤트로 알게 됨) */
   const [remoteChanged, setRemoteChanged] = useState(false);
   const [group, setGroup] = useState<GroupResponse | null>(null);
+  /** 수정 중 고칠 권한이 없어졌거나 메모가 사라짐(실시간 이벤트·저장 403 으로 알게 됨). 입력은 남겨 둔다 */
+  const [editBlocked, setEditBlocked] = useState<string | null>(null);
+  /** 작성자가 이 메모를 공유한 모임 (공유한 모임 칸) */
+  const [sharedGroups, setSharedGroups] = useState<GroupResponse[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
   const asideRef = useRef<HTMLElement>(null);
 
@@ -309,11 +314,36 @@ export default function MemoDetailView({
     memoApi.getById(memo.id, session).then(latest => {
       if (isEditing) {
         if ((latest.version ?? 0) !== (memo.version ?? 0)) setRemoteChanged(true);
+        setEditBlocked(getMemoPermissions(latest, session.user?.id).edit ? null : '고칠 권한이 없어졌어요. 쓴 내용을 복사해 두세요.');
       } else {
         applyMemo(latest);
       }
-    }).catch(() => { /* 삭제·공유 해제는 다음 동작에서 안내한다 */ });
+    }).catch(error => {
+      const status = getStatus(error);
+      if (status !== 403 && status !== 404) return; // 잠깐의 네트워크 오류는 보던 내용 유지
+      if (isEditing) {
+        setEditBlocked(status === 404 ? '삭제된 메모예요. 쓴 내용을 복사해 두세요.' : '고칠 권한이 없어졌어요. 쓴 내용을 복사해 두세요.');
+      } else {
+        setMemo(null);
+        setLoadError({ status, message: getApiErrorMessage(error) });
+      }
+    });
   }, !!memo && !!session);
+
+  // 공유한 모임 이름·아바타 (작성자에게만 sharedGroupIds 가 내려온다)
+  const sharedGroupKey = (memo?.sharedGroupIds ?? []).join(',');
+  useEffect(() => {
+    if (!sharedGroupKey || !session) {
+      setSharedGroups([]);
+      return;
+    }
+    const ids = sharedGroupKey.split(',');
+    let alive = true;
+    groupApi.getAll(session)
+      .then(all => { if (alive) setSharedGroups(all.filter(g => ids.includes(g.id))); })
+      .catch(() => { if (alive) setSharedGroups([]); });
+    return () => { alive = false; };
+  }, [sharedGroupKey, session]);
 
   // 수정을 시작하면 제목 칸에 커서
   useEffect(() => {
@@ -371,6 +401,7 @@ export default function MemoDetailView({
     setEditImageFile(null);
     setEditImageRemoved(false);
     setRemoteChanged(false);
+    setEditBlocked(null);
     setIsEditing(true);
 
     // 편집 모드 시작 시 멘션 데이터 최신 갱신
@@ -394,6 +425,10 @@ export default function MemoDetailView({
 
   const handleSaveEdit = async () => {
     if (!memo) return;
+    if (editBlocked) {
+      toast.error(editBlocked);
+      return;
+    }
     if (!editTitle.trim()) {
       toast.error('제목을 입력해 주세요');
       titleRef.current?.focus();
@@ -455,7 +490,11 @@ export default function MemoDetailView({
             toast.error(getApiErrorMessage(e));
           }
         }
-      } else if (status === 403 || status === 404) {
+      } else if (status === 403) {
+        // 권한이 없어졌어도 쓴 내용은 남겨 두고 저장만 막는다
+        setEditBlocked('고칠 권한이 없어졌어요. 쓴 내용을 복사해 두세요.');
+        toast.error('고칠 권한이 없어졌어요. 쓴 내용을 복사해 두세요');
+      } else if (status === 404) {
         toast.error(getApiErrorMessage(error));
         setIsEditing(false);
         await fetchMemoDetail();
@@ -536,14 +575,15 @@ export default function MemoDetailView({
 
   const handleDelete = async () => {
     const sharedNote = (memo?.sharedWith?.length || memo?.sharedGroupIds?.length) ? ' 공유받은 사람도 더 볼 수 없어요.' : '';
-    if (!(await confirm(`삭제하면 되돌릴 수 없어요.${sharedNote}`, `'${memo?.title ?? ''}' 메모를 삭제할까요?`, '삭제', '취소'))) return;
+    const othersNote = memo && memo.authorId !== session?.user?.id ? `${memo.authorNickname} 님의 메모예요. ` : '';
+    if (!(await confirm(`${othersNote}삭제하면 되돌릴 수 없어요.${sharedNote}`, `'${memo?.title ?? ''}' 메모를 삭제할까요?`, '삭제', '취소'))) return;
     setIsDeleting(true);
     try {
       await memoApi.delete(memoId, session);
       toast.success('메모를 삭제했어요');
       onDelete?.();
       if (isPage) {
-        router.push('/memo');
+        router.push(memo?.groupId ? `/groups/${memo.groupId}?tab=memos` : '/memo');
       } else {
         onClose?.();
       }
@@ -618,7 +658,7 @@ export default function MemoDetailView({
   if (loadError && !loadingMemo) {
     const s = loadError.status;
     const view =
-      s === 400 ? { title: '주소가 올바르지 않아요', desc: '메모 주소를 다시 확인해 주세요.', retry: false } :
+      s === 400 ? { title: '메모를 찾을 수 없어요', desc: '주소가 잘못됐거나 삭제된 메모예요.', retry: false } :
       s === 404 ? { title: '메모를 찾을 수 없어요', desc: '삭제됐거나 주소가 바뀐 메모예요.', retry: false } :
       s === 403 ? { title: '볼 수 없는 메모예요', desc: '작성자가 공유한 메모나 내가 속한 모임의 메모만 볼 수 있어요.', retry: false } :
       { title: '메모를 불러오지 못했어요', desc: loadError.message, retry: true };
@@ -704,7 +744,7 @@ export default function MemoDetailView({
                 <button
                   type="button"
                   onClick={handleSaveEdit}
-                  disabled={isSaving}
+                  disabled={isSaving || !!editBlocked}
                   className="btn-primary max-lg:h-11"
                 >
                   {isSaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Check size={16} strokeWidth={1.5} />}
@@ -796,7 +836,12 @@ export default function MemoDetailView({
 
         {isEditing ? (
           <>
-            {remoteChanged && (
+            {editBlocked && (
+              <div role="alert" className="mb-3 rounded-lg bg-negative-soft px-4 py-2.5 text-[13px] text-negative">
+                {editBlocked}
+              </div>
+            )}
+            {remoteChanged && !editBlocked && (
               <div role="status" className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-raised px-4 py-2.5 text-[13px] text-ink-2">
                 <span>고치는 동안 다른 곳에서 이 메모가 바뀌었어요. 저장하면 어떻게 할지 물어봐요.</span>
               </div>
@@ -835,7 +880,7 @@ export default function MemoDetailView({
             </div>
             {memo.groupId && group && (
               <Link
-                href={`/groups/${group.id}`}
+                href={`/groups/${group.id}?tab=memos`}
                 className="mt-2 inline-flex max-w-full items-center gap-1.5 self-start text-[13px] text-ink-2 hover:text-ink"
               >
                 <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />
@@ -853,6 +898,9 @@ export default function MemoDetailView({
             </button>
             {readOnly && (
               <p className="mt-2 text-[13px] text-ink-3">공유받은 메모라 읽기만 할 수 있어요</p>
+            )}
+            {!readOnly && !memo.groupId && memo.authorId !== session?.user?.id && (
+              <p className="mt-2 text-[13px] text-ink-3">수정할 수 있게 공유받은 메모예요 (삭제·공유는 작성자만)</p>
             )}
             <div aria-hidden className="mb-5 mt-4 h-px bg-line" />
           </>
@@ -880,7 +928,7 @@ export default function MemoDetailView({
           />
         )}
 
-        <div className="text-ink lg:min-h-100 relative" data-color-mode="light">
+        <div className={`text-ink lg:min-h-100 relative ${isEditing ? '' : markdownListClassName}`} data-color-mode="light">
           {isEditing ? (
             <RichEditor
               value={editContent}
@@ -1043,6 +1091,30 @@ export default function MemoDetailView({
         )}
 
         {/* 공유한 사람 (작성자에게만 내려옴) */}
+        {!isEditing && permissions.share && sharedGroups.length > 0 && (
+          <section className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <h3 className="text-[13px] font-medium text-ink-3">공유한 모임</h3>
+              <span className="stamp">{sharedGroups.length}</span>
+              {(memo.sharedWith?.length ?? 0) === 0 && (
+                <button type="button" onClick={() => setIsShareModalOpen(true)} className="btn-ghost btn-sm -mr-2 ml-auto">
+                  공유 관리
+                </button>
+              )}
+            </div>
+            <ul>
+              {sharedGroups.map(g => (
+                <li key={g.id}>
+                  <Link href={`/groups/${g.id}?tab=memos`} className="flex h-10 items-center gap-2.5 hover:text-ink">
+                    <GroupAvatar name={g.name} src={g.profileImage} theme={g.colorTheme} size="sm" />
+                    <span className="truncate font-display text-[15px] text-ink">{g.name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {!isEditing && permissions.share && (memo.sharedWith?.length ?? 0) > 0 && (
           <section className="space-y-1.5">
             <div className="flex items-center gap-2">
