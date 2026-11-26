@@ -17,7 +17,7 @@ export interface MemoPermissions {
   share: boolean;
   tag: boolean;
   analyze: boolean;
-  /** 고정·해제 (모임 메모: 방장·작성자, 개인 메모: 작성자) */
+  /** 고정·해제 (모임 메모: 방장·작성자, 모두에게 보임. 개인 메모: 읽을 수 있는 누구나, 본인에게만 보임) */
   pin: boolean;
 }
 
@@ -59,7 +59,8 @@ export interface MemoResponse {
 
 /**
  * 서버가 permissions 를 주지 않는 경우(구버전 응답)를 위한 보수적 기본값.
- * 작성자: 모두 허용, 모임 메모 멤버: 수정·태그만(방장 고정 권한은 알 수 없어 끈다), 그 밖(공유받음): 모두 불가.
+ * 작성자: 모두 허용, 모임 메모 멤버: 수정·태그만(방장 고정 권한은 알 수 없어 끈다),
+ * 그 밖(공유받은 개인 메모): 자기만 보는 고정만 허용.
  */
 export function getMemoPermissions(memo: MemoResponse, userId?: string | null): MemoPermissions {
   if (memo.permissions) return memo.permissions;
@@ -69,7 +70,7 @@ export function getMemoPermissions(memo: MemoResponse, userId?: string | null): 
   if (memo.groupId) {
     return { edit: true, delete: false, share: false, tag: true, analyze: false, pin: false };
   }
-  return { edit: false, delete: false, share: false, tag: false, analyze: false, pin: false };
+  return { edit: false, delete: false, share: false, tag: false, analyze: false, pin: true };
 }
 
 /** 정렬용: 고정된 것을 먼저(고정 시각 최신순), 나머지는 순서를 그대로 둔다(안정 정렬). */
@@ -219,7 +220,7 @@ export const memoApi = {
     return processMemoResponse(response.data);
   },
 
-  /** 고정(pinned=true)·해제. 모임 메모는 모든 멤버에게 고정으로 보인다 */
+  /** 고정(pinned=true)·해제. 모임 메모는 모든 멤버에게, 개인 메모는 고정한 본인에게만 고정으로 보인다 */
   async setPinned(id: string, pinned: boolean, session: Session | null): Promise<MemoResponse> {
     const url = `/api/memos/${id}/pin`;
     const config = { headers: getAuthHeaders(session) };

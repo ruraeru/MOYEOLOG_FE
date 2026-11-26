@@ -27,6 +27,8 @@ export function MemoCard({ memo, viewMode, color, onClick, onTogglePin }: MemoCa
   // 카드에는 보는 사람이 아니라 실제 작성자를 보여 준다
   const authorName = memo.authorNickname || '알 수 없음';
   const summary = stripMarkdown(memo.content);
+  // 모임에 공유된 개인 메모(groupId 없음)의 고정은 보는 사람 개인 것이라 모임 화면에 그리지 않는다
+  const isGroupMemo = !!memo.groupId;
 
   return (
     <div
@@ -43,7 +45,7 @@ export function MemoCard({ memo, viewMode, color, onClick, onTogglePin }: MemoCa
       <div className={`flex min-w-0 flex-1 flex-col ${isList ? 'gap-1' : 'gap-2'}`}>
         <div className="flex items-start justify-between gap-3">
           <h4 className="truncate font-display text-[17px] leading-6 text-ink">{memo.title}</h4>
-          {onTogglePin && memo.permissions?.pin ? (
+          {!isGroupMemo ? null : onTogglePin && memo.permissions?.pin ? (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
