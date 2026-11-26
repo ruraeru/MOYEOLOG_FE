@@ -203,15 +203,6 @@ export default function GroupEditModal({
       title="모임 정보 수정"
       footer={
         <>
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={isSaving || isDeleting}
-            className="btn-danger mr-auto"
-          >
-            {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
-            모임 삭제
-          </button>
           <button type="button" onClick={handleClose} disabled={isSaving} className="btn-secondary">
             취소
           </button>
@@ -297,6 +288,25 @@ export default function GroupEditModal({
           <p ref={errorRef} role="alert" className="rounded-lg bg-negative-soft px-3 py-2.5 text-sm text-negative">
             {error}
           </p>
+        )}
+
+        {/* 위험 구역: 삭제는 저장·취소와 떨어진 본문 끝에 둔다(footer 에서 잘못 누르지 않게) */}
+        {isOwner && (
+          <div className="space-y-3 border-t border-line pt-5">
+            <div>
+              <p className="text-[13px] font-medium text-ink">모임 삭제</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-ink-3">토픽과 댓글이 함께 지워지고 되돌릴 수 없어요. 모임 메모와 일정은 작성자의 개인 메모·일정으로 남아요.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={isSaving || isDeleting}
+              className="btn-danger"
+            >
+              {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
+              모임 삭제
+            </button>
+          </div>
         )}
       </div>
     </Modal>

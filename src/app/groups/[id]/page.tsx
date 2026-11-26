@@ -527,14 +527,14 @@ function GroupDetailContent() {
             <GroupCover
               src={group.backgroundImage}
               theme={group.colorTheme}
-              className="h-28 rounded-xl border border-line sm:h-32 lg:h-44"
+              className="h-20 rounded-xl border border-line sm:h-32 lg:h-44"
             >
               {isOwner && (
                 <>
                   <button
                     type="button"
                     onClick={() => coverInputRef.current?.click()}
-                    className="btn-secondary btn-sm absolute right-3 top-3 border-line bg-surface/90"
+                    className="btn-secondary btn-sm absolute right-3 top-3 border-line bg-surface/90 max-md:right-2 max-md:top-2 max-md:h-11"
                   >
                     <ImageIcon size={14} strokeWidth={1.5} /> 표지 바꾸기
                   </button>
@@ -576,16 +576,16 @@ function GroupDetailContent() {
                 </p>
               </div>
 
-              <div className="order-2 ml-auto flex shrink-0 items-center gap-2 pt-3 lg:order-3 lg:pt-4">
+              <div className="order-2 -mr-3 ml-auto flex shrink-0 items-center gap-2 pt-3 sm:-mr-4 lg:order-3 lg:-mr-6 lg:pt-4">
                 <span className="mr-1 hidden lg:flex" title={`멤버 ${group.memberCount}명`}>
                   <AvatarStack people={group.members} max={4} size="size-8" />
                 </span>
-                <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary">
+                <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary max-md:h-11">
                   <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
                 </button>
                 <button
                   onClick={handleCopyInviteLink}
-                  className="btn-secondary !px-2.5 sm:!px-3.5"
+                  className="btn-secondary !px-2.5 max-md:h-11 max-md:min-w-11 sm:!px-3.5"
                   aria-label="초대 링크 복사"
                   title="초대 링크 복사"
                 >
@@ -595,7 +595,7 @@ function GroupDetailContent() {
                 {isOwner && (
                   <button
                     onClick={() => setIsEditModalOpen(true)}
-                    className="btn-secondary size-9 !px-0"
+                    className="btn-secondary size-9 !px-0 max-md:size-11"
                     aria-label="모임 설정"
                     title="모임 설정"
                   >
@@ -606,7 +606,7 @@ function GroupDetailContent() {
             </div>
           </header>
 
-          <UnderlineTabs className="mt-5 lg:mt-6" items={tabItems} active={activeTab} onChange={setActiveTab} />
+          <UnderlineTabs className="sticky top-0 z-10 mt-5 bg-canvas lg:mt-6" items={tabItems} active={activeTab} onChange={setActiveTab} />
 
           <div className="mt-5 min-h-[400px] outline-none lg:mt-6">
             {activeTab === 'notice' ? (
