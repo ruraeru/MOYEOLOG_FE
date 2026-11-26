@@ -27,7 +27,7 @@ import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import { memoApi, isSharedByMe, getMemoPermissions, comparePinned, compareGroupPinned, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
-import { GroupAvatar } from '@/components/groups/GroupIdentity';
+import { GroupAvatar, groupStyle } from '@/components/groups/GroupIdentity';
 import type { MemoCardView } from '@/types/memo';
 import { getThemeColors, getFileUrl, stripMarkdown, getTimeFormat } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -88,6 +88,8 @@ function parseFilter(params: URLSearchParams | null): { type: FilterType; id?: s
 type MemoCardItem = MemoCardView & {
   ribbon: string; author?: string; groupId?: string; group?: GroupResponse; sharedByMe?: boolean;
   pinned: boolean; canPin: boolean;
+  /** 모임 폴더 보기: 고정이 모임 공통 고정 */
+  groupPin?: boolean;
 };
 
 const TAG_PREVIEW_COUNT = 15;
@@ -315,6 +317,7 @@ function MemoContent() {
         isFavorite: m.isFavorite,
         pinned: groupView ? !!m.groupPinnedAt : !!m.pinnedAt,
         canPin: groupView ? permissions.groupPin : permissions.pin,
+        groupPin: groupView,
         groupId: m.groupId,
         group,
         sharedByMe: isSharedByMe(m, userId)
@@ -764,15 +767,19 @@ interface MemoCardProps extends MemoCardItem {
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, viewMode, pinBusy, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, groupPin, viewMode, pinBusy, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   const shownTags = tags.slice(0, CARD_TAG_COUNT);
+  const pinLabel = groupPin ? (pinned ? '모임 고정 해제' : '모임에 고정') : (pinned ? '고정 해제' : '고정');
+  const pinColor = groupPin ? 'text-group-ink hover:text-group-ink' : 'text-accent hover:text-accent';
   return (
     <div
       onClick={onClick}
       role="link"
       tabIndex={0}
       aria-label={title}
+      // 모임 폴더에선 고정 색을 모임 탭과 같게(text-group-ink)
+      style={groupPin ? groupStyle(group?.colorTheme) : undefined}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); }
@@ -791,18 +798,18 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
               <button
                 type="button"
                 onClick={(e: React.MouseEvent) => { e.stopPropagation(); onTogglePin(e); }}
-                aria-label={pinned ? '고정 해제' : '고정'}
+                aria-label={pinLabel}
                 aria-pressed={pinned}
                 aria-busy={pinBusy || undefined}
                 disabled={pinBusy}
-                title={pinned ? '고정 해제' : '고정'}
-                className={`btn-icon pointer-coarse:size-11 ${pinned ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
+                title={pinLabel}
+                className={`btn-icon pointer-coarse:size-11 ${pinned ? pinColor : 'text-ink-3'}`}
               >
                 <Pin size={16} strokeWidth={1.5} className={pinned ? 'fill-current' : ''} />
               </button>
             ) : pinned && (
-              <span className="inline-flex size-8 items-center justify-center text-ink-2 pointer-coarse:size-11" title="고정됨">
-                <Pin size={16} strokeWidth={1.5} className="fill-current" aria-label="고정됨" />
+              <span className={`inline-flex size-8 items-center justify-center pointer-coarse:size-11 ${groupPin ? 'text-group-ink' : 'text-ink-2'}`} title={groupPin ? '모임에 고정됨' : '고정됨'}>
+                <Pin size={16} strokeWidth={1.5} className="fill-current" aria-label={groupPin ? '모임에 고정됨' : '고정됨'} />
               </span>
             )}
             {/* 즐겨찾기는 모임 메모도 된다(모임 화면에서는 별을 보이지 않는다) */}
