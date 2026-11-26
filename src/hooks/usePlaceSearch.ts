@@ -53,30 +53,34 @@ export function usePlaceSearch() {
     }
 
     const kakao = (window as any).kakao;
-    if (!kakao?.maps?.services) return;
+    if (!kakao?.maps?.load) return;
 
     setIsSearching(true);
 
     searchTimeoutRef.current = setTimeout(() => {
-      const ps = new kakao.maps.services.Places();
-      ps.keywordSearch(keyword, (data: KakaoPlace[], status: string) => {
-        if (!isMounted.current) return;
-        if (status === kakao.maps.services.Status.OK) {
-          setSearchResults(data);
-        } else {
-          setSearchResults([]);
-        }
-        setIsSearching(false);
+      // SDK 를 autoload=false 로 불러와 load() 뒤에야 services 가 생긴다(이미 됐으면 바로 부른다)
+      kakao.maps.load(() => {
+        const ps = new kakao.maps.services.Places();
+        ps.keywordSearch(keyword, (data: KakaoPlace[], status: string) => {
+          if (!isMounted.current) return;
+          if (status === kakao.maps.services.Status.OK) {
+            setSearchResults(data);
+          } else {
+            setSearchResults([]);
+          }
+          setIsSearching(false);
+        });
       });
     }, 300);
   }, []);
 
   const fetchRecommendations = useCallback(async (lat: number, lng: number, categories: string[] = ['FD6', 'CE7']) => {
     const kakao = (window as any).kakao;
-    if (!kakao?.maps?.services) return;
+    if (!kakao?.maps?.load) return;
 
     const request = ++recommendRequest.current;
     setIsRecommending(true);
+    await new Promise<void>((resolve) => kakao.maps.load(resolve));
     const ps = new kakao.maps.services.Places();
 
     const fetchImage = async (name: string) => {
