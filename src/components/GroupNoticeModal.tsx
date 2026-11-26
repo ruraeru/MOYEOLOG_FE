@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type AnchorHTMLAttributes, type ImgHTMLAttributes } from 'react';
 import { useSession } from 'next-auth/react';
 import type { Session } from 'next-auth';
-import dynamic from 'next/dynamic';
 import { Check, Loader2, Pin } from 'lucide-react';
 import { groupNoticeApi, isNoticeEdited, type NoticeDetail, type NoticeUser } from '@/lib/group-notice-api';
 import { getApiErrorMessage, getApiErrorStatus } from '@/lib/axios';
@@ -18,7 +17,7 @@ import { Modal } from './ui';
 import { Avatar } from './groups/GroupUI';
 
 const loadMarkdown = () => import('@uiw/react-md-editor').then((mod) => mod.default.Markdown);
-const EdMarkdown = dynamic(loadMarkdown, { ssr: false });
+type MarkdownComponent = Awaited<ReturnType<typeof loadMarkdown>>;
 
 /** 본문 링크: 바깥 주소는 새 탭에서 연다(모임 화면을 떠나지 않게) */
 function NoticeLink({ href, children, ...rest }: AnchorHTMLAttributes<HTMLAnchorElement>) {
@@ -101,15 +100,28 @@ function NoticeView({
   const [editing, setEditing] = useState(false);
   /** 이 창에서 재촉을 보냈나(연달아 누르지 않게) */
   const [reminded, setReminded] = useState(false);
-  /** 본문 렌더러를 받기 전에는 창을 비워 두지 않고 로딩을 보여 준다(뒤늦게 본문이 끼어들어 아래 내용이 밀리지 않게) */
-  const [markdownReady, setMarkdownReady] = useState(false);
+  /**
+   * 본문 렌더러. 받기 전에는 창을 비워 두지 않고 로딩을 보여 준다(뒤늦게 본문이 끼어들어 투표가 밀리지 않게).
+   * next/dynamic 으로 감싸면 자기 import 가 풀릴 때까지 한 번 더 빈 것을 그리므로, 받은 컴포넌트를 바로 그린다.
+   * 받지 못하면(C: null) 글자 그대로 보여 준다.
+   */
+  const [md, setMd] = useState<{ C: MarkdownComponent | null } | null>(null);
+  const markdownReady = md !== null;
   useEffect(() => {
     let alive = true;
-    loadMarkdown().then(() => alive && setMarkdownReady(true), () => alive && setMarkdownReady(true));
+    loadMarkdown().then(
+      (C) => alive && setMd({ C }),
+      () => alive && setMd({ C: null }),
+    );
     return () => {
       alive = false;
     };
   }, []);
+  // 이미 보여 준 공지가 있는가(다시 불러오다 404 면 오류 화면 대신 '지워졌어요' 로 닫는다)
+  const hasDetailRef = useRef(false);
+  useEffect(() => {
+    hasDetailRef.current = !!detail;
+  }, [detail]);
 
   // 부모가 바뀔 때마다 새 함수를 넘겨도 load 가 다시 만들어지지 않게
   const cbRef = useRef({ onChanged, onClose });
@@ -137,7 +149,7 @@ function NoticeView({
         }, 1500);
       }
       if (silent && status !== 404) return;
-      if (status === 404 && silent) {
+      if (status === 404 && (silent || hasDetailRef.current)) {
         toast.info('공지가 지워졌어요');
         cbRef.current.onChanged();
         cbRef.current.onClose();
@@ -147,8 +159,9 @@ function NoticeView({
     }
   }, [groupId, noticeId, session, toast]);
 
+  // load 가 다시 만들어지면(세션 갱신 등) 다시 부른다. 이미 보고 있으면 조용히
   useEffect(() => {
-    load();
+    load(hasDetailRef.current);
   }, [load]);
 
   useEffect(() => {
@@ -374,12 +387,16 @@ function NoticeView({
           <div className="space-y-6">
             {detail.content.trim() && (
               <div className={`break-words leading-relaxed text-ink ${markdownListClassName}`} data-color-mode="light">
-                <EdMarkdown
-                  components={markdownComponents}
-                  rehypePlugins={markdownRehypePlugins}
-                  source={detail.content}
-                  style={{ backgroundColor: 'transparent', fontSize: '0.9375rem', fontWeight: 400, color: 'inherit' }}
-                />
+                {md?.C ? (
+                  <md.C
+                    components={markdownComponents}
+                    rehypePlugins={markdownRehypePlugins}
+                    source={detail.content}
+                    style={{ backgroundColor: 'transparent', fontSize: '0.9375rem', fontWeight: 400, color: 'inherit' }}
+                  />
+                ) : (
+                  <p className="whitespace-pre-wrap text-[15px]">{detail.content}</p>
+                )}
               </div>
             )}
 
