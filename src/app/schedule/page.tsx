@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
@@ -98,6 +98,9 @@ export default function SchedulePage() {
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleResponse | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState('');
+  // 상세에서 수정을 열었는지. 수정을 저장하지 않고 닫으면 상세로 돌아간다.
+  const editFromDetail = useRef(false);
+  const editSaved = useRef(false);
 
   // Filtering state
   const [activeFilter, setActiveFilter] = useState<{ type: 'all' | 'my' | 'group', id?: string }>({ type: 'all' });
@@ -157,7 +160,20 @@ export default function SchedulePage() {
   const handleEdit = (schedule: ScheduleResponse) => {
     setIsDetailOpen(false);
     setSelectedSchedule(schedule);
+    editFromDetail.current = true;
+    editSaved.current = false;
     setIsModalOpen(true);
+  };
+
+  const handleCloseEdit = () => {
+    setIsModalOpen(false);
+    if (editFromDetail.current && !editSaved.current && selectedSchedule) {
+      setIsDetailOpen(true);
+    } else {
+      setSelectedSchedule(null);
+    }
+    editFromDetail.current = false;
+    editSaved.current = false;
   };
 
   const goNext = () => setCurrentDate(view === 'week' ? addWeeks(currentDate, 1) : addMonths(currentDate, 1));
@@ -389,7 +405,7 @@ export default function SchedulePage() {
         </main>
       </div>
 
-      <AppointmentModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setSelectedSchedule(null); }} initialDate={selectedDate} onSuccess={() => fetchSchedules({ silent: true })} initialSchedule={selectedSchedule} />
+      <AppointmentModal isOpen={isModalOpen} onClose={handleCloseEdit} initialDate={selectedDate} onSuccess={() => { editSaved.current = true; fetchSchedules({ silent: true }); }} initialSchedule={selectedSchedule} />
       <AppointmentListModal
         isOpen={isListModalOpen}
         onClose={() => setIsListModalOpen(false)}
