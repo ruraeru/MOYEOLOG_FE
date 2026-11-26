@@ -21,7 +21,7 @@ export default function AlertContainer() {
   return (
     <>
       {/* Toast List Container */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 items-center pointer-events-none w-full max-w-sm px-4">
+      <div className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-auto lg:top-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 items-center pointer-events-none w-full max-w-sm px-4">
         {toasts.map((toast) => {
           let icon = null;
 
