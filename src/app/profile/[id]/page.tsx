@@ -88,7 +88,7 @@ export default function ProfileIdPage() {
               <EmptyState
                 icon={error.notFound ? UserX : AlertCircle}
                 title={error.notFound ? '사용자를 찾을 수 없어요' : '프로필을 불러오지 못했어요'}
-                description={error.notFound ? '탈퇴했거나 주소가 잘못됐을 수 있어요' : error.message}
+                description={error.notFound ? '탈퇴했거나 주소가 잘못됐을 수 있어요.' : error.message}
                 action={
                   <div className="flex gap-2">
                     {!error.notFound && (

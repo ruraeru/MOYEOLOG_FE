@@ -466,7 +466,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
             <EmptyState
               icon={AlertCircle}
               title="대화 상대를 찾을 수 없어요"
-              description="탈퇴했거나 주소가 잘못됐을 수 있어요"
+              description="탈퇴했거나 주소가 잘못됐을 수 있어요."
               action={
                 <Link href="/messages" className="btn-secondary">
                   메시지 목록으로
