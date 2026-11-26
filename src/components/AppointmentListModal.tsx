@@ -76,6 +76,8 @@ export default function AppointmentListModal({
                     <span className="tabular-nums">
                       {isMultiDaySchedule(apt) ? formatScheduleRange(apt, tf) : `${formatTimeOnDay(apt, day, tf)} – ${format(parseISO(apt.endTime), tf, { locale: ko })}`}
                     </span>
+                    {/* 달력 칸의 붉은 바탕 까닭. 좁은 칸에서는 title 로만 보여 터치로는 알 수 없었다 */}
+                    {scheduleAlert(apt) && <span className="text-negative">{scheduleAlert(apt)}</span>}
                     <span className="flex min-w-0 items-center gap-1.5">
                       {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
                       <span className="truncate">{group ? group.name : apt.groupId ? '모임' : '내 일정'}</span>
