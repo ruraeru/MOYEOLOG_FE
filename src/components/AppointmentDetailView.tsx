@@ -3,7 +3,7 @@
 import {
   X, Calendar, Clock, MapPin, Trash2, Loader2, FileText,
   ChevronRight, ExternalLink, AlignLeft,
-  Pencil, ChevronLeft, Users, CloudSun, TrainFront, type LucideIcon
+  Pencil, ChevronLeft, Users, TrainFront, type LucideIcon
 } from 'lucide-react';
 import { EmptyState, Ribbon } from './ui';
 import { GroupAvatar } from './groups/GroupIdentity';
@@ -23,8 +23,9 @@ import AppointmentModal from './AppointmentModal';
 import MidpointSection from './MidpointSection';
 import { useAlert } from '@/hooks/useAlert';
 import { usePlaceWeather } from '@/hooks/useWeather';
-import { weatherAt } from '@/lib/weather';
-import { WeatherLine } from './Weather';
+import { weatherAt, weatherText } from '@/lib/weather';
+import { WeatherIcon } from './Weather';
+import { loadKakaoServices } from '@/lib/kakao';
 
 interface LocationDetail {
   address: string;
@@ -105,14 +106,17 @@ export default function AppointmentDetailView({
   // 장소 정보 카카오 API 로드
   useEffect(() => {
     if (schedule?.location) {
+      let cancelled = false;
       const fetchLocationInfo = async () => {
         setIsLoadingLocation(true);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const kakao = (window as any).kakao;
-        if (kakao && kakao.maps && kakao.maps.services) {
+        // SDK 는 autoload=false 라 load() 를 거쳐야 services 가 생긴다(바로 연 페이지·모달에서 주소가 빠지던 문제)
+        const kakao = await loadKakaoServices();
+        if (cancelled) return;
+        if (kakao) {
           const ps = new kakao.maps.services.Places();
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ps.keywordSearch(schedule.location, async (data: any, status: any) => {
+            if (cancelled) return;
             if (status === kakao.maps.services.Status.OK && data[0]) {
               const place = data[0];
               let imageUrl = '';
@@ -128,7 +132,8 @@ export default function AppointmentDetailView({
                 console.error('Failed to fetch place image:', err);
                 imageUrl = 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400&h=300&fit=crop';
               }
-              
+              if (cancelled) return;
+
               setLocationDetail({
                 address: place.road_address_name || place.address_name,
                 category: place.category_group_name || place.category_name,
@@ -147,6 +152,9 @@ export default function AppointmentDetailView({
         }
       };
       fetchLocationInfo();
+      return () => {
+        cancelled = true;
+      };
     } else {
       setLocationDetail(null);
     }
@@ -158,6 +166,13 @@ export default function AppointmentDetailView({
     schedule?.longitude ?? locationDetail?.lng
   );
   const weather = forecast && schedule ? weatherAt(forecast, schedule.startTime) : null;
+
+  // 바로 연 페이지(새 탭·알림·공유 링크)는 앱 안의 이전 화면이 없으니 일정 목록으로 간다
+  const goBack = () => {
+    const fromApp = window.history.length > 1 && document.referrer.startsWith(window.location.origin);
+    if (fromApp) router.back();
+    else router.push('/schedule');
+  };
 
   const stateBox = `flex items-center justify-center bg-surface ${isPage ? 'h-full flex-1' : 'min-h-[320px] rounded-t-2xl md:rounded-2xl'}`;
 
@@ -177,7 +192,7 @@ export default function AppointmentDetailView({
           description={loadError}
           action={
             <div className="flex gap-2">
-              {isPage && <button onClick={() => router.back()} className="btn-secondary">뒤로</button>}
+              {isPage && <button onClick={goBack} className="btn-secondary">뒤로</button>}
               <button onClick={() => setReloadKey((k) => k + 1)} className="btn-primary">다시 시도</button>
             </div>
           }
@@ -192,7 +207,7 @@ export default function AppointmentDetailView({
         <EmptyState
           title="일정을 찾을 수 없어요"
           description="삭제됐거나 볼 수 있는 권한이 없는 일정이에요"
-          action={isPage ? <button onClick={() => router.back()} className="btn-secondary">뒤로</button> : undefined}
+          action={isPage ? <button onClick={goBack} className="btn-secondary">뒤로</button> : undefined}
         />
       </div>
     );
@@ -206,7 +221,7 @@ export default function AppointmentDetailView({
       await scheduleApi.delete(schedule.id, session);
       onSuccess?.();
       if (isPage) {
-        router.back();
+        goBack();
       } else {
         onClose?.();
       }
@@ -239,7 +254,7 @@ export default function AppointmentDetailView({
         <div className="flex min-w-0 items-start gap-2">
           {isPage && (
             <button
-              onClick={() => router.back()}
+              onClick={goBack}
               className="btn-icon -ml-2 mt-0.5 shrink-0"
               title="뒤로가기"
             >

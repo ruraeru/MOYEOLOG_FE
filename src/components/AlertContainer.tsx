@@ -2,7 +2,7 @@
 
 import { useAlertStore } from '@/hooks/useAlert';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 const emptySubscribe = () => () => {};
 
@@ -10,6 +10,19 @@ export default function AlertContainer() {
   const { toasts, removeToast, modal, closeModal } = useAlertStore();
   // Hydration safety: 서버 렌더링과 첫 하이드레이션에서는 그리지 않습니다.
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+
+  // 확인 창이 떠 있으면 Esc 는 확인 창만 닫는다(취소). 캡처 단계에서 먼저 받아 뒤의 모달(일정 상세 등)이 닫히지 않게 한다.
+  useEffect(() => {
+    if (!modal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      closeModal(modal.type !== 'confirm');
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [modal, closeModal]);
 
   if (!mounted) return null;
 
@@ -62,8 +75,17 @@ export default function AlertContainer() {
 
       {/* 확인 창: 다른 창과 같은 모양 (바탕 black/40, r16, 왼쪽 정렬, 버튼 오른쪽) */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 z-[9998] flex items-center justify-center p-4">
-          <div className="w-full max-w-[400px] rounded-2xl bg-surface animate-scale-in">
+        <div
+          className="fixed inset-0 bg-black/40 z-[9998] flex items-center justify-center p-4"
+          onClick={() => closeModal(modal.type !== 'confirm')}
+        >
+          <div
+            role={modal.type === 'confirm' ? 'alertdialog' : 'dialog'}
+            aria-modal="true"
+            aria-label={modal.title || modal.message}
+            className="w-full max-w-[400px] rounded-2xl bg-surface animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 pt-6 pb-5">
               {modal.title && (
                 <h3 className="font-display text-xl leading-7 text-ink mb-2">
@@ -78,16 +100,19 @@ export default function AlertContainer() {
             <div className="flex justify-end gap-2 border-t border-line px-6 py-3">
               {modal.type === 'confirm' && (
                 <button
+                  autoFocus={isDestructive}
                   onClick={() => closeModal(false)}
-                  className="btn-secondary"
+                  className="btn-secondary relative after:absolute after:inset-x-0 after:-inset-y-1"
                 >
                   {modal.cancelText || '취소'}
                 </button>
               )}
 
+              {/* 창이 뜨면 확인 버튼에 포커스(Enter = 확인). 삭제처럼 되돌릴 수 없는 확인은 취소 버튼에 둔다 */}
               <button
+                autoFocus={!isDestructive || modal.type !== 'confirm'}
                 onClick={() => closeModal(true)}
-                className={isDestructive ? 'btn-danger' : 'btn-primary'}
+                className={`${isDestructive ? 'btn-danger' : 'btn-primary'} relative after:absolute after:inset-x-0 after:-inset-y-1`}
               >
                 {modal.confirmText || '확인'}
               </button>
