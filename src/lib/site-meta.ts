@@ -13,13 +13,17 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://moyeolog.ru
 /** public/og.png (1200×630). 로고를 바꾸면 다시 만든다 */
 const OG_IMAGE = { url: '/og.png', width: 1200, height: 630, alt: SITE_NAME, type: 'image/png' };
 
-/** 제목·설명·주소로 미리보기 메타를 만든다. path 는 '/invite/group?code=…' 같은 사이트 안 경로 */
-export function pageMeta({ title, description, path, noindex = false }: { title: string; description: string; path: string; noindex?: boolean }): Metadata {
+/**
+ * 제목·설명·주소로 미리보기 메타를 만든다. path 는 '/invite/group?code=…' 같은 사이트 안 경로.
+ * path 를 주지 않으면 og:url 을 넣지 않는다: layout 의 기본값이 모든 화면에 물려지므로, 여기에 주소를 넣으면
+ * /help 같은 다른 화면도 og:url 이 사이트 첫 화면이 돼 수집기가 엉뚱한 주소의 (저장된) 미리보기를 쓴다.
+ */
+export function pageMeta({ title, description, path, noindex = false }: { title: string; description: string; path?: string; noindex?: boolean }): Metadata {
   return {
     title,
     description,
     ...(noindex ? { robots: { index: false, follow: false } } : {}),
-    openGraph: { type: 'website', siteName: SITE_NAME, locale: 'ko_KR', title, description, url: path, images: [OG_IMAGE] },
+    openGraph: { type: 'website', siteName: SITE_NAME, locale: 'ko_KR', title, description, ...(path ? { url: path } : {}), images: [OG_IMAGE] },
     twitter: { card: 'summary_large_image', title, description, images: [OG_IMAGE.url] },
   };
 }
