@@ -113,6 +113,8 @@ function GroupDetailContent() {
   const groupId = params?.id as string;
   const topicParam = searchParams.get('topic');
   const tabParam = searchParams.get('tab');
+  // 날짜 조율 알림 링크(?tab=calendar&poll={id})는 그 조율 창을 바로 연다
+  const pollParam = searchParams.get('poll');
 
   const [group, setGroup] = useState<GroupResponse | null>(null);
   const [groupError, setGroupError] = useState<GroupLoadError | null>(null);
@@ -121,8 +123,13 @@ function GroupDetailContent() {
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
   const [topics, setTopics] = useState<TopicResponse[]>([]);
   const [polls, setPolls] = useState<DatePollSummary[]>([]);
-  const [openPollId, setOpenPollId] = useState<string | null>(null);
+  const [openPollId, setOpenPollId] = useState<string | null>(pollParam);
   const [isPollCreateOpen, setIsPollCreateOpen] = useState(false);
+  /** 진행 중 조율이 많으면 2개까지만 보이고 접어 둔다(달력이 밀리지 않게) */
+  const [showAllPolls, setShowAllPolls] = useState(false);
+  // 보고 있던 조율이 목록에서 사라지면(다른 사람이 지움) 창을 닫고 알린다
+  const openPollIdRef = useRef<string | null>(null);
+  const prevPollIdsRef = useRef<Set<string>>(new Set());
   const [notices, setNotices] = useState<NoticeSummary[]>([]);
   const [openNoticeId, setOpenNoticeId] = useState<string | null>(null);
   const [isNoticeFormOpen, setIsNoticeFormOpen] = useState(false);
@@ -147,6 +154,15 @@ function GroupDetailContent() {
   const [activeTab, setActiveTab] = useState<TabType>(
     TABS.includes(tabParam as TabType) ? (tabParam as TabType) : topicParam ? 'topics' : 'notice'
   );
+  // 이미 이 화면에 있을 때 다른 조율 알림을 눌러도 그 창을 연다(렌더 중 상태 맞추기)
+  const [seenPollParam, setSeenPollParam] = useState(pollParam);
+  if (pollParam !== seenPollParam) {
+    setSeenPollParam(pollParam);
+    if (pollParam) {
+      setActiveTab('calendar');
+      setOpenPollId(pollParam);
+    }
+  }
   const [memoFilter, setMemoFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -205,8 +221,16 @@ function GroupDetailContent() {
     if (scheduleResult.status === 'fulfilled') setSchedules(scheduleResult.value);
     if (topicResult.status === 'fulfilled') setTopics(topicResult.value);
     // 날짜 조율 목록은 실패해도 보던 것을 두고 오류로 띄우지 않는다(일정 달력을 가리지 않게)
-    if (pollResult.status === 'fulfilled') setPolls(pollResult.value);
-    else console.error('Failed to fetch date polls:', pollResult.reason);
+    if (pollResult.status === 'fulfilled') {
+      const ids = new Set(pollResult.value.map(p => p.id));
+      const opened = openPollIdRef.current;
+      if (opened && prevPollIdsRef.current.has(opened) && !ids.has(opened)) {
+        setOpenPollId(null);
+        toast.info('조율이 지워졌어요');
+      }
+      prevPollIdsRef.current = ids;
+      setPolls(pollResult.value);
+    } else console.error('Failed to fetch date polls:', pollResult.reason);
 
     if ([memoResult, scheduleResult, topicResult, pollResult, noticeResult].some(r => r.status === 'rejected' && statusOf(r.reason) === 429)) {
       retrySoon();
@@ -221,7 +245,7 @@ function GroupDetailContent() {
     } else {
       setListError(null);
     }
-  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setPolls, setNotices, setListError]);
+  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setPolls, setNotices, setListError, setOpenPollId, toast]);
 
   useEffect(() => {
     fetchGroupData();
@@ -314,6 +338,9 @@ function GroupDetailContent() {
 
   const refreshQuietly = useCallback(() => { fetchGroupData(true); }, [fetchGroupData]);
   const closePoll = useCallback(() => setOpenPollId(null), [setOpenPollId]);
+  useEffect(() => {
+    openPollIdRef.current = openPollId;
+  }, [openPollId]);
   const closeNotice = useCallback(() => setOpenNoticeId(null), [setOpenNoticeId]);
 
   // 상세를 열면 서버가 읽음 처리한다. 읽음 이벤트는 방장에게만 가므로 내 목록의 점·읽음 수는 여기서 바로 고친다
@@ -491,6 +518,7 @@ function GroupDetailContent() {
     ? '검색 결과가 없어요'
     : '메모가 없어요';
 
+  const openPolls = polls.filter(p => p.status === 'OPEN');
   const upcomingSchedules = schedules
     .filter(s => parseISO(s.startTime).getTime() >= now)
     .sort((a, b) => parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime())
@@ -720,7 +748,7 @@ function GroupDetailContent() {
                         <CalendarCheck size={16} strokeWidth={1.5} /> 날짜 조율
                       </button>
                     </div>
-                    {polls.filter(p => p.status === 'OPEN').map(p => (
+                    {(showAllPolls ? openPolls : openPolls.slice(0, 2)).map(p => (
                       <button
                         key={p.id}
                         type="button"
@@ -730,7 +758,7 @@ function GroupDetailContent() {
                         <span aria-hidden className="w-[3px] shrink-0 self-stretch rounded-full bg-group" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-display text-[15px] leading-5 text-ink">{p.title}</span>
-                          <span className="stamp mt-0.5 block text-xs text-ink-3">
+                          <span className="stamp mt-0.5 block break-keep text-xs text-ink-3">
                             {pollRangeLabel(p.startDate, p.endDate)} · {p.memberCount}명 중 {p.respondedCount}명 응답
                           </span>
                         </span>
@@ -742,12 +770,17 @@ function GroupDetailContent() {
                         <ChevronRight size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
                       </button>
                     ))}
+                    {openPolls.length > 2 && (
+                      <button type="button" onClick={() => setShowAllPolls(v => !v)} className="btn-ghost btn-sm w-full max-sm:h-11">
+                        {showAllPolls ? '접기' : `진행 중인 조율 ${openPolls.length - 2}개 더 보기`}
+                      </button>
+                    )}
                     {polls.filter(p => p.status === 'CONFIRMED' && p.confirmedDate).map(p => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => setOpenPollId(p.id)}
-                        className="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[13px] text-ink-3 hover:text-ink-2"
+                        className="flex min-h-11 w-full min-w-0 items-center gap-2 px-1 text-left text-[13px] text-ink-3 hover:text-ink-2 md:min-h-8"
                       >
                         <Check size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
                         <span className="truncate">{p.title}</span>
