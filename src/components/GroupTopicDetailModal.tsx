@@ -134,10 +134,10 @@ export default function GroupTopicDetailModal({
   const dialogRef = useRef<HTMLDivElement>(null);
   const scrollToEndRef = useRef(false);
   // 터치 기기는 Enter 가 줄바꿈이고 보내기 버튼으로 보낸다. 데스크톱은 Enter 보내기, Shift+Enter 줄바꿈
-  const [enterSends, setEnterSends] = useState(true);
-  useEffect(() => {
-    setEnterSends(!window.matchMedia('(pointer: coarse)').matches);
-  }, []);
+  // (힌트는 댓글을 고칠 때만 보여서 서버 렌더와 어긋나지 않는다)
+  const [enterSends] = useState(
+    () => typeof window === 'undefined' || !window.matchMedia('(pointer: coarse)').matches,
+  );
 
   // Mention states
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
