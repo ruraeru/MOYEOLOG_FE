@@ -20,6 +20,7 @@ import {
   X,
   Settings,
   ChevronRight,
+  Megaphone,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import axios from 'axios';
@@ -48,6 +49,7 @@ const TYPE_META: Record<NotificationType, { icon: React.ElementType; label: stri
   TOPIC_COMMENT: { icon: MessageSquare, label: '토픽 댓글' },
   SCHEDULE_PARTICIPANT: { icon: Calendar, label: '일정 참여' },
   GROUP_KICKED: { icon: UserMinus, label: '모임' },
+  GROUP_NOTICE: { icon: Megaphone, label: '모임 공지' },
 };
 
 const formatStamp = (value: string, tf: string) => {
