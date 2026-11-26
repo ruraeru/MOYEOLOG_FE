@@ -159,7 +159,8 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
     : conversations;
 
   return (
-    <div className="h-[calc(100dvh-4rem)] lg:h-screen flex flex-col bg-canvas text-ink overflow-hidden">
+    // 대화 화면(/messages/[id])에서는 모바일 하단 탭이 숨으므로(BottomNavbar) 그 자리(4rem)를 빼지 않는다
+    <div className={`${friendId ? 'h-dvh' : 'h-[calc(100dvh-4rem)]'} lg:h-screen flex flex-col bg-canvas text-ink overflow-hidden`}>
       <Navbar />
       <main className="flex-1 min-h-0 flex w-full">
         {/* 대화 목록 */}
@@ -330,6 +331,8 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
+  /** 스크롤 칸의 직전 높이(크기 변화로 생긴 scroll 이벤트를 가려낸다) */
+  const lastClientHeight = useRef(0);
   const restoreHeight = useRef<number | null>(null);
   const lastIdRef = useRef<string | null>(null);
   const scrollToUnread = useRef(false);
@@ -492,7 +495,9 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
+    lastClientHeight.current = el.clientHeight;
     const ro = new ResizeObserver(() => {
+      lastClientHeight.current = el.clientHeight;
       if (stickToBottom.current) el.scrollTop = el.scrollHeight;
     });
     ro.observe(el);
@@ -510,6 +515,13 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
+    // 칸 높이가 바뀌어 생긴 스크롤(키보드가 올라옴, 입력창이 자람)은 사용자가 올린 것이 아니다.
+    // 맨 아래에 붙어 있던 상태를 그대로 두고 아래 ResizeObserver 가 다시 맨 아래로 내린다
+    if (el.clientHeight !== lastClientHeight.current) {
+      lastClientHeight.current = el.clientHeight;
+      if (stickToBottom.current) el.scrollTop = el.scrollHeight;
+      return;
+    }
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (stickToBottom.current && newBelow) setNewBelow(0);
   };
@@ -582,7 +594,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
       </header>
 
       <div className="relative flex-1 min-h-0 flex flex-col">
-        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 lg:px-7 py-5">
+        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto [overflow-anchor:none] px-3 sm:px-4 lg:px-7 py-5">
           {profileMissing ? (
             <div className="h-full flex items-center justify-center">
               <EmptyState
