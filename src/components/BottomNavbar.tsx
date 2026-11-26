@@ -23,6 +23,9 @@ const navItems = [
 export default function BottomNavbar() {
   const pathname = usePathname();
 
+  // 대화 화면(/messages/{id})은 입력칸이 화면 아래에 붙으므로 하단 탭을 숨긴다
+  if (/^\/messages\/.+/.test(pathname)) return null;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[100] border-t border-line bg-surface pb-safe lg:hidden">
       <div className="flex h-16 items-center justify-around px-2">

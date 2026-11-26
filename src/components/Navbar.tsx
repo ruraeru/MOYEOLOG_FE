@@ -44,7 +44,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b border-line bg-canvas/95 backdrop-blur supports-[backdrop-filter]:bg-canvas/85">
       <div className="relative mx-auto flex h-14 w-full items-center justify-between px-4 lg:h-16 lg:px-8">
         {/* 로고: 2×2 초성 아이콘 + 가로 한 줄 "모여로그" 그림 (이름이 그림 안에 있다) */}
-        <Link href="/home" className="flex shrink-0 items-center">
+        <Link href="/home" aria-label="모여로그 홈" className="touch-hit flex shrink-0 items-center">
           <Logo height={32} className="h-[30px] w-auto lg:h-8" />
         </Link>
 
@@ -63,14 +63,15 @@ export default function Navbar() {
                 onClick={isActive && pathname === item.href ? () => window.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
                 className="relative flex items-center gap-1.5"
               >
-                <span className={isActive ? 'font-display text-[15px] text-ink' : 'text-sm text-ink-2 transition-colors hover:text-ink'}>
+                {/* 배지는 흐름에서 빼서, 생기고 없어져도 메뉴 폭·위치가 바뀌지 않게 한다 */}
+                <span className={`relative ${isActive ? 'font-display text-[15px] text-ink' : 'text-sm text-ink-2 transition-colors hover:text-ink'}`}>
                   {item.name}
+                  {count > 0 && (
+                    <span aria-hidden className="absolute -top-2 left-full ml-0.5 h-4 min-w-4 rounded-full bg-mark px-1 text-center font-sans text-[10px] leading-4 text-ink tabular-nums">
+                      {badgeText(count)}
+                    </span>
+                  )}
                 </span>
-                {count > 0 && (
-                  <span className="min-w-4 h-4 rounded-full bg-mark px-1 text-center text-[10px] leading-4 text-white tabular-nums">
-                    {badgeText(count)}
-                  </span>
-                )}
                 <span
                   aria-hidden
                   className={`absolute bottom-0 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-mark ${isActive ? 'opacity-100' : 'opacity-0'}`}
@@ -107,7 +108,7 @@ export default function Navbar() {
               <>
                 {/* 좁은 화면은 점, 넓은 화면은 메시지 메뉴와 같은 숫자 배지 */}
                 <span aria-hidden className="absolute right-2.5 top-2.5 size-1.5 rounded-full bg-mark lg:hidden" />
-                <span aria-hidden className="absolute -right-0.5 -top-0.5 hidden h-4 min-w-4 rounded-full bg-mark px-1 text-center text-[10px] leading-4 text-white tabular-nums lg:block">
+                <span aria-hidden className="absolute -right-0.5 -top-0.5 hidden h-4 min-w-4 rounded-full bg-mark px-1 text-center text-[10px] leading-4 text-ink tabular-nums lg:block">
                   {badgeText(unread.notifications)}
                 </span>
               </>
@@ -117,6 +118,7 @@ export default function Navbar() {
           <button
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             aria-label="내 프로필과 설정"
+            aria-haspopup="dialog"
             aria-expanded={isProfileOpen}
             aria-current={inProfileMenu ? 'page' : undefined}
             className="flex size-11 items-center justify-center rounded-full lg:size-9"
@@ -128,7 +130,7 @@ export default function Navbar() {
                   : 'shadow-[inset_0_0_0_1px_var(--line)] hover:shadow-[inset_0_0_0_1px_var(--line-strong)]'
               }`}
             >
-              {session?.user?.image ? (
+              {status === 'loading' ? null : session?.user?.image ? (
                 <ImageWithFallback
                   src={session.user.image}
                   alt="내 프로필"
