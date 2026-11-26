@@ -24,7 +24,7 @@ import { groupTopicApi } from '@/lib/group-topic-api';
 import { datePollApi, type DatePollSummary } from '@/lib/date-poll-api';
 import DatePollModal, { DatePollCreateModal, pollDateLabel, pollRangeLabel } from '@/components/DatePollModal';
 import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
-import { type MemoResponse } from '@/lib/memo-api';
+import { memoApi, comparePinned, type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import { getApiErrorMessage } from '@/lib/axios';
 import { stripMarkdown, getThemeColors } from '@/lib/utils';
@@ -54,7 +54,7 @@ import { useAlert } from '@/hooks/useAlert';
 import { useVisiblePolling } from '@/hooks/useVisiblePolling';
 import { useLivePollMs, useLiveTopics } from '@/lib/live';
 
-type FilterType = 'all' | 'my' | 'favorites' | 'tag';
+type FilterType = 'all' | 'my' | 'tag';
 type TabType = 'memos' | 'calendar' | 'topics' | 'members';
 const TABS: TabType[] = ['memos', 'calendar', 'topics', 'members'];
 
@@ -262,6 +262,17 @@ function GroupDetailContent() {
     router.push(`/memo/${id}`);
   };
 
+  const handleToggleMemoPin = async (memo: MemoResponse) => {
+    if (!session) return;
+    try {
+      const updated = await memoApi.setPinned(memo.id, !memo.pinnedAt, session);
+      setMemos(prev => prev.map(m => (m.id === memo.id ? { ...m, pinnedAt: updated.pinnedAt ?? null } : m)));
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, '고정을 바꾸지 못했어요'));
+      fetchGroupData(true);
+    }
+  };
+
   const toggleTag = (tag: string) => {
     setSelectedTags(prev =>
       prev.includes(tag)
@@ -325,9 +336,9 @@ function GroupDetailContent() {
     let result = [...memos];
     if (memoFilter.type === 'my') {
       result = result.filter(m => m.authorId === session?.user?.id);
-    } else if (memoFilter.type === 'favorites') {
-      result = result.filter(m => m.isFavorite);
     }
+    // 고정된 메모를 맨 위로(고정 시각 최신순), 나머지는 서버 순서 그대로
+    result.sort(comparePinned);
 
     if (selectedTags.length > 0) {
       result = result.filter(m =>
@@ -457,7 +468,7 @@ function GroupDetailContent() {
 
   const memoEmptyText = searchQuery.trim()
     ? '검색 결과가 없어요'
-    : memoFilter.type === 'favorites' ? '즐겨찾기한 메모가 없어요' : '메모가 없어요';
+    : '메모가 없어요';
 
   const upcomingSchedules = schedules
     .filter(s => parseISO(s.startTime).getTime() >= now)
@@ -555,7 +566,6 @@ function GroupDetailContent() {
                     items={[
                       { key: 'all', label: '전체' },
                       { key: 'my', label: '내 메모' },
-                      { key: 'favorites', label: '즐겨찾기' },
                     ]}
                     active={memoFilter.type === 'tag' ? 'all' : memoFilter.type}
                     onChange={(k) => setMemoFilter({ type: k })}
@@ -612,7 +622,7 @@ function GroupDetailContent() {
                 ) : filteredMemos.length > 0 ? (
                   <div className={viewMode === 'grid' ? 'grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-3' : 'space-y-2'}>
                     {filteredMemos.map(memo => (
-                      <MemoCard key={memo.id} memo={memo} viewMode={viewMode} color={groupColor} onClick={() => handleMemoClick(memo.id)} />
+                      <MemoCard key={memo.id} memo={memo} viewMode={viewMode} color={groupColor} onClick={() => handleMemoClick(memo.id)} onTogglePin={() => handleToggleMemoPin(memo)} />
                     ))}
                   </div>
                 ) : (

@@ -58,6 +58,16 @@ export const groupTopicApi = {
     });
   },
 
+  /** 고정(PUT)·해제(DELETE). 방장 또는 작성자만, 아니면 403 */
+  async setPinned(topicId: string, pinned: boolean, session: Session | null): Promise<TopicResponse> {
+    const response = await axiosInstance.request<TopicResponse>({
+      url: `/api/topics/${topicId}/pin`,
+      method: pinned ? 'PUT' : 'DELETE',
+      headers: getAuthHeaders(session),
+    });
+    return response.data;
+  },
+
   async createComment(topicId: string, content: string, session: Session | null): Promise<TopicCommentResponse> {
     const response = await axiosInstance.post<TopicCommentResponse>(`/api/topics/${topicId}/comments`, { content }, {
       headers: getAuthHeaders(session),
