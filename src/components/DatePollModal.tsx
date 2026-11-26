@@ -17,6 +17,8 @@ import { Avatar } from './groups/GroupUI';
 const POLL_MS = 15000;
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const MAX_DAYS = 31;
+/** 서버(@CodePointSize)와 같은 기준: 글자(코드포인트) 50개 */
+const TITLE_MAX = 50;
 
 /** 'yyyy-MM-dd' → '11/30(토)' */
 export function pollDateLabel(date: string): string {
@@ -48,6 +50,16 @@ export function DatePollCreateModal({
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(() => format(addDays(new Date(), 6), 'yyyy-MM-dd'));
   const [saving, setSaving] = useState(false);
+  const [titleTouched, setTitleTouched] = useState(false);
+
+  // 시작을 끝 뒤로 옮기면 끝도 같은 길이만큼 따라 옮긴다
+  const changeStart = (value: string) => {
+    setStartDate(value);
+    if (value && endDate && value > endDate) {
+      const span = startDate ? Math.max(0, differenceInCalendarDays(parseISO(endDate), parseISO(startDate))) : 0;
+      setEndDate(format(addDays(parseISO(value), span), 'yyyy-MM-dd'));
+    }
+  };
 
   const days = startDate && endDate ? differenceInCalendarDays(parseISO(endDate), parseISO(startDate)) + 1 : 0;
   const problem = !title.trim()
@@ -69,6 +81,7 @@ export function DatePollCreateModal({
       const poll = await datePollApi.create(groupId, { title: title.trim(), startDate, endDate }, session);
       toast.success('날짜 조율을 시작했어요');
       setTitle('');
+      setTitleTouched(false);
       onCreated(poll);
     } catch (error) {
       toast.error(getApiErrorMessage(error, '날짜 조율을 만들지 못했어요'));
@@ -99,8 +112,8 @@ export function DatePollCreateModal({
           <span className="mb-1.5 block text-[13px] text-ink-2">제목</span>
           <input
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={50}
+            onChange={(e) => setTitle([...e.target.value].slice(0, TITLE_MAX).join(''))}
+            onBlur={() => setTitleTouched(true)}
             placeholder="예: 12월 송년회"
             className="form-input"
             autoFocus
@@ -109,11 +122,12 @@ export function DatePollCreateModal({
         <div>
           <span className="mb-1.5 block text-[13px] text-ink-2">후보 기간</span>
           <div className="grid grid-cols-2 gap-2">
-            <input type="date" aria-label="시작 날짜" value={startDate} min={today} onChange={(e) => setStartDate(e.target.value)} className="form-input px-2 tabular-nums md:px-3" />
+            <input type="date" aria-label="시작 날짜" value={startDate} min={today} onChange={(e) => changeStart(e.target.value)} className="form-input px-2 tabular-nums md:px-3" />
             <input type="date" aria-label="끝 날짜" value={endDate} min={startDate || today} onChange={(e) => setEndDate(e.target.value)} className="form-input px-2 tabular-nums md:px-3" />
           </div>
-          <p className={`mt-1.5 text-xs ${problem && title.trim() ? 'text-negative' : 'text-ink-3'}`}>
-            {problem && title.trim() ? problem : days >= 1 ? `${days}일 동안에서 골라요 (최대 ${MAX_DAYS}일)` : `최대 ${MAX_DAYS}일`}
+          {/* 제목 칸을 건드린 뒤에는 '제목을 적어 주세요' 도 보여 준다(버튼이 왜 꺼졌는지) */}
+          <p className={`mt-1.5 text-xs ${problem && (title.trim() || titleTouched) ? 'text-negative' : 'text-ink-3'}`}>
+            {problem && (title.trim() || titleTouched) ? problem : days >= 1 ? `${days}일 동안에서 골라요 (최대 ${MAX_DAYS}일)` : `최대 ${MAX_DAYS}일`}
           </p>
         </div>
       </form>
@@ -158,6 +172,14 @@ export default function DatePollModal({
   const [startTime, setStartTime] = useState('19:00');
   const [endTime, setEndTime] = useState('');
   const [busy, setBusy] = useState(false);
+  /** 이 창에서 재촉을 보냈으면 다시 누르지 않게 */
+  const [reminded, setReminded] = useState(false);
+  const closingRef = useRef(false);
+  const confirmRef = useRef<HTMLElement>(null);
+  // '날짜 정하기'(아래쪽 버튼)로 열어도 정하기 칸이 보이게
+  useEffect(() => {
+    if (confirmDate) confirmRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [confirmDate]);
 
   // 부모가 바뀔 때마다 새 함수를 넘겨도 load 가 다시 만들어지지 않게
   const cbRef = useRef({ onChanged, onClose });
@@ -216,6 +238,18 @@ export default function DatePollModal({
   // 고르는 중에 다른 사람이 확정하면(읽기 전용) 저장 안 한 선택은 버린다
   const mine = (!readOnly && draft) || serverMine;
   const dirty = !readOnly && draft !== null;
+
+  /** 저장하지 않은 선택이 있으면 닫기 전에 묻는다(Esc·닫기·바깥 누르기 모두) */
+  const requestClose = async () => {
+    if (closingRef.current) return;
+    if (dirty) {
+      closingRef.current = true;
+      const ok = await confirm('고른 날짜는 저장되지 않아요.', '저장하지 않고 닫을까요?', '닫기', '계속 고르기');
+      closingRef.current = false;
+      if (!ok) return;
+    }
+    onClose();
+  };
 
   // 칸에 보일 인원: 서버 집계에서 저장 안 한 내 변경만 더하고 뺀다
   const cells = useMemo(() => (detail?.dates ?? []).map((d) => {
@@ -280,6 +314,7 @@ export default function DatePollModal({
     setBusy(true);
     try {
       await datePollApi.remind(groupId, detail.id, session);
+      setReminded(true);
       toast.success(`아직 응답 안 한 ${remindCount}명에게 알렸어요`);
     } catch (error) {
       toast.error(getApiErrorMessage(error, '알림을 보내지 못했어요'));
@@ -311,10 +346,24 @@ export default function DatePollModal({
   };
 
   const timeProblem = !startTime ? '시작 시각을 골라 주세요' : endTime && endTime <= startTime ? '끝 시각이 시작 시각보다 빨라요' : null;
+  // 막지는 않고 알려만 준다
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const pastWarning = !confirmDate || timeProblem
+    ? null
+    : confirmDate < todayStr
+      ? '이미 지난 날짜예요. 그래도 일정을 만들 수 있어요'
+      : confirmDate === todayStr && startTime < format(new Date(), 'HH:mm')
+        ? '이미 지난 시각이에요. 그래도 일정을 만들 수 있어요'
+        : null;
   const confirmPoll = async () => {
     if (!detail || !confirmDate || timeProblem || busy) return;
     setBusy(true);
     try {
+      // 저장하지 않은 내 선택이 있으면 먼저 저장한다(안내한 참여자 수와 실제 일정이 같게)
+      if (dirty) {
+        setDetail(await datePollApi.vote(groupId, detail.id, [...mine].sort(), session));
+        setDraft(null);
+      }
       const next = await datePollApi.confirm(groupId, detail.id, { date: confirmDate, startTime, ...(endTime ? { endTime } : {}) }, session);
       setDetail(next);
       setDraft(null);
@@ -329,6 +378,11 @@ export default function DatePollModal({
   };
 
   const countOf = (date: string) => cells.find((c) => c.date === date)?.count ?? 0;
+  /** 칸을 누르지 않고(내 선택을 바꾸지 않고) 정하기를 연다: 보고 있는 날 → 많이 되는 날 1위 → 첫날 */
+  const openConfirm = () => {
+    if (!detail) return;
+    setConfirmDate(focusDate ?? detail.best[0] ?? detail.startDate);
+  };
   const focus = focusDate ? cells.find((c) => c.date === focusDate) : undefined;
   // 저장 안 한 내 변경을 반영한 '가능한 사람' 이름
   const focusVoters = focus
@@ -338,9 +392,9 @@ export default function DatePollModal({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       size="md"
-      title={detail?.title ?? '날짜 조율'}
+      title={<span className="break-keep">{detail?.title ?? '날짜 조율'}</span>}
       subtitle={detail && (
         <span className="stamp">
           {pollRangeLabel(detail.startDate, detail.endDate)} · {detail.memberCount}명 중 {detail.respondedCount}명 응답
@@ -349,16 +403,16 @@ export default function DatePollModal({
       footer={detail && !readOnly ? (
         <>
           {dirty && <span className="mr-auto text-xs text-ink-3">아직 저장하지 않았어요</span>}
-          <button type="button" onClick={() => save([])} disabled={saving} className="btn-ghost">
+          <button type="button" onClick={() => save([])} disabled={saving} className="btn-ghost max-sm:h-11">
             가능한 날이 없어요
           </button>
-          <button type="button" onClick={() => save([...mine])} disabled={saving || (!dirty && detail.myResponded) || mine.size === 0} className="btn-primary">
+          <button type="button" onClick={() => save([...mine])} disabled={saving || (!dirty && detail.myResponded) || mine.size === 0} className="btn-primary max-sm:h-11">
             {saving && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
             저장
           </button>
         </>
       ) : detail?.scheduleId ? (
-        <button type="button" onClick={() => onOpenSchedule(detail.scheduleId!)} className="btn-primary">일정 보기</button>
+        <button type="button" onClick={() => onOpenSchedule(detail.scheduleId!)} className="btn-primary max-sm:h-11">일정 보기</button>
       ) : undefined}
     >
       {!detail ? (
@@ -388,7 +442,7 @@ export default function DatePollModal({
                 <span className="text-xs text-ink-3">가능한 날 없음으로 응답했어요</span>
               )}
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center">
+            <div className="grid grid-cols-7 gap-1 text-center max-[359px]:-mx-2 max-[359px]:gap-0.5">
               {WEEKDAYS.map((w, i) => (
                 <div key={w} className={`pb-1 text-xs ${i === 0 ? 'text-negative' : 'text-ink-3'}`}>{w}</div>
               ))}
@@ -412,10 +466,11 @@ export default function DatePollModal({
                   >
                     {/* 좁은 화면(칸 44px)에서는 체크가 '11/27' 글자와 겹쳐 테두리로만 표시한다. 날짜는 모든 칸이 M/d 라 좁은 화면에서 12px 로 줄인다 */}
                     {c.isMine && <Check size={12} strokeWidth={2} aria-hidden className="absolute right-0.5 top-0.5 text-group-ink max-sm:hidden" />}
-                    <span className={`stamp whitespace-nowrap text-xs sm:text-[13px] ${getDay(d) === 0 ? 'text-negative' : 'text-ink'}`}>
+                    {/* .stamp 는 @layer 밖이라 색·크기 유틸을 덮어쓴다. 여기서는 같은 모양을 유틸로 쓴다 */}
+                    <span className={`whitespace-nowrap text-xs font-medium leading-4 tabular-nums sm:text-[13px] ${getDay(d) === 0 ? 'text-negative' : 'text-ink'}`}>
                       {format(d, 'M/d')}
                     </span>
-                    <span className={`stamp text-[11px] ${c.count ? 'text-group-ink' : 'text-ink-3'}`}>{c.count}명</span>
+                    <span className={`text-[11px] font-medium leading-4 tabular-nums ${c.count ? 'text-group-ink' : 'text-ink-3'}`}>{c.count}명</span>
                   </button>
                 );
               })}
@@ -430,7 +485,7 @@ export default function DatePollModal({
                     {focusVoters.length ? focusVoters.map((v) => v.nickname).join(', ') : '가능한 사람이 없어요'}
                   </span>
                   {canManage && !readOnly && (
-                    <button type="button" onClick={() => setConfirmDate(focus.date)} className="btn-secondary btn-sm ml-auto">
+                    <button type="button" onClick={() => setConfirmDate(focus.date)} className="btn-secondary btn-sm ml-auto max-sm:h-11">
                       이 날로 정하기
                     </button>
                   )}
@@ -443,11 +498,21 @@ export default function DatePollModal({
 
           {/* 만든 사람·모임장: 날짜 확정 */}
           {canManage && !readOnly && confirmDate && (
-            <section className="rounded-xl border border-line p-4">
+            <section ref={confirmRef} className="rounded-xl border border-line p-4">
               <h3 className="font-display text-base text-ink">{pollDateLabel(confirmDate)}로 정하기</h3>
               <p className="mt-1 text-xs text-ink-3">
                 모임 일정을 만들고, 그 날 가능하다고 한 {countOf(confirmDate)}명을 참여자로 넣어요
+                {dirty && ' (저장하지 않은 내 선택도 함께 저장돼요)'}
               </p>
+              {/* 칸을 누르면 내 선택이 바뀌므로, 정할 날은 여기서도 고를 수 있다 */}
+              <label className="mt-3 block">
+                <span className="mb-1 block text-xs text-ink-2">날짜</span>
+                <select value={confirmDate} onChange={(e) => setConfirmDate(e.target.value)} className="form-input px-2 tabular-nums md:px-3">
+                  {cells.map((c) => (
+                    <option key={c.date} value={c.date}>{pollDateLabel(c.date)} · {c.count}명 가능</option>
+                  ))}
+                </select>
+              </label>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <label className="min-w-0">
                   <span className="mb-1 block text-xs text-ink-2">시작 시각</span>
@@ -458,10 +523,11 @@ export default function DatePollModal({
                   <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="form-input px-2 tabular-nums md:px-3" />
                 </label>
               </div>
-              {timeProblem && startTime && <p className="mt-1.5 text-xs text-negative">{timeProblem}</p>}
+              {timeProblem && <p className="mt-1.5 text-xs text-negative">{timeProblem}</p>}
+              {pastWarning && <p className="mt-1.5 text-xs text-ink-2">{pastWarning}</p>}
               <div className="mt-3 flex justify-end gap-2">
-                <button type="button" onClick={() => setConfirmDate(null)} className="btn-ghost btn-sm">취소</button>
-                <button type="button" onClick={confirmPoll} disabled={!!timeProblem || busy} className="btn-primary btn-sm">
+                <button type="button" onClick={() => setConfirmDate(null)} className="btn-ghost btn-sm max-sm:h-11">취소</button>
+                <button type="button" onClick={confirmPoll} disabled={!!timeProblem || busy} className="btn-primary btn-sm max-sm:h-11">
                   {busy && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
                   정하고 일정 만들기
                 </button>
@@ -481,9 +547,9 @@ export default function DatePollModal({
                       onClick={() => setFocusDate(date)}
                       className={`chip gap-1.5 ${focusDate === date ? 'bg-group-soft text-group-sel' : ''}`}
                     >
-                      <span className="stamp text-ink-3">{i + 1}</span>
+                      <span className="text-xs font-medium tabular-nums text-ink-3">{i + 1}</span>
                       <span>{pollDateLabel(date)}</span>
-                      <span className="stamp text-group-ink">{detail.dates.find((d) => d.date === date)?.count ?? 0}명</span>
+                      <span className="text-xs font-medium tabular-nums text-group-ink">{detail.dates.find((d) => d.date === date)?.count ?? 0}명</span>
                     </button>
                   </li>
                 ))}
@@ -502,7 +568,7 @@ export default function DatePollModal({
                     type="button"
                     onClick={recommend}
                     disabled={recommending || detail.respondedCount === 0}
-                    className="btn-secondary btn-sm"
+                    className="btn-secondary btn-sm max-sm:h-11"
                   >
                     {recommending && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
                     {detail.ai ? '다시 받기' : 'AI 추천 받기'}
@@ -547,10 +613,15 @@ export default function DatePollModal({
 
           {canManage && (
             <section className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
-              {!readOnly && remindCount > 0 && (
-                <button type="button" onClick={remind} disabled={busy} className="btn-secondary btn-sm">응답 재촉</button>
+              {!readOnly && !confirmDate && (
+                <button type="button" onClick={openConfirm} disabled={busy} className="btn-secondary btn-sm max-sm:h-11">날짜 정하기</button>
               )}
-              <button type="button" onClick={remove} disabled={busy} className="btn-danger btn-sm">조율 지우기</button>
+              {!readOnly && remindCount > 0 && (
+                <button type="button" onClick={remind} disabled={busy || reminded} className="btn-secondary btn-sm max-sm:h-11">
+                  {reminded ? '재촉했어요' : '응답 재촉'}
+                </button>
+              )}
+              <button type="button" onClick={remove} disabled={busy} className="btn-danger btn-sm max-sm:h-11">조율 지우기</button>
             </section>
           )}
         </div>
