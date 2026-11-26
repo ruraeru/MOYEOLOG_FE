@@ -179,10 +179,10 @@ function GroupCard({ group }: { group: GroupResponse }) {
   return (
     <Link
       href={`/groups/${group.id}`}
-      className="card flex min-h-[220px] flex-col overflow-hidden transition-colors duration-150 hover:border-line-strong"
+      className="card flex flex-col overflow-hidden sm:min-h-[220px] transition-colors duration-150 hover:border-line-strong"
     >
-      <GroupCover src={group.backgroundImage} theme={group.colorTheme} className="h-20 shrink-0" />
-      <div className="flex flex-1 flex-col gap-2 px-5 pb-5">
+      <GroupCover src={group.backgroundImage} theme={group.colorTheme} className="h-12 shrink-0 sm:h-20" />
+      <div className="flex flex-1 flex-col gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
         <GroupAvatar
           name={group.name}
           src={group.profileImage}
@@ -191,8 +191,8 @@ function GroupCard({ group }: { group: GroupResponse }) {
           className="-mt-5 shadow-[0_0_0_3px_var(--surface)]"
         />
         <h2 className="truncate font-display text-lg leading-7 text-ink">{group.name}</h2>
-        <p className="line-clamp-2 text-sm leading-relaxed text-ink-2">
-          {group.description || <span className="text-ink-3">모임 설명이 없어요</span>}
+        <p className="line-clamp-2 whitespace-pre-line break-words text-sm leading-relaxed text-ink-2">
+          {group.description || <span className="text-ink-3">모임 소개가 없어요</span>}
         </p>
         <div className="mt-auto flex items-center justify-between gap-3 pt-1">
           <AvatarStack people={group.members} max={4} size="size-7" />
