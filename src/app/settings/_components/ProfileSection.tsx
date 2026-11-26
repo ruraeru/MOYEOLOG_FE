@@ -340,8 +340,9 @@ export default function ProfileSection({
         </div>
 
         {/* 저장 */}
-        {/* 좁은 화면에서는 하단 탭(높이 65px) 바로 위에 붙여 첫 화면에서도 저장 버튼이 보이게 한다 */}
-        <div className="sticky bottom-[65px] z-10 flex items-center justify-end gap-3 rounded-b-xl bg-surface px-5 py-3 lg:static lg:px-6">
+        {/* 좁은 화면에서는 하단 탭(높이 65px) 바로 위에 붙여 첫 화면에서도 저장 버튼이 보이게 한다.
+            sticky 기준은 스크롤 칸(settings/page.tsx)의 아래 안쪽 여백(pb-24 = 6rem)만큼 올라가 있으므로 그만큼 뺀다 */}
+        <div className="sticky bottom-[calc(65px-6rem)] z-10 flex items-center justify-end gap-3 rounded-b-xl bg-surface px-5 py-3 lg:static lg:px-6">
           {notice && !error && (
             <p role="status" className="mr-auto flex items-center gap-1.5 text-sm text-ink-2">
               {notice.type === 'success' && <CheckCircle2 size={16} strokeWidth={1.5} className="text-positive" />}
