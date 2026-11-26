@@ -17,6 +17,7 @@ import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { useMentions } from '@/hooks/useMentions';
 import { MentionList, type MentionItem } from './Mentions';
 import { useSession } from 'next-auth/react';
+import { useQueryClient } from '@tanstack/react-query';
 import RichEditor from './RichEditor';
 import { hasVisibleText } from '@/lib/markdown';
 import type { TopicResponse } from '@/types/topic';
@@ -70,6 +71,8 @@ export default function GroupTopicCreateModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   // Mention states
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -117,6 +120,10 @@ export default function GroupTopicCreateModal({
         setImagePreview(null);
       }
       setError(null);
+      // 데스크톱은 제목칸에 바로 쓸 수 있게. 터치 기기는 키보드가 화면을 덮어 두지 않는다
+      if (typeof window !== 'undefined' && window.matchMedia('(pointer: fine)').matches) {
+        requestAnimationFrame(() => titleRef.current?.focus());
+      }
     }
   }, [isOpen, initialTopic]);
 
@@ -184,6 +191,11 @@ export default function GroupTopicCreateModal({
   const handleSave = async () => {
     if (!hasVisibleText(title)) {
       setError('제목을 입력해 주세요');
+      titleRef.current?.focus();
+      return;
+    }
+    if (!hasVisibleText(content)) {
+      setError('내용을 입력해 주세요');
       return;
     }
 
@@ -199,8 +211,12 @@ export default function GroupTopicCreateModal({
 
       if (initialTopic) {
         await groupTopicApi.update(initialTopic.id, payload, session);
+        // 뒤에 열려 있는 상세가 바로 새 내용을 보이게
+        queryClient.invalidateQueries({ queryKey: ['topic', initialTopic.id] });
+        useAlertStore.getState().addToast('토픽을 고쳤어요', 'success');
       } else {
         await groupTopicApi.create(groupId, payload, session);
+        useAlertStore.getState().addToast('토픽을 올렸어요', 'success');
       }
 
       onSuccess?.();
@@ -249,8 +265,10 @@ export default function GroupTopicCreateModal({
               id="topic-title"
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              ref={titleRef}
+              onChange={(e) => { setTitle(e.target.value); setError(null); }}
               placeholder="무엇을 이야기할까요"
+              maxLength={255}
               aria-label="토픽 제목"
               className="form-input h-10 font-display text-base"
             />
@@ -261,7 +279,7 @@ export default function GroupTopicCreateModal({
             <span className="text-[13px] font-medium text-ink-2">내용</span>
             <RichEditor
               value={content}
-              onChange={setContent}
+              onChange={(v) => { setContent(v); setError(null); }}
               placeholder="자유롭게 써 주세요"
               className="h-[300px] md:h-[340px]"
             />
@@ -322,7 +340,7 @@ export default function GroupTopicCreateModal({
           {/* 멘션 */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="relative space-y-1.5">
-              <label className="text-[13px] font-medium text-ink-2">친구 언급</label>
+              <label className="text-[13px] font-medium text-ink-2">멤버 언급</label>
               <div className="relative">
                 <input
                   type="text"
@@ -337,7 +355,9 @@ export default function GroupTopicCreateModal({
                 {showParticipantMentions && (
                   <MentionList
                     items={filteredParticipants as MentionItem[]}
+                    placement="bottom"
                     onSelect={(m) => {
+                      setError(null);
                       setContent(prev => `${prev}\n[@${m.nickname}](/profile/${m.id}) `);
                       setShowParticipantMentions(false);
                       setParticipantInput('');
@@ -363,7 +383,9 @@ export default function GroupTopicCreateModal({
                 {showMemoMentions && (
                   <MentionList
                     items={filteredMemos as MentionItem[]}
+                    placement="bottom"
                     onSelect={(m) => {
+                      setError(null);
                       setContent(prev => `${prev}\n[${m.title}](/memo/${m.id}) `);
                       setShowMemoMentions(false);
                       setMemoMentionInput('');
@@ -375,12 +397,14 @@ export default function GroupTopicCreateModal({
             </div>
           </div>
 
-          {error && (
-            <p role="alert" className="rounded-[10px] bg-negative-soft px-3 py-2.5 text-sm text-negative">
-              {error}
-            </p>
-          )}
         </div>
+
+        {/* 오류는 스크롤 밖에 둬서 어디까지 내려가 있든 보인다 */}
+        {error && (
+          <p role="alert" className="mx-5 mt-3 shrink-0 rounded-[10px] bg-negative-soft px-3 py-2.5 text-sm text-negative md:mx-6">
+            {error}
+          </p>
+        )}
 
         {/* 아래 */}
         <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-5 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] md:px-6">

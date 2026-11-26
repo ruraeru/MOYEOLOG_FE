@@ -17,7 +17,10 @@ export function TopicCard({ topic, onClick }: TopicCardProps) {
   return (
     <div
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); }
+      }}
       role="button"
       tabIndex={0}
       className="card flex cursor-pointer flex-col gap-2 px-4 py-4 transition-colors duration-150 hover:bg-group-wash md:px-5"
@@ -28,7 +31,7 @@ export function TopicCard({ topic, onClick }: TopicCardProps) {
         )}
         <h4 className="truncate font-display text-[17px] leading-6 text-ink">{topic.title}</h4>
       </div>
-      {summary && <p className="hidden text-sm leading-relaxed text-ink-2 line-clamp-1 md:block">{summary}</p>}
+      {summary && <p className="text-sm leading-relaxed text-ink-2 line-clamp-1">{summary}</p>}
       <div className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
         <Avatar name={topic.authorNickname} src={topic.authorProfileImage} size="size-5" />
         <span className="truncate text-ink-2">{topic.authorNickname}</span>

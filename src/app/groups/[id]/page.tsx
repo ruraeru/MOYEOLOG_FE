@@ -292,22 +292,30 @@ function GroupDetailContent() {
     );
   };
 
+  // 카드로 연 상세는 주소(?topic=)에 남겨 브라우저 뒤로 가기가 창만 닫게 한다
+  const pushedTopicRef = useRef(false);
   const handleTopicClick = (topic: TopicResponse) => {
     setSelectedTopic(topic);
     setSelectedTopicId(topic.id);
-    setIsTopicDetailOpen(true);
+    pushedTopicRef.current = true;
+    router.push(`/groups/${groupId}?tab=topics&topic=${encodeURIComponent(topic.id)}`, { scroll: false });
   };
 
   const handleTopicDetailClose = () => {
     setIsTopicDetailOpen(false);
     setSelectedTopicId(null);
     if (topicParam) {
-      router.replace(`/groups/${groupId}`, { scroll: false });
+      if (pushedTopicRef.current) router.back();
+      else router.replace(`/groups/${groupId}?tab=topics`, { scroll: false });
     }
+    pushedTopicRef.current = false;
   };
+  useEffect(() => {
+    if (!topicParam) pushedTopicRef.current = false;
+  }, [topicParam]);
 
+  // 수정 창은 상세 위에 띄운다(z-[120]). 닫거나 저장하면 보던 상세로 돌아간다
   const handleTopicEdit = (topic: TopicResponse) => {
-    handleTopicDetailClose();
     setSelectedTopic(topic);
     setIsTopicModalOpen(true);
   };
@@ -765,7 +773,7 @@ function GroupDetailContent() {
                 <section className="min-w-0 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-sm font-medium text-ink-2">최근 토픽</h2>
-                    <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="btn-primary whitespace-nowrap">
+                    <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="btn-primary whitespace-nowrap max-md:h-11">
                       <Plus size={16} strokeWidth={1.5} /> 토픽 올리기
                     </button>
                   </div>
