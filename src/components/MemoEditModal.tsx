@@ -6,12 +6,7 @@ import { Modal } from './ui';
 import { fileToDataUrl, convertToWebP } from '@/lib/utils';
 import { memoApi, type MemoResponse } from '@/lib/memo-api';
 import { useSession } from 'next-auth/react';
-import dynamic from 'next/dynamic';
-import { markdownRehypePlugins } from '@/lib/markdown';
-import '@uiw/react-md-editor/markdown-editor.css';
-import '@uiw/react-markdown-preview/markdown.css';
-
-const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
+import RichEditor from './RichEditor';
 
 interface MemoEditModalProps {
   isOpen: boolean;
@@ -201,16 +196,7 @@ export default function MemoEditModal({
             )}
           </div>
 
-          <div className="min-h-[352px] flex-1 overflow-hidden rounded-xl border border-line-strong bg-surface" data-color-mode="light">
-            <MDEditor
-              previewOptions={{ rehypePlugins: markdownRehypePlugins }}
-              value={content}
-              onChange={(val) => setContent(val || '')}
-              preview="live"
-              height="100%"
-              style={{ borderRadius: '0.75rem' }}
-            />
-          </div>
+          <RichEditor value={content} onChange={setContent} className="min-h-[352px] flex-1" />
         </div>
 
         <div className="flex w-full shrink-0 flex-col gap-6 overflow-y-auto no-scrollbar border-t border-line bg-canvas p-5 md:w-[320px] md:border-t-0 md:p-6">
