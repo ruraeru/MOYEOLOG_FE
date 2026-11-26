@@ -39,6 +39,8 @@ import { useTimeFormat } from '@/lib/schedule-utils';
 import { ko } from 'date-fns/locale';
 
 import { useAlert } from '@/hooks/useAlert';
+import { useLiveTopics } from '@/lib/live';
+import { useVisiblePolling } from '@/hooks/useVisiblePolling';
 import { PageHeader, Segmented, EmptyState } from '@/components/ui';
 
 const TYPE_META: Record<NotificationType, { icon: React.ElementType; label: string }> = {
@@ -118,22 +120,37 @@ function NotificationsContent() {
     router.replace(next === 'invitations' ? '/notifications?tab=invites' : '/notifications', { scroll: false });
   };
 
-  const fetchNotifications = useCallback(async () => {
+  // silent: 실시간 갱신·안전망 폴링용. 로딩 표시를 띄우지 않고, 실패해도 보던 목록을 두고, '더 보기'로 불러온 예전 알림도 남긴다
+  const fetchNotifications = useCallback(async (silent = false) => {
     if (!session) return;
     try {
-      setNotifLoading(true);
+      if (!silent) setNotifLoading(true);
       const data = await notificationApi.getNotifications(session, 0);
-      setNotifications(data);
-      setPage(0);
-      setHasMore(data.length >= NOTIFICATION_PAGE_SIZE);
+      if (silent) {
+        setNotifications((prev) => {
+          if (prev.length <= data.length) return data;
+          const ids = new Set(data.map((n) => n.id));
+          const oldest = data[data.length - 1]?.createdAt ?? '';
+          return [...data, ...prev.filter((n) => !ids.has(n.id) && n.createdAt < oldest)];
+        });
+      } else {
+        setNotifications(data);
+        setPage(0);
+        setHasMore(data.length >= NOTIFICATION_PAGE_SIZE);
+      }
       setNotifError(null);
     } catch (error) {
+      if (silent) return;
       console.error('Failed to fetch notifications:', error);
       setNotifError(getApiErrorMessage(error, '알림을 불러오지 못했어요.'));
     } finally {
-      setNotifLoading(false);
+      if (!silent) setNotifLoading(false);
     }
   }, [session]);
+
+  // 보고 있는 동안 새 알림을 바로 목록에 넣는다(SSE). 끊겼을 때는 배지와 같은 30초 폴링이 안전망이다
+  useLiveTopics(['notifications'], () => fetchNotifications(true), !!session);
+  useVisiblePolling(() => fetchNotifications(true), !!session, 30000);
 
   const fetchInvitations = useCallback(async () => {
     if (!session) return;
@@ -365,7 +382,7 @@ function NotificationsContent() {
                 <p className="text-sm text-ink-3">알림을 불러오는 중…</p>
               </div>
             ) : notifError ? (
-              <ErrorState title="알림을 불러오지 못했어요" message={notifError} onRetry={fetchNotifications} />
+              <ErrorState title="알림을 불러오지 못했어요" message={notifError} onRetry={() => fetchNotifications()} />
             ) : visible.length > 0 ? (
               <>
                 {invitations.length > 0 && (

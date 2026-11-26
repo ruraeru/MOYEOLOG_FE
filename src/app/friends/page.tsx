@@ -49,9 +49,10 @@ function PersonLink({ person, sub }: { person: FriendResponse; sub?: React.React
     <Link href={`/profile/${person.userId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg">
       <Avatar src={person.profileImage} name={person.nickname} />
       <span className="min-w-0">
-        <span className="flex items-baseline gap-2">
-          <span className="font-display text-base leading-6 text-ink truncate">{person.nickname}</span>
-          <span className="text-xs text-ink-3 truncate">@{person.customId}</span>
+        {/* 좁은 화면에서는 @아이디를 먼저 줄이고 이름은 다 보이게 한다(이름이 칸보다 길 때만 이름도 줄임) */}
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="font-display text-base leading-6 text-ink truncate shrink-0 max-w-full">{person.nickname}</span>
+          <span className="min-w-0 text-xs text-ink-3 truncate">@{person.customId}</span>
         </span>
         {sub && <span className="block text-xs text-ink-3 truncate mt-0.5">{sub}</span>}
       </span>

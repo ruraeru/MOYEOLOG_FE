@@ -8,7 +8,7 @@ import axios from 'axios';
 import { format, isSameDay } from 'date-fns';
 import { useTimeFormat } from '@/lib/schedule-utils';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, Trash2, User } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, Trash2, User } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { messageApi, MESSAGE_MAX_LENGTH, type ConversationResponse, type MessageResponse } from '@/lib/message-api';
@@ -270,6 +270,8 @@ interface ChatPanelProps {
   onSent: () => void;
 }
 
+const NOT_FRIEND = '친구에게만 메시지를 보낼 수 있어요.';
+
 function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const tf = useTimeFormat();
   const { data: session } = useSession();
@@ -290,32 +292,43 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
   const restoreHeight = useRef<number | null>(null);
+  // 위로 올려 보는 동안 새로 온 상대 메시지 수(맨 아래로 가면 0)
+  const [unseen, setUnseen] = useState(0);
+  const lastId = useRef<string | null>(null);
 
-  // 상대 정보와 친구 여부(친구가 아니면 보낼 수 없음)
+  // 상대 정보와 친구 여부(친구가 아니면 보낼 수 없음). 대화 중 친구가 끊기거나 다시 맺어지면(friends 토픽) 다시 확인한다
+  const checkFriend = useCallback(
+    (isCancelled: () => boolean = () => false) => {
+      if (!session) return;
+      friendApi
+        .getUserProfile(friendId, session)
+        .then((p) => {
+          if (isCancelled()) return;
+          setProfile(p);
+          if (p.friendStatus !== 'FRIEND') setBlocked(NOT_FRIEND);
+          else setBlocked((b) => (b === NOT_FRIEND ? null : b));
+        })
+        .catch((err) => {
+          if (isCancelled()) return;
+          const code = axios.isAxiosError(err) ? err.response?.status : undefined;
+          if (code === 404 || code === 400) {
+            setProfileMissing(true);
+            setBlocked('사용자를 찾을 수 없어요.');
+          }
+        });
+    },
+    // 세션 객체가 바뀔 때마다 다시 만들지 않도록 토큰 유무만 봅니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [friendId, !!session],
+  );
   useEffect(() => {
-    if (!session) return;
     let cancelled = false;
-    friendApi
-      .getUserProfile(friendId, session)
-      .then((p) => {
-        if (cancelled) return;
-        setProfile(p);
-        if (p.friendStatus !== 'FRIEND') setBlocked('친구에게만 메시지를 보낼 수 있어요.');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        const code = axios.isAxiosError(err) ? err.response?.status : undefined;
-        if (code === 404 || code === 400) {
-          setProfileMissing(true);
-          setBlocked('사용자를 찾을 수 없어요.');
-        }
-      });
+    checkFriend(() => cancelled);
     return () => {
       cancelled = true;
     };
-    // 세션 객체가 바뀔 때마다 다시 부르지 않도록 토큰 유무만 봅니다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [friendId, !!session]);
+  }, [checkFriend]);
+  useLiveTopics(['friends'], () => checkFriend(), !!session);
 
   const markReadIfNeeded = useCallback(
     (list: MessageResponse[]) => {
@@ -393,13 +406,33 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
       restoreHeight.current = null;
       return;
     }
-    if (stickToBottom.current) el.scrollTop = el.scrollHeight;
-  }, [messages, loading]);
+    const last = messages[messages.length - 1];
+    const prevLast = lastId.current;
+    lastId.current = last?.id ?? null;
+    if (stickToBottom.current) {
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+    // 위를 보고 있는 동안 맨 끝에 붙은 상대 메시지만 센다(처음 불러올 때·이전 메시지 불러오기는 제외)
+    if (prevLast && last && last.id !== prevLast) {
+      const from = messages.findIndex((m) => m.id === prevLast);
+      if (from >= 0) setUnseen((n) => n + messages.slice(from + 1).filter((m) => m.senderId !== myId).length);
+    }
+  }, [messages, loading, myId]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (stickToBottom.current) setUnseen(0);
+  };
+
+  const scrollToBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = true;
+    el.scrollTop = el.scrollHeight;
+    setUnseen(0);
   };
 
   const length = [...draft.trim()].length;
@@ -455,6 +488,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
         )}
       </header>
 
+      <div className="relative flex-1 min-h-0 flex flex-col">
       <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 lg:px-7 py-5">
         {loading ? (
           <div className="h-full flex items-center justify-center">
@@ -523,10 +557,28 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
           </div>
         )}
       </div>
+      {unseen > 0 && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className="btn-secondary btn-sm absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm"
+          aria-label={`새 메시지 ${unseen}개, 맨 아래로`}
+        >
+          <ArrowDown size={14} strokeWidth={1.5} />
+          새 메시지 {unseen}개
+        </button>
+      )}
+      </div>
 
       <div className="border-t border-line px-3 sm:px-4 lg:px-7 py-3 shrink-0">
         {blocked ? (
-          <p className="text-sm text-ink-3 text-center py-2">{blocked}</p>
+          <div className="py-2 text-center">
+            <p className="text-sm text-ink-3">{blocked}</p>
+            {/* 막혀도 쓰던 글은 지우지 않고 보여 준다(복사해 둘 수 있게) */}
+            {draft.trim() && (
+              <p className="mt-1 text-xs text-ink-3 whitespace-pre-wrap break-words select-text">보내지 못한 글: {draft.trim()}</p>
+            )}
+          </div>
         ) : (
           <form
             onSubmit={(e) => {
