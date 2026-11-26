@@ -24,7 +24,7 @@ import { groupTopicApi } from '@/lib/group-topic-api';
 import { datePollApi, type DatePollSummary } from '@/lib/date-poll-api';
 import DatePollModal, { DatePollCreateModal, pollDateLabel, pollRangeLabel } from '@/components/DatePollModal';
 import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
-import { memoApi, comparePinned, type MemoResponse } from '@/lib/memo-api';
+import { memoApi, compareGroupPinned, type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import { getApiErrorMessage } from '@/lib/axios';
 import { stripMarkdown, getThemeColors } from '@/lib/utils';
@@ -265,8 +265,9 @@ function GroupDetailContent() {
   const handleToggleMemoPin = async (memo: MemoResponse) => {
     if (!session) return;
     try {
-      const updated = await memoApi.setPinned(memo.id, !memo.pinnedAt, session);
-      setMemos(prev => prev.map(m => (m.id === memo.id ? { ...m, pinnedAt: updated.pinnedAt ?? null } : m)));
+      // 모임 고정(공지). /memo 의 이 모임 폴더와 같은 값이다
+      const updated = await memoApi.setGroupPinned(memo.id, !memo.groupPinnedAt, session);
+      setMemos(prev => prev.map(m => (m.id === memo.id ? { ...m, groupPinnedAt: updated.groupPinnedAt ?? null } : m)));
     } catch (error) {
       toast.error(getApiErrorMessage(error, '고정을 바꾸지 못했어요'));
       fetchGroupData(true);
@@ -337,10 +338,9 @@ function GroupDetailContent() {
     if (memoFilter.type === 'my') {
       result = result.filter(m => m.authorId === session?.user?.id);
     }
-    // 고정된 메모를 맨 위로(고정 시각 최신순), 나머지는 서버 순서 그대로
-    // 모임에 공유된 개인 메모(groupId 없음)의 고정은 보는 사람 개인 것이라 모임 정렬에 쓰지 않는다
-    const groupPin = (m: MemoResponse) => (m.groupId ? m : { ...m, pinnedAt: null });
-    result.sort((a, b) => comparePinned(groupPin(a), groupPin(b)));
+    // 모임 고정된 메모를 맨 위로(고정 시각 최신순), 나머지는 서버 순서 그대로.
+    // 내 고정(pinnedAt)은 보는 사람 개인 것이라 모임 정렬에 쓰지 않는다
+    result.sort(compareGroupPinned);
 
     if (selectedTags.length > 0) {
       result = result.filter(m =>

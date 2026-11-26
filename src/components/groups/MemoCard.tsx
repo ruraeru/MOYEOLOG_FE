@@ -16,7 +16,7 @@ interface MemoCardProps {
    */
   color?: string;
   onClick: () => void;
-  /** 고정·해제. 주면 고정 권한(permissions.pin)이 있는 사람에게 버튼을 보인다 */
+  /** 모임 고정·해제. 주면 모임 고정 권한(permissions.groupPin)이 있는 사람에게 버튼을 보인다 */
   onTogglePin?: () => void;
 }
 
@@ -27,8 +27,9 @@ export function MemoCard({ memo, viewMode, color, onClick, onTogglePin }: MemoCa
   // 카드에는 보는 사람이 아니라 실제 작성자를 보여 준다
   const authorName = memo.authorNickname || '알 수 없음';
   const summary = stripMarkdown(memo.content);
-  // 모임에 공유된 개인 메모(groupId 없음)의 고정은 보는 사람 개인 것이라 모임 화면에 그리지 않는다
+  // 모임 화면은 모임 고정(groupPinnedAt)만 그린다. 모임에 공유된 개인 메모(groupId 없음)에는 그리지 않는다
   const isGroupMemo = !!memo.groupId;
+  const groupPinned = !!memo.groupPinnedAt;
 
   return (
     <div
@@ -45,19 +46,19 @@ export function MemoCard({ memo, viewMode, color, onClick, onTogglePin }: MemoCa
       <div className={`flex min-w-0 flex-1 flex-col ${isList ? 'gap-1' : 'gap-2'}`}>
         <div className="flex items-start justify-between gap-3">
           <h4 className="truncate font-display text-[17px] leading-6 text-ink">{memo.title}</h4>
-          {!isGroupMemo ? null : onTogglePin && memo.permissions?.pin ? (
+          {!isGroupMemo ? null : onTogglePin && memo.permissions?.groupPin ? (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
               onKeyDown={(e) => e.stopPropagation()}
-              aria-label={memo.pinnedAt ? '고정 해제' : '고정'}
-              aria-pressed={!!memo.pinnedAt}
-              title={memo.pinnedAt ? '고정 해제' : '고정'}
-              className={`btn-icon -mr-1.5 -mt-1 shrink-0 ${memo.pinnedAt ? 'text-group-ink hover:text-group-ink' : 'text-ink-3'}`}
+              aria-label={groupPinned ? '모임 고정 해제' : '모임에 고정'}
+              aria-pressed={groupPinned}
+              title={groupPinned ? '모임 고정 해제' : '모임에 고정'}
+              className={`btn-icon -mr-1.5 -mt-1 shrink-0 ${groupPinned ? 'text-group-ink hover:text-group-ink' : 'text-ink-3'}`}
             >
-              <Pin size={16} strokeWidth={1.5} className={memo.pinnedAt ? 'fill-current' : ''} />
+              <Pin size={16} strokeWidth={1.5} className={groupPinned ? 'fill-current' : ''} />
             </button>
-          ) : memo.pinnedAt && (
+          ) : groupPinned && (
             <Pin size={16} strokeWidth={1.5} className="mt-1 shrink-0 fill-current text-group-ink" aria-label="고정됨" />
           )}
         </div>

@@ -24,7 +24,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoCreateModal from '@/components/MemoCreateModal';
-import { memoApi, isSharedByMe, getMemoPermissions, comparePinned, type MemoResponse } from '@/lib/memo-api';
+import { memoApi, isSharedByMe, getMemoPermissions, comparePinned, compareGroupPinned, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import type { MemoCardView } from '@/types/memo';
@@ -218,8 +218,11 @@ function MemoContent() {
       );
     }
 
-    // 고정된 메모를 맨 위로(고정 시각 최신순), 나머지는 지금 순서 그대로
-    return [...filtered].sort(comparePinned).map(m => {
+    // 고정된 메모를 맨 위로(고정 시각 최신순), 나머지는 지금 순서 그대로.
+    // 모임 폴더는 모임 고정(모임 탭과 같은 값), 그 밖의 보기는 내 고정
+    const groupView = filter.type === 'group';
+    return [...filtered].sort(groupView ? compareGroupPinned : comparePinned).map(m => {
+      const permissions = getMemoPermissions(m, userId);
       const group = m.groupId ? userGroups.find(g => g.id === m.groupId) : undefined;
       const isShared = !m.groupId && !!userId && m.authorId !== userId;
       const theme = getThemeColors(group?.colorTheme);
@@ -237,8 +240,8 @@ function MemoContent() {
         date: format(new Date(m.createdAt), 'M.d', { locale: ko }),
         locked: false,
         isFavorite: m.isFavorite,
-        pinned: !!m.pinnedAt,
-        canPin: getMemoPermissions(m, userId).pin,
+        pinned: groupView ? !!m.groupPinnedAt : !!m.pinnedAt,
+        canPin: groupView ? permissions.groupPin : permissions.pin,
         groupId: m.groupId,
         group,
         sharedByMe: isSharedByMe(m, userId)
@@ -280,9 +283,13 @@ function MemoContent() {
     e.stopPropagation();
     if (!session) return;
     try {
-      const updated = await memoApi.setPinned(id, !pinned, session);
+      const updated = filter.type === 'group'
+        ? await memoApi.setGroupPinned(id, !pinned, session)
+        : await memoApi.setPinned(id, !pinned, session);
       const updateFn = (prev: MemoResponse[]) =>
-        prev.map(m => m.id === id ? { ...m, pinnedAt: updated.pinnedAt ?? null } : m);
+        prev.map(m => m.id === id
+          ? { ...m, pinnedAt: updated.pinnedAt ?? null, groupPinnedAt: updated.groupPinnedAt ?? null }
+          : m);
       setMyMemos(updateFn);
       setSharedMemos(updateFn);
       setGroupMemos(prev => Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, updateFn(v)])));

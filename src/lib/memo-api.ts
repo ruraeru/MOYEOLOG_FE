@@ -17,8 +17,10 @@ export interface MemoPermissions {
   share: boolean;
   tag: boolean;
   analyze: boolean;
-  /** 고정·해제 (모임 메모: 방장·작성자, 모두에게 보임. 개인 메모: 읽을 수 있는 누구나, 본인에게만 보임) */
+  /** 내 고정·해제 (읽을 수 있는 누구나, 모든 메모. 본인에게만 보임) */
   pin: boolean;
+  /** 모임 고정·해제 (모임 메모만, 방장·작성자. 멤버 모두에게 보임) */
+  groupPin: boolean;
 }
 
 export interface MemoSharedUser {
@@ -45,8 +47,10 @@ export interface MemoResponse {
   taggedSchedules?: { id: string; title: string }[];
   insight?: MemoInsight;
   isFavorite: boolean;
-  /** 고정 시각(오프셋 없는 한국 시간). 고정 안 됐으면 null */
+  /** 내 고정 시각(오프셋 없는 한국 시간, 보는 사람 기준). 고정 안 됐으면 null */
   pinnedAt?: string | null;
+  /** 모임 고정 시각(모임 메모만, 멤버 모두 같은 값). 고정 안 됐으면 null */
+  groupPinnedAt?: string | null;
   /** 작성자에게만 채워짐 */
   sharedWith?: MemoSharedUser[];
   /** 이 개인 메모를 공유한 모임 (작성자에게만 채워짐) */
@@ -59,24 +63,33 @@ export interface MemoResponse {
 
 /**
  * 서버가 permissions 를 주지 않는 경우(구버전 응답)를 위한 보수적 기본값.
- * 작성자: 모두 허용, 모임 메모 멤버: 수정·태그만(방장 고정 권한은 알 수 없어 끈다),
- * 그 밖(공유받은 개인 메모): 자기만 보는 고정만 허용.
+ * 작성자: 모두 허용(모임 고정은 모임 메모만), 모임 메모 멤버: 수정·태그·내 고정만(방장 권한은 알 수 없어 끈다),
+ * 그 밖(공유받은 개인 메모): 내 고정만 허용. 내 고정은 읽을 수 있으면 누구나.
  */
 export function getMemoPermissions(memo: MemoResponse, userId?: string | null): MemoPermissions {
   if (memo.permissions) return memo.permissions;
   if (userId && memo.authorId === userId) {
-    return { edit: true, delete: true, share: true, tag: true, analyze: true, pin: true };
+    return { edit: true, delete: true, share: true, tag: true, analyze: true, pin: true, groupPin: !!memo.groupId };
   }
   if (memo.groupId) {
-    return { edit: true, delete: false, share: false, tag: true, analyze: false, pin: false };
+    return { edit: true, delete: false, share: false, tag: true, analyze: false, pin: true, groupPin: false };
   }
-  return { edit: false, delete: false, share: false, tag: false, analyze: false, pin: true };
+  return { edit: false, delete: false, share: false, tag: false, analyze: false, pin: true, groupPin: false };
 }
 
-/** 정렬용: 고정된 것을 먼저(고정 시각 최신순), 나머지는 순서를 그대로 둔다(안정 정렬). */
+function compareAt(a?: string | null, b?: string | null): number {
+  if (a && b) return a < b ? 1 : a > b ? -1 : 0;
+  return a ? -1 : b ? 1 : 0;
+}
+
+/** 정렬용(내 고정): 고정된 것을 먼저(고정 시각 최신순), 나머지는 순서를 그대로 둔다(안정 정렬). */
 export function comparePinned(a: MemoResponse, b: MemoResponse): number {
-  if (a.pinnedAt && b.pinnedAt) return a.pinnedAt < b.pinnedAt ? 1 : a.pinnedAt > b.pinnedAt ? -1 : 0;
-  return a.pinnedAt ? -1 : b.pinnedAt ? 1 : 0;
+  return compareAt(a.pinnedAt, b.pinnedAt);
+}
+
+/** 정렬용(모임 고정): comparePinned 와 같은 방식으로 groupPinnedAt 을 본다. */
+export function compareGroupPinned(a: MemoResponse, b: MemoResponse): number {
+  return compareAt(a.groupPinnedAt, b.groupPinnedAt);
 }
 
 /** 내가 다른 사람(친구·모임)에게 공유한 메모인가. 공유 목록은 작성자에게만 내려온다. */
@@ -220,9 +233,19 @@ export const memoApi = {
     return processMemoResponse(response.data);
   },
 
-  /** 고정(pinned=true)·해제. 모임 메모는 모든 멤버에게, 개인 메모는 고정한 본인에게만 고정으로 보인다 */
+  /** 내 고정(pinned=true)·해제. 모든 메모, 고정한 본인에게만 고정으로 보인다 */
   async setPinned(id: string, pinned: boolean, session: Session | null): Promise<MemoResponse> {
     const url = `/api/memos/${id}/pin`;
+    const config = { headers: getAuthHeaders(session) };
+    const response = pinned
+      ? await axiosInstance.put<MemoResponse>(url, {}, config)
+      : await axiosInstance.delete<MemoResponse>(url, config);
+    return processMemoResponse(response.data);
+  },
+
+  /** 모임 고정(pinned=true)·해제. 모임 메모만(방장·작성자), 멤버 모두에게 고정으로 보인다 */
+  async setGroupPinned(id: string, pinned: boolean, session: Session | null): Promise<MemoResponse> {
+    const url = `/api/memos/${id}/group-pin`;
     const config = { headers: getAuthHeaders(session) };
     const response = pinned
       ? await axiosInstance.put<MemoResponse>(url, {}, config)

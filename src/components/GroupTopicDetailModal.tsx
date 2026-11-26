@@ -422,6 +422,8 @@ export default function GroupTopicDetailModal({
 
   const { topic, comments, insight } = topicDetail;
   const isAuthor = session?.user?.id === topic.authorId;
+  // 삭제는 작성자 또는 방장. 구버전 응답(canDelete 없음)이면 작성자만
+  const canDelete = topic.canDelete ?? isAuthor;
   const isDeleting = deleteTopicMutation.isPending;
   const isPinned = !!(topic.pinnedAt ?? topicDetail.pinnedAt);
   const canPin = !!(topic.canPin ?? topicDetail.canPin);
@@ -498,25 +500,25 @@ export default function GroupTopicDetailModal({
               </button>
             )}
             {isAuthor && (
-              <>
-                <button
-                  onClick={() => onEdit?.(topic)}
-                  className="btn-icon"
-                  title="토픽 수정"
-                  aria-label="토픽 수정"
-                >
-                  <Pencil size={16} strokeWidth={1.5} />
-                </button>
-                <button
-                  onClick={handleTopicDelete}
-                  disabled={isDeleting}
-                  className="btn-icon hover:!bg-negative-soft hover:!text-negative"
-                  title="토픽 삭제"
-                  aria-label="토픽 삭제"
-                >
-                  {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
-                </button>
-              </>
+              <button
+                onClick={() => onEdit?.(topic)}
+                className="btn-icon"
+                title="토픽 수정"
+                aria-label="토픽 수정"
+              >
+                <Pencil size={16} strokeWidth={1.5} />
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={handleTopicDelete}
+                disabled={isDeleting}
+                className="btn-icon hover:!bg-negative-soft hover:!text-negative"
+                title="토픽 삭제"
+                aria-label="토픽 삭제"
+              >
+                {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
+              </button>
             )}
             <button
               onClick={() => setIsFullscreen(!isFullscreen)}
