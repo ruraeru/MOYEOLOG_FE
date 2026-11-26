@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { loadKakaoServices } from '@/lib/kakao';
 
 export interface KakaoPlace {
   place_name: string;
@@ -52,12 +53,17 @@ export function usePlaceSearch() {
       return;
     }
 
-    const kakao = (window as any).kakao;
-    if (!kakao?.maps?.services) return;
-
     setIsSearching(true);
 
-    searchTimeoutRef.current = setTimeout(() => {
+    searchTimeoutRef.current = setTimeout(async () => {
+      // SDK 는 autoload=false 라 load() 를 거쳐야 services 가 생긴다
+      const kakao = await loadKakaoServices();
+      if (!isMounted.current) return;
+      if (!kakao) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
       const ps = new kakao.maps.services.Places();
       ps.keywordSearch(keyword, (data: KakaoPlace[], status: string) => {
         if (!isMounted.current) return;
@@ -72,11 +78,13 @@ export function usePlaceSearch() {
   }, []);
 
   const fetchRecommendations = useCallback(async (lat: number, lng: number, categories: string[] = ['FD6', 'CE7']) => {
-    const kakao = (window as any).kakao;
-    if (!kakao?.maps?.services) return;
-
     const request = ++recommendRequest.current;
     setIsRecommending(true);
+    const kakao = await loadKakaoServices();
+    if (!kakao) {
+      if (isMounted.current && request === recommendRequest.current) setIsRecommending(false);
+      return;
+    }
     const ps = new kakao.maps.services.Places();
 
     const fetchImage = async (name: string) => {
@@ -99,7 +107,7 @@ export function usePlaceSearch() {
         ps.categorySearch(
           code,
           (data: any[], status: string) => resolve(status === kakao.maps.services.Status.OK ? data : []),
-          { location: new kakao.maps.LatLng(lat, lng), radius: 1000 }
+          { location: new kakao.maps.LatLng(lat, lng), radius: 1000, sort: kakao.maps.services.SortBy.DISTANCE }
         );
       });
 
