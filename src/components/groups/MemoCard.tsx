@@ -31,30 +31,41 @@ export function MemoCard({ memo, viewMode, color, onClick, onTogglePin }: MemoCa
   const isGroupMemo = !!memo.groupId;
   const groupPinned = !!memo.groupPinnedAt;
 
+  // 카드 태그는 3개까지, 나머지는 +N 으로
+  const shownTags = memo.tags?.slice(0, 3) ?? [];
+  const hiddenTagCount = (memo.tags?.length ?? 0) - shownTags.length;
+
   return (
+    // 카드 전체를 누르는 영역은 제목 버튼(after:inset-0)이 맡는다. 버튼 안에 버튼이 들어가지 않게 바깥은 div 다
     <div
-      onClick={onClick}
-      onKeyDown={(e) => { if (e.key === 'Enter') onClick(); }}
-      role="button"
-      tabIndex={0}
+      data-memo-card
       className={`card relative flex cursor-pointer gap-4 overflow-hidden transition-colors duration-150 hover:bg-group-wash ${
         isList ? 'items-center px-4 py-3 md:px-5' : 'flex-col p-5'
       }`}
     >
-      {color && <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] bg-group" />}
+      {/* 모임에 공유된 개인 메모는 모임 색 대신 회색 띠로 구분한다 */}
+      {color && <span aria-hidden className={`absolute inset-y-0 left-0 w-[3px] ${isGroupMemo ? 'bg-group' : 'bg-line-strong'}`} />}
 
       <div className={`flex min-w-0 flex-1 flex-col ${isList ? 'gap-1' : 'gap-2'}`}>
-        <div className="flex items-start justify-between gap-3">
-          <h4 className="truncate font-display text-[17px] leading-6 text-ink">{memo.title}</h4>
+        {/* 고정 버튼(32px, -mt-1 이라 28px 차지)이 없는 카드도 같은 높이가 되게 min-h-7 */}
+        <div className="flex min-h-7 items-start justify-between gap-3">
+          <h4 className="min-w-0 truncate font-display text-[17px] leading-6 text-ink">
+            <button
+              type="button"
+              onClick={onClick}
+              className="block max-w-full truncate text-left after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+            >
+              {memo.title}
+            </button>
+          </h4>
           {!isGroupMemo ? null : onTogglePin && memo.permissions?.groupPin ? (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onTogglePin(); }}
-              onKeyDown={(e) => e.stopPropagation()}
               aria-label={groupPinned ? '모임 고정 해제' : '모임에 고정'}
               aria-pressed={groupPinned}
               title={groupPinned ? '모임 고정 해제' : '모임에 고정'}
-              className={`btn-icon -mr-1.5 -mt-1 shrink-0 ${groupPinned ? 'text-group-ink hover:text-group-ink' : 'text-ink-3'}`}
+              className={`btn-icon relative z-10 -mr-1.5 -mt-1 shrink-0 before:absolute before:-inset-1.5 before:content-[''] ${groupPinned ? 'text-group-ink hover:text-group-ink' : 'text-ink-3'}`}
             >
               <Pin size={16} strokeWidth={1.5} className={groupPinned ? 'fill-current' : ''} />
             </button>
@@ -65,12 +76,16 @@ export function MemoCard({ memo, viewMode, color, onClick, onTogglePin }: MemoCa
         {summary && (
           <p className={`text-sm leading-relaxed text-ink-2 ${isList ? 'line-clamp-1' : 'line-clamp-3'}`}>{summary}</p>
         )}
-        {!isList && (memo.tags?.length > 0 || imageSrc) && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {memo.tags?.slice(0, 3).map(tag => (
-              <span key={tag} className="chip">#{tag}</span>
+        {/* 목록 보기에서도 태그를 한 줄로 보인다 */}
+        {(shownTags.length > 0 || (!isList && imageSrc)) && (
+          <div className={`flex items-center gap-1.5 ${isList ? 'flex-nowrap overflow-hidden' : 'flex-wrap'}`}>
+            {shownTags.map(tag => (
+              <span key={tag} className="chip shrink-0">#{tag}</span>
             ))}
-            {imageSrc && (
+            {hiddenTagCount > 0 && (
+              <span className="chip shrink-0" title={memo.tags.slice(3).map(t => `#${t}`).join(' ')}>+{hiddenTagCount}</span>
+            )}
+            {!isList && imageSrc && (
               <span className="inline-flex items-center gap-1 text-xs text-ink-3">
                 <ImageIcon size={14} strokeWidth={1.5} aria-hidden /> 사진 1장
               </span>

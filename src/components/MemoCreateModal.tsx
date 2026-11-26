@@ -20,6 +20,11 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { useSession } from 'next-auth/react';
 import RichEditor from '@/components/RichEditor';
+import { useAlert } from '@/hooks/useAlert';
+
+// 서버 MemoRequest 와 같은 한도(@CodePointSize). 입력에서 먼저 막는다
+const TITLE_MAX = 255;
+const TAG_MAX = 50;
 
 interface MemoCreateModalProps {
   isOpen: boolean;
@@ -36,6 +41,7 @@ export default function MemoCreateModal({
   groupId,
 }: MemoCreateModalProps) {
   const { data: session } = useSession();
+  const { confirm, toast } = useAlert();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -47,6 +53,10 @@ export default function MemoCreateModal({
   const [groups, setGroups] = useState<GroupResponse[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorWrapRef = useRef<HTMLDivElement>(null);
+  // 같은 렌더 안에서 저장이 여러 번 눌려도 한 번만 보낸다(isSaving 은 다음 렌더부터 막는다)
+  const savingRef = useRef(false);
+  const closingRef = useRef(false);
 
   // 데이터 로드
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -79,8 +89,17 @@ export default function MemoCreateModal({
     setError(null);
   }, []);
 
-  const handleClose = () => {
-    if (isSaving) return;
+  const isDirty = !!(title.trim() || content.trim() || tags.length || tagInput.trim() || imageFile);
+
+  // Esc·배경·취소·X 모두 여기로 온다. 쓰던 내용이 있으면 버릴지 묻는다
+  const handleClose = async () => {
+    if (isSaving || closingRef.current) return;
+    if (isDirty) {
+      closingRef.current = true;
+      const discard = await confirm('쓰던 메모를 버리고 닫을까요?', undefined, '버리기', '계속 쓰기');
+      closingRef.current = false;
+      if (!discard) return;
+    }
     resetForm();
     onClose();
   };
@@ -109,17 +128,31 @@ export default function MemoCreateModal({
 
   const addTag = () => {
     const trimmed = tagInput.trim();
-    if (!trimmed || tags.includes(trimmed)) return;
+    if (!trimmed) return;
+    if (tags.includes(trimmed)) {
+      // 이미 있는 태그: 입력만 비우고 알려 준다
+      setTagInput('');
+      setError(`#${trimmed} 태그는 이미 있어요`);
+      return;
+    }
     setTags((prev) => [...prev, trimmed]);
     setTagInput('');
+    setError(null);
   };
 
   const handleSave = async () => {
+    if (savingRef.current) return;
     if (!title.trim()) {
       setError('제목을 입력해 주세요');
       return;
     }
+    // 서버는 빈 본문을 400 으로 거절한다. 보내기 전에 알려 준다
+    if (!content.trim()) {
+      setError('내용을 입력해 주세요');
+      return;
+    }
 
+    savingRef.current = true;
     setIsSaving(true);
     setError(null);
 
@@ -141,9 +174,11 @@ export default function MemoCreateModal({
       resetForm();
       onSuccess?.();
       onClose();
+      toast.success('메모를 저장했어요');
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -158,6 +193,8 @@ export default function MemoCreateModal({
       size="lg"
       footer={
         <>
+          {/* 오류는 늘 보이는 버튼 줄 왼쪽에 둔다(본문 아래에 두면 창 스크롤 밖이라 안 보였다) */}
+          {error && <p role="alert" className="mr-auto min-w-0 text-sm text-negative">{error}</p>}
           <button type="button" onClick={handleClose} disabled={isSaving} className="btn-secondary">
             취소
           </button>
@@ -173,6 +210,15 @@ export default function MemoCreateModal({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            // 제목에서 Enter 는 본문으로 넘어간다(한글 조합 중 Enter 는 건너뜀)
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              editorWrapRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
+            }
+          }}
+          maxLength={TITLE_MAX}
+          autoFocus
           placeholder="제목"
           aria-label="제목"
           className="form-input h-11 font-display text-lg"
@@ -209,8 +255,9 @@ export default function MemoCreateModal({
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
+                maxLength={TAG_MAX}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                     e.preventDefault();
                     addTag();
                   }
@@ -287,8 +334,8 @@ export default function MemoCreateModal({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <p className="text-[13px] font-medium text-ink-2">내용</p>
+        <div ref={editorWrapRef} className="space-y-1.5">
+          <p className="text-[13px] font-medium text-ink-2">내용 <span className="text-ink-3">(필수)</span></p>
           <RichEditor
             value={content}
             onChange={setContent}
@@ -301,7 +348,6 @@ export default function MemoCreateModal({
           </p>
         </div>
 
-        {error && <p className="text-sm text-negative">{error}</p>}
       </div>
     </Modal>
   );
