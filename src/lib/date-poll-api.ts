@@ -20,6 +20,8 @@ export interface DatePollSummary {
   confirmedDate: string | null;
   scheduleId: string | null;
   createdAt: string;
+  /** 보는 사람이 재촉·날짜 정하기·지우기를 할 수 있다(만든 사람 또는 모임장) */
+  canManage: boolean;
 }
 
 export interface DatePollAi {
@@ -54,7 +56,7 @@ export const datePollApi = {
     return response.data;
   },
 
-  /** 모임장만. 날짜는 yyyy-MM-dd */
+  /** 모임 멤버 누구나. 날짜는 yyyy-MM-dd */
   async create(
     groupId: string,
     body: { title: string; startDate: string; endDate: string },
@@ -90,14 +92,14 @@ export const datePollApi = {
     return response.data;
   },
 
-  /** 모임장만. 아직 응답 안 한 멤버에게 알림 */
+  /** 만든 사람 또는 모임장. 아직 응답 안 한 멤버에게 알림 */
   async remind(groupId: string, pollId: string, session: Session | null): Promise<void> {
     await axiosInstance.post(`${base(groupId)}/${pollId}/remind`, null, {
       headers: getAuthHeaders(session),
     });
   },
 
-  /** 모임장만. 그 날로 모임 일정을 만든다. 시각은 HH:mm */
+  /** 만든 사람 또는 모임장. 그 날로 모임 일정을 만든다. 시각은 HH:mm */
   async confirm(
     groupId: string,
     pollId: string,
@@ -110,7 +112,7 @@ export const datePollApi = {
     return response.data;
   },
 
-  /** 모임장만. 만들어진 일정은 지우지 않는다 */
+  /** 만든 사람 또는 모임장. 만들어진 일정은 지우지 않는다 */
   async remove(groupId: string, pollId: string, session: Session | null): Promise<void> {
     await axiosInstance.delete(`${base(groupId)}/${pollId}`, {
       headers: getAuthHeaders(session),
