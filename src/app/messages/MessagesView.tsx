@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -8,10 +8,10 @@ import axios from 'axios';
 import { format, isSameDay } from 'date-fns';
 import { useTimeFormat } from '@/lib/schedule-utils';
 import { ko } from 'date-fns/locale';
-import { ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, Trash2, User } from 'lucide-react';
+import { ArrowDown, ArrowLeft, Loader2, MessageCircle, AlertCircle, RotateCw, Send, Search, Trash2, User, X } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ImageWithFallback from '@/components/ImageWithFallback';
-import { messageApi, MESSAGE_MAX_LENGTH, type ConversationResponse, type MessageResponse } from '@/lib/message-api';
+import { messageApi, MESSAGE_MAX_LENGTH, isBlankMessage, type ConversationResponse, type MessageResponse } from '@/lib/message-api';
 import { friendApi, resolveImageUrl, type UserProfileResponse } from '@/lib/friend-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { refreshUnreadCounts, badgeText } from '@/lib/notification-api';
@@ -25,6 +25,24 @@ import { useLiveTopics } from '@/lib/live';
 // SSE 가 끊겨 있을 때의 주기. 붙어 있으면 메시지 보내기·읽음이 `messages` 토픽으로 와서 60초 안전망으로 늘어난다
 const POLL_MS = 5000;
 const PAGE_SIZE = 50;
+/** 입력창이 자라는 최대 높이(max-h-32) */
+const DRAFT_MAX_HEIGHT = 128;
+
+/** 대화별 보내지 않은 글. 다른 대화로 갔다 와도 남는다(새로고침하면 사라짐) */
+const drafts = new Map<string, string>();
+
+/** 터치 기기: Enter 가 줄바꿈이고 보내기는 버튼으로 한다 (화면 키보드에는 Shift+Enter 가 없다) */
+const COARSE_QUERY = '(pointer: coarse)';
+const subscribeCoarse = (onChange: () => void) => {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mq = window.matchMedia(COARSE_QUERY);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+};
+const getCoarse = () => typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia(COARSE_QUERY).matches;
+
+/** 같은 사람이 같은 분에 연달아 보낸 메시지는 마지막 것에만 시각을 붙인다 */
+const minuteKey = (value: string) => value.slice(0, 16);
 
 const parseDate = (value: string) => {
   const d = new Date(value);
@@ -112,7 +130,7 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
 
   /** 대화 지우기: 내 화면에서만 지운다. 열려 있던 대화면 목록으로 돌아간다 */
   const handleDelete = async (c: ConversationResponse) => {
-    const ok = await confirm(`${c.friend.nickname}님과의 대화를 지울까요?\n내 화면에서만 지워지고 상대에게는 남아요.`);
+    const ok = await confirm(`${c.friend.nickname}님과의 대화를 지울까요?\n내 화면에서만 지워지고 상대에게는 남아요.`, undefined, '지우기');
     if (!ok) return;
     setDeletingId(c.friend.id);
     try {
@@ -120,6 +138,7 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
       setConversations((prev) => prev.map((x) => (x.friend.id === c.friend.id ? { ...x, lastMessage: null, unreadCount: 0 } : x)));
       refreshUnreadCounts();
       fetchConversations(true);
+      toast.success('대화를 지웠어요.');
       if (c.friend.id === friendId) router.push('/messages');
     } catch (error) {
       toast.error(getApiErrorMessage(error, '대화를 지우지 못했어요.'));
@@ -157,8 +176,18 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="이름으로 찾기"
                 aria-label="대화 찾기"
-                className="form-input h-9 py-0 pl-9"
+                className="form-input h-9 py-0 pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
               />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label="찾기 지우기"
+                  className="btn-icon absolute right-0.5 top-1/2 -translate-y-1/2"
+                >
+                  <X size={16} strokeWidth={1.5} />
+                </button>
+              )}
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-2 pb-4 lg:px-3">
@@ -194,7 +223,7 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
                   const last = c.lastMessage;
                   const unreadNow = c.unreadCount > 0;
                   return (
-                    <li key={c.friend.id} className="flex items-center gap-1">
+                    <li key={c.friend.id} className="flex items-center gap-2 lg:gap-1">
                       <Link
                         href={`/messages/${c.friend.id}`}
                         aria-current={active ? 'page' : undefined}
@@ -205,7 +234,10 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
                         <Avatar src={c.friend.profileImage} name={c.friend.nickname} />
                         <span className="flex-1 min-w-0">
                           <span className="flex items-center justify-between gap-2">
-                            <span className="font-display text-[15px] leading-5 text-ink truncate">{c.friend.nickname}</span>
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="font-display text-[15px] leading-5 text-ink truncate">{c.friend.nickname}</span>
+                              {c.canSend === false && <span className="chip h-5 shrink-0 px-1.5 text-[11px]">친구 아님</span>}
+                            </span>
                             {last && <span className="stamp shrink-0">{listStamp(last.createdAt, tf)}</span>}
                           </span>
                           <span className="flex items-center justify-between gap-2 mt-1">
@@ -213,7 +245,7 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
                               {last ? `${last.senderId === myId ? '나: ' : ''}${last.content}` : '아직 주고받은 메시지가 없어요'}
                             </span>
                             {unreadNow && (
-                              <span className="min-w-[18px] h-[18px] px-1 shrink-0 rounded-full bg-mark text-white text-[11px] leading-[18px] text-center tabular-nums">
+                              <span className="min-w-[18px] h-[18px] px-1 shrink-0 rounded-full bg-mark text-ink text-[11px] leading-[18px] text-center tabular-nums">
                                 {badgeText(c.unreadCount)}
                               </span>
                             )}
@@ -225,7 +257,7 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
                           type="button"
                           onClick={() => handleDelete(c)}
                           disabled={deletingId === c.friend.id}
-                          className="btn-icon shrink-0 hover:text-negative"
+                          className="btn-icon size-11 lg:size-8 shrink-0 hover:text-negative"
                           title="대화 지우기"
                           aria-label={`${c.friend.nickname}님과의 대화 지우기`}
                         >
@@ -275,6 +307,8 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const { data: session } = useSession();
   const { toast } = useAlert();
   const myId = session?.user?.id;
+  const isSelf = !!myId && friendId === myId;
+  const coarse = useSyncExternalStore(subscribeCoarse, getCoarse, () => false);
 
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -284,12 +318,25 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [profileMissing, setProfileMissing] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
-  const [draft, setDraft] = useState('');
+  const [draft, setDraftState] = useState(() => drafts.get(friendId) ?? '');
   const [sending, setSending] = useState(false);
+  /** 처음 열었을 때 첫 안 읽은 메시지. 그 앞에 구분선을 긋는다 */
+  const [unreadFromId, setUnreadFromId] = useState<string | null>(null);
+  /** 위로 올려 보는 중 아래에 새 메시지가 왔는지 */
+  const [newBelow, setNewBelow] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const stickToBottom = useRef(true);
   const restoreHeight = useRef<number | null>(null);
+  const lastIdRef = useRef<string | null>(null);
+  const scrollToUnread = useRef(false);
+
+  const setDraft = (value: string) => {
+    setDraftState(value);
+    if (value) drafts.set(friendId, value);
+    else drafts.delete(friendId);
+  };
 
   // 상대 정보와 친구 여부(친구가 아니면 보낼 수 없음)
   useEffect(() => {
@@ -338,14 +385,33 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
       try {
         if (initial) setLoading(true);
         const data = await messageApi.getMessages(friendId, session, { size: PAGE_SIZE });
-        setMessages((prev) => (initial ? data : mergeMessages(prev, data)));
-        if (initial) setHasOlder(data.length >= PAGE_SIZE);
+        if (initial) {
+          setMessages(data);
+          setHasOlder(data.length >= PAGE_SIZE);
+          const firstUnread = data.find((m) => m.senderId !== myId && !m.read);
+          setUnreadFromId(firstUnread?.id ?? null);
+          scrollToUnread.current = !!firstUnread;
+        } else {
+          // 최신 페이지 범위는 서버 것으로 바꾼다(다른 탭에서 대화를 지운 경우 등). 그보다 오래된 것만 남긴다.
+          setMessages((prev) => {
+            if (data.length < PAGE_SIZE) return data;
+            const oldest = data[0].createdAt;
+            return mergeMessages(prev.filter((m) => m.createdAt < oldest), data);
+          });
+          if (data.length < PAGE_SIZE) setHasOlder(false);
+          const last = data[data.length - 1];
+          if (!stickToBottom.current && last && last.id !== lastIdRef.current && last.senderId !== myId) setNewBelow(true);
+        }
         setError(null);
         markReadIfNeeded(data);
       } catch (err) {
         console.error('Failed to fetch messages:', err);
         const code = axios.isAxiosError(err) ? err.response?.status : undefined;
         if (initial) {
+          if (code === 404 || code === 400) {
+            setProfileMissing(true);
+            setBlocked('사용자를 찾을 수 없어요.');
+          }
           setError(getApiErrorMessage(err, '메시지를 불러오지 못했어요.'));
           if (code === 403) setBlocked(getApiErrorMessage(err, '친구에게만 메시지를 보낼 수 있어요.'));
         }
@@ -353,7 +419,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
         if (initial) setLoading(false);
       }
     },
-    [friendId, session, markReadIfNeeded],
+    [friendId, session, markReadIfNeeded, myId],
   );
 
   useEffect(() => {
@@ -387,24 +453,64 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   // 새 메시지가 오면 맨 아래에 붙어 있을 때만 따라 내려가고, 이전 메시지를 불러오면 보던 위치를 지킵니다.
   useLayoutEffect(() => {
     const el = scrollRef.current;
+    lastIdRef.current = messages[messages.length - 1]?.id ?? null;
     if (!el) return;
     if (restoreHeight.current !== null) {
       el.scrollTop = el.scrollHeight - restoreHeight.current + el.scrollTop;
       restoreHeight.current = null;
       return;
     }
+    if (scrollToUnread.current && !loading) {
+      scrollToUnread.current = false;
+      const divider = el.querySelector<HTMLElement>('[data-unread-divider]');
+      // 안 읽은 메시지가 한 화면을 넘으면 구분선부터 보여 준다
+      if (divider && el.scrollHeight - divider.offsetTop > el.clientHeight) {
+        el.scrollTop = divider.offsetTop - 8;
+        stickToBottom.current = false;
+        return;
+      }
+    }
     if (stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages, loading]);
+
+  // 화면 높이가 바뀌면(모바일 키보드, 입력창이 자람) 맨 아래에 붙어 있던 경우 다시 맨 아래로
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (stickToBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // 입력창은 내용만큼 자란다(최대 128px, 넘으면 안에서 스크롤)
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight + (el.offsetHeight - el.clientHeight), DRAFT_MAX_HEIGHT)}px`;
+  }, [draft, blocked]);
 
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (stickToBottom.current && newBelow) setNewBelow(false);
+  };
+
+  const jumpToBottom = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottom.current = true;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    setNewBelow(false);
   };
 
   const length = [...draft.trim()].length;
   const tooLong = length > MESSAGE_MAX_LENGTH;
-  const canSend = !blocked && !sending && length > 0 && !tooLong;
+  const blank = isBlankMessage(draft);
+  const canSend = !blocked && !isSelf && !sending && !blank && length > 0 && !tooLong;
 
   const handleSend = async () => {
     if (!canSend) return;
@@ -413,6 +519,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
     try {
       const sent = await messageApi.send(friendId, content, session);
       stickToBottom.current = true;
+      setNewBelow(false);
       setMessages((prev) => mergeMessages(prev, [sent]));
       setDraft('');
       onSent();
@@ -423,20 +530,24 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
       toast.error(message);
     } finally {
       setSending(false);
+      // 보내는 동안 버튼이 꺼지며 포커스를 잃으므로 이어 쓸 수 있게 입력창으로 돌려준다
+      inputRef.current?.focus();
     }
   };
 
   const friendInfo = conversation?.friend ?? (profile
     ? { id: profile.id, nickname: profile.nickname, profileImage: profile.profileImage, customId: profile.customId }
     : null);
+  // 친구가 아니라서 막힌 경우(친구를 끊음 등): 프로필로 가서 다시 친구 요청을 할 수 있게
+  const notFriend = !isSelf && !profileMissing && !!profile && profile.friendStatus !== 'FRIEND';
 
   return (
     <>
       <header className="flex items-center gap-3 px-3 sm:px-4 lg:px-7 h-16 lg:h-[72px] border-b border-line shrink-0">
-        <Link href="/messages" className="btn-icon size-9 lg:hidden" aria-label="대화 목록으로">
+        <Link href="/messages" className="btn-icon size-11 -ml-1 lg:hidden" aria-label="대화 목록으로">
           <ArrowLeft size={18} strokeWidth={1.5} />
         </Link>
-        {friendInfo ? (
+        {friendInfo && !profileMissing ? (
           <>
             <Link href={`/profile/${friendInfo.id}`} className="flex flex-1 items-center gap-3 min-w-0 rounded-lg">
               <Avatar src={friendInfo.profileImage} name={friendInfo.nickname} className="size-9" />
@@ -455,130 +566,176 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
         )}
       </header>
 
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 lg:px-7 py-5">
-        {loading ? (
-          <div className="h-full flex items-center justify-center">
-            <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
-          </div>
-        ) : profileMissing ? (
-          // 없는 사용자: 다시 시도해도 같으므로 목록으로만 안내한다(아래 입력칸 자리 문구도 숨김)
-          <div className="h-full flex items-center justify-center">
-            <EmptyState
-              icon={AlertCircle}
-              title="대화 상대를 찾을 수 없어요"
-              description="탈퇴했거나 주소가 잘못됐을 수 있어요."
-              action={
-                <Link href="/messages" className="btn-secondary">
-                  메시지 목록으로
-                </Link>
-              }
-            />
-          </div>
-        ) : error ? (
-          <div className="h-full flex items-center justify-center">
-            <EmptyState
-              icon={AlertCircle}
-              title="메시지를 불러오지 못했어요"
-              description={error}
-              action={
-                <button onClick={() => fetchLatest(true)} className="btn-secondary">
-                  <RotateCw size={16} strokeWidth={1.5} />
-                  다시 시도
-                </button>
-              }
-            />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <EmptyState title="아직 메시지가 없어요" description="첫 메시지를 보내 보세요" />
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {hasOlder && (
-              <div className="flex justify-center pb-2">
-                <button onClick={loadOlder} disabled={loadingOlder} className="btn-ghost btn-sm">
-                  {loadingOlder && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
-                  이전 메시지 보기
-                </button>
-              </div>
-            )}
-            {messages.map((m, i) => {
-              const mine = m.senderId === myId;
-              const d = parseDate(m.createdAt);
-              const prev = i > 0 ? parseDate(messages[i - 1].createdAt) : null;
-              const newDay = d && (!prev || !isSameDay(prev, d));
-              const isLastMine = mine && !messages.slice(i + 1).some((x) => x.senderId === myId);
-              return (
-                <React.Fragment key={m.id}>
-                  {newDay && d && (
-                    <div className="flex justify-center py-3">
-                      <span className="text-xs font-medium text-ink-3">{format(d, 'M월 d일 EEEE', { locale: ko })}</span>
-                    </div>
-                  )}
-                  <div className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'}`}>
-                    {mine && (
-                      <span className="flex flex-col items-end shrink-0">
-                        {isLastMine && m.read && <span className="text-[11px] text-ink-3">읽음</span>}
-                        <span className="stamp text-[11px]">{d ? format(d, tf, { locale: ko }) : ''}</span>
-                      </span>
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <div ref={scrollRef} onScroll={handleScroll} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 lg:px-7 py-5">
+          {profileMissing ? (
+            <div className="h-full flex items-center justify-center">
+              <EmptyState
+                icon={AlertCircle}
+                title="대화 상대를 찾을 수 없어요"
+                description="탈퇴했거나 주소가 잘못됐을 수 있어요."
+                action={<Link href="/messages" className="btn-secondary">메시지 목록으로</Link>}
+              />
+            </div>
+          ) : isSelf ? (
+            <div className="h-full flex items-center justify-center">
+              <EmptyState
+                icon={MessageCircle}
+                title="나에게는 메시지를 보낼 수 없어요"
+                description="친구를 골라 대화를 시작해요."
+                action={<Link href="/messages" className="btn-secondary">메시지 목록으로</Link>}
+              />
+            </div>
+          ) : loading ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />
+            </div>
+          ) : error ? (
+            <div className="h-full flex items-center justify-center">
+              <EmptyState
+                icon={AlertCircle}
+                title="메시지를 불러오지 못했어요"
+                description={error}
+                action={
+                  <button onClick={() => fetchLatest(true)} className="btn-secondary">
+                    <RotateCw size={16} strokeWidth={1.5} />
+                    다시 시도
+                  </button>
+                }
+              />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <EmptyState
+                title="아직 메시지가 없어요"
+                description={notFriend ? '친구가 되면 메시지를 주고받을 수 있어요' : '첫 메시지를 보내 보세요'}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {hasOlder && (
+                <div className="flex justify-center pb-2">
+                  <button onClick={loadOlder} disabled={loadingOlder} className="btn-ghost btn-sm max-lg:h-11">
+                    {loadingOlder && <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />}
+                    이전 메시지 보기
+                  </button>
+                </div>
+              )}
+              {messages.map((m, i) => {
+                const mine = m.senderId === myId;
+                const d = parseDate(m.createdAt);
+                const prev = i > 0 ? parseDate(messages[i - 1].createdAt) : null;
+                const newDay = d && (!prev || !isSameDay(prev, d));
+                const isLastMine = mine && !messages.slice(i + 1).some((x) => x.senderId === myId);
+                const next = messages[i + 1];
+                // 다음 메시지가 같은 사람·같은 분이면 시각은 그쪽에 붙인다
+                const showStamp = !next || next.senderId !== m.senderId || minuteKey(next.createdAt) !== minuteKey(m.createdAt);
+                // 보낸 사람이 바뀌면 묶음 사이를 조금 더 띄운다
+                const senderChanged = i > 0 && messages[i - 1].senderId !== m.senderId && !newDay;
+                const stamp = showStamp && d ? format(d, tf, { locale: ko }) : '';
+                return (
+                  <React.Fragment key={m.id}>
+                    {newDay && d && (
+                      <div className="flex justify-center py-3">
+                        <span className="text-xs font-medium text-ink-3">{format(d, 'M월 d일 EEEE', { locale: ko })}</span>
+                      </div>
                     )}
-                    <p
-                      className={`max-w-[75%] lg:max-w-[60%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
-                        mine ? 'bg-accent text-white' : 'bg-surface text-ink border border-line'
-                      }`}
-                    >
-                      {m.content}
-                    </p>
-                    {!mine && <span className="stamp text-[11px] shrink-0">{d ? format(d, tf, { locale: ko }) : ''}</span>}
-                  </div>
-                </React.Fragment>
-              );
-            })}
+                    {m.id === unreadFromId && (
+                      <div data-unread-divider className="flex items-center gap-3 py-2" role="separator" aria-label="여기부터 안 읽은 메시지">
+                        <span className="h-px flex-1 bg-line-strong" />
+                        <span className="text-xs text-ink-2">여기부터 안 읽은 메시지</span>
+                        <span className="h-px flex-1 bg-line-strong" />
+                      </div>
+                    )}
+                    <div className={`flex items-end gap-2 ${mine ? 'justify-end' : 'justify-start'} ${senderChanged ? 'pt-2' : ''}`}>
+                      {mine && (stamp || (isLastMine && m.read)) && (
+                        <span className="flex flex-col items-end shrink-0">
+                          {isLastMine && m.read && <span className="text-[11px] text-ink-3">읽음</span>}
+                          {stamp && <span className="stamp text-[11px]">{stamp}</span>}
+                        </span>
+                      )}
+                      <p
+                        className={`max-w-[75%] lg:max-w-[60%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                          mine ? 'bg-accent text-white' : 'bg-surface text-ink border border-line'
+                        }`}
+                      >
+                        {m.content}
+                      </p>
+                      {!mine && stamp && <span className="stamp text-[11px] shrink-0">{stamp}</span>}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {newBelow && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+            <button type="button" onClick={jumpToBottom} className="btn-secondary pointer-events-auto shadow-float max-lg:h-11">
+              <ArrowDown size={16} strokeWidth={1.5} />
+              새 메시지
+            </button>
           </div>
         )}
       </div>
 
-      {!profileMissing && (
-      <div className="border-t border-line px-3 sm:px-4 lg:px-7 py-3 shrink-0">
-        {blocked ? (
-          <p className="text-sm text-ink-3 text-center py-2">{blocked}</p>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex items-end gap-2"
-          >
-            <div className="flex-1 min-w-0">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                rows={1}
-                placeholder="메시지 쓰기 (줄바꿈은 Shift+Enter)"
-                aria-label="메시지 입력"
-                className="form-input block resize-none max-h-32 min-h-9 py-[7px] leading-5"
-              />
+      {!profileMissing && !isSelf && (
+        <div className="border-t border-line px-3 sm:px-4 lg:px-7 py-3 shrink-0">
+          {blocked ? (
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 py-1">
+              <p className="text-sm text-ink-3 text-center">{blocked}</p>
+              {notFriend && friendInfo && (
+                <Link href={`/profile/${friendInfo.id}`} className="btn-secondary btn-sm max-lg:h-11">
+                  <User size={14} strokeWidth={1.5} />
+                  프로필에서 친구 요청
+                </Link>
+              )}
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+            >
+              <div className="flex items-end gap-2">
+                <textarea
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    // 터치 기기는 Enter 가 줄바꿈이다(보내기는 버튼)
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !coarse) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  rows={1}
+                  placeholder={coarse ? '메시지 쓰기' : '메시지 쓰기 (줄바꿈은 Shift+Enter)'}
+                  aria-label="메시지 입력"
+                  className="form-input block flex-1 min-w-0 resize-none max-h-32 min-h-9 py-[7px] leading-5 max-lg:min-h-11 max-lg:py-[11px]"
+                />
+                <button
+                  type="submit"
+                  disabled={!canSend}
+                  // 누를 때 입력창 포커스를 뺏지 않는다(모바일 키보드가 내려가지 않게)
+                  onPointerDown={(e) => e.preventDefault()}
+                  className="btn-primary shrink-0 max-lg:h-11 max-sm:w-11 max-sm:px-0"
+                  aria-label="보내기"
+                >
+                  {sending ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}
+                  <span className="hidden sm:inline">보내기</span>
+                </button>
+              </div>
               {length > MESSAGE_MAX_LENGTH - 200 && (
                 <p className={`text-xs mt-1 tabular-nums ${tooLong ? 'text-negative' : 'text-ink-3'}`}>
                   {length}/{MESSAGE_MAX_LENGTH}
                   {tooLong && ' · 2000자까지 보낼 수 있어요'}
                 </p>
               )}
-            </div>
-            <button type="submit" disabled={!canSend} className="btn-primary shrink-0" aria-label="보내기">
-              {sending ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}
-              <span className="hidden sm:inline">보내기</span>
-            </button>
-          </form>
-        )}
-      </div>
+            </form>
+          )}
+        </div>
       )}
     </>
   );

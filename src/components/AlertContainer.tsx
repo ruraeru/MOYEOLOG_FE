@@ -28,7 +28,7 @@ export default function AlertContainer() {
 
   // Destructive word detection for modal (e.g. '삭제', '내보내기')
   const isDestructive = modal?.message
-    ? modal.message.includes('삭제') || modal.message.includes('내보내기') || modal.message.includes('거절')
+    ? modal.message.includes('삭제') || modal.message.includes('내보내기') || modal.message.includes('거절') || modal.message.includes('지울')
     : false;
 
   return (
@@ -102,7 +102,7 @@ export default function AlertContainer() {
                 <button
                   autoFocus={isDestructive}
                   onClick={() => closeModal(false)}
-                  className="btn-secondary relative max-sm:h-11 after:absolute after:inset-x-0 after:-inset-y-1"
+                  className="btn-secondary relative max-lg:h-11 after:absolute after:inset-x-0 after:-inset-y-1"
                 >
                   {modal.cancelText || '취소'}
                 </button>
@@ -112,7 +112,7 @@ export default function AlertContainer() {
               <button
                 autoFocus={!isDestructive || modal.type !== 'confirm'}
                 onClick={() => closeModal(true)}
-                className={`${isDestructive ? 'btn-danger' : 'btn-primary'} relative max-sm:h-11 after:absolute after:inset-x-0 after:-inset-y-1`}
+                className={`${isDestructive ? 'btn-danger' : 'btn-primary'} relative max-lg:h-11 after:absolute after:inset-x-0 after:-inset-y-1`}
               >
                 {modal.confirmText || '확인'}
               </button>
