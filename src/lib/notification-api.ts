@@ -15,7 +15,8 @@ export type NotificationType =
   | 'MEMO_SHARED'
   | 'TOPIC_COMMENT'
   | 'SCHEDULE_PARTICIPANT'
-  | 'GROUP_KICKED';
+  | 'GROUP_KICKED'
+  | 'GROUP_NOTICE';
 
 export interface NotificationResponse {
   id: string;

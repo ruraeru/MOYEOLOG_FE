@@ -17,18 +17,23 @@ import {
   Image as ImageIcon,
   CalendarCheck,
   ChevronRight,
+  Megaphone,
+  Pin,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { datePollApi, type DatePollSummary } from '@/lib/date-poll-api';
 import DatePollModal, { DatePollCreateModal, pollDateLabel, pollRangeLabel } from '@/components/DatePollModal';
+import { groupNoticeApi, type NoticeSummary } from '@/lib/group-notice-api';
+import GroupNoticeModal from '@/components/GroupNoticeModal';
+import GroupNoticeFormModal from '@/components/GroupNoticeFormModal';
 import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
 import { memoApi, compareGroupPinned, type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
 import { getApiErrorMessage } from '@/lib/axios';
 import { stripMarkdown, getThemeColors } from '@/lib/utils';
-import { useTimeFormat } from '@/lib/schedule-utils';
+import { useTimeFormat, formatStamp } from '@/lib/schedule-utils';
 import { useScheduleWeather } from '@/hooks/useWeather';
 import { WeatherIcon } from '@/components/Weather';
 import Calendar from 'react-calendar';
@@ -55,8 +60,8 @@ import { useVisiblePolling } from '@/hooks/useVisiblePolling';
 import { useLivePollMs, useLiveTopics } from '@/lib/live';
 
 type FilterType = 'all' | 'my' | 'tag';
-type TabType = 'memos' | 'calendar' | 'topics' | 'members';
-const TABS: TabType[] = ['memos', 'calendar', 'topics', 'members'];
+type TabType = 'notice' | 'calendar' | 'memos' | 'topics' | 'members';
+const TABS: TabType[] = ['notice', 'calendar', 'memos', 'topics', 'members'];
 
 /** 열린 모임 화면을 주기적으로 다시 불러오는 간격 (새 토픽, 내보내짐·삭제 감지) */
 const POLL_INTERVAL_MS = 15000;
@@ -118,6 +123,9 @@ function GroupDetailContent() {
   const [polls, setPolls] = useState<DatePollSummary[]>([]);
   const [openPollId, setOpenPollId] = useState<string | null>(null);
   const [isPollCreateOpen, setIsPollCreateOpen] = useState(false);
+  const [notices, setNotices] = useState<NoticeSummary[]>([]);
+  const [openNoticeId, setOpenNoticeId] = useState<string | null>(null);
+  const [isNoticeFormOpen, setIsNoticeFormOpen] = useState(false);
   const hadGroupRef = useRef(false);
 
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
@@ -137,7 +145,7 @@ function GroupDetailContent() {
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<TabType>(
-    TABS.includes(tabParam as TabType) ? (tabParam as TabType) : topicParam ? 'topics' : 'memos'
+    TABS.includes(tabParam as TabType) ? (tabParam as TabType) : topicParam ? 'topics' : 'notice'
   );
   const [memoFilter, setMemoFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -185,24 +193,26 @@ function GroupDetailContent() {
     setGroup(groupData);
     setGroupError(null);
 
-    const [memoResult, scheduleResult, topicResult, pollResult] = await Promise.allSettled([
+    const [memoResult, scheduleResult, topicResult, pollResult, noticeResult] = await Promise.allSettled([
       groupApi.getGroupMemos(groupId, session),
       groupApi.getGroupSchedules(groupId, session),
       groupTopicApi.getByGroup(groupId, session),
       datePollApi.list(groupId, session),
+      groupNoticeApi.list(groupId, session),
     ]);
     if (memoResult.status === 'fulfilled') setMemos(memoResult.value);
+    if (noticeResult.status === 'fulfilled') setNotices(noticeResult.value);
     if (scheduleResult.status === 'fulfilled') setSchedules(scheduleResult.value);
     if (topicResult.status === 'fulfilled') setTopics(topicResult.value);
     // 날짜 조율 목록은 실패해도 보던 것을 두고 오류로 띄우지 않는다(일정 달력을 가리지 않게)
     if (pollResult.status === 'fulfilled') setPolls(pollResult.value);
     else console.error('Failed to fetch date polls:', pollResult.reason);
 
-    if ([memoResult, scheduleResult, topicResult, pollResult].some(r => r.status === 'rejected' && statusOf(r.reason) === 429)) {
+    if ([memoResult, scheduleResult, topicResult, pollResult, noticeResult].some(r => r.status === 'rejected' && statusOf(r.reason) === 429)) {
       retrySoon();
     }
 
-    const failed = [memoResult, scheduleResult, topicResult].find(
+    const failed = [memoResult, scheduleResult, topicResult, noticeResult].find(
       (r): r is PromiseRejectedResult => r.status === 'rejected'
     );
     if (failed) {
@@ -211,7 +221,7 @@ function GroupDetailContent() {
     } else {
       setListError(null);
     }
-  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setPolls, setListError]);
+  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setPolls, setNotices, setListError]);
 
   useEffect(() => {
     fetchGroupData();
@@ -304,6 +314,15 @@ function GroupDetailContent() {
 
   const refreshQuietly = useCallback(() => { fetchGroupData(true); }, [fetchGroupData]);
   const closePoll = useCallback(() => setOpenPollId(null), [setOpenPollId]);
+  const closeNotice = useCallback(() => setOpenNoticeId(null), [setOpenNoticeId]);
+
+  // 상세를 열면 서버가 읽음 처리한다. 읽음 이벤트는 방장에게만 가므로 내 목록의 점·읽음 수는 여기서 바로 고친다
+  const handleOpenNotice = (notice: NoticeSummary) => {
+    setOpenNoticeId(notice.id);
+    if (!notice.read) {
+      setNotices(prev => prev.map(n => (n.id === notice.id ? { ...n, read: true, readCount: n.readCount + 1 } : n)));
+    }
+  };
 
   // 확정된 조율의 '일정 보기': 모임 일정 목록에서 찾아 상세를 연다
   // 방금 정해 목록이 아직 안 바뀌었으면 일정 목록을 새로 받아 찾는다
@@ -477,9 +496,12 @@ function GroupDetailContent() {
     .sort((a, b) => parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime())
     .slice(0, 3);
 
-  const tabItems: { key: TabType; label: string; count: number }[] = [
-    { key: 'memos', label: '메모', count: memos.length },
+  const unreadNotices = notices.filter(n => !n.read).length;
+  const tabItems: { key: TabType; label: string; count?: number }[] = [
+    // 공지 탭 숫자는 안 읽은 공지 수(0이면 숨김)
+    { key: 'notice', label: '공지', count: unreadNotices || undefined },
     { key: 'calendar', label: '일정', count: schedules.length },
+    { key: 'memos', label: '메모', count: memos.length },
     { key: 'topics', label: '토픽', count: topics.length },
     { key: 'members', label: '멤버', count: group.members.length },
   ];
@@ -560,7 +582,59 @@ function GroupDetailContent() {
           <UnderlineTabs className="mt-5 lg:mt-6" items={tabItems} active={activeTab} onChange={setActiveTab} />
 
           <div className="mt-5 min-h-[400px] outline-none lg:mt-6">
-            {activeTab === 'memos' ? (
+            {activeTab === 'notice' ? (
+              <div className="space-y-3">
+                {isOwner && (
+                  <div className="flex justify-end">
+                    <button type="button" onClick={() => setIsNoticeFormOpen(true)} className="btn-primary whitespace-nowrap">
+                      <Plus size={16} strokeWidth={1.5} /> 공지 쓰기
+                    </button>
+                  </div>
+                )}
+                {listError && notices.length === 0 ? (
+                  <ErrorState message={listError} onRetry={() => fetchGroupData()} />
+                ) : notices.length > 0 ? (
+                  <div className="space-y-2">
+                    {notices.map(n => (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => handleOpenNotice(n)}
+                        className="card flex w-full items-start gap-3 px-4 py-3 text-left hover:border-line-strong"
+                      >
+                        <span aria-hidden className={`w-[3px] shrink-0 self-stretch rounded-full ${n.pinnedAt ? 'bg-group' : 'bg-line'}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            {n.pinnedAt && (
+                              <Pin size={14} strokeWidth={1.5} className="shrink-0 text-group-ink" aria-label="고정됨" />
+                            )}
+                            <span className="truncate font-display text-[15px] leading-5 text-ink">{n.title}</span>
+                            {!n.read && <span role="img" className="size-1.5 shrink-0 rounded-full bg-mark" aria-label="안 읽음" />}
+                          </span>
+                          {n.preview && <span className="mt-1 line-clamp-2 block break-words text-sm text-ink-2">{n.preview}</span>}
+                          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-3">
+                            <span className="stamp">{formatStamp(n.createdAt, tf)}</span>
+                            <span>{n.memberCount}명 중 {n.readCount}명 읽음</span>
+                            {n.hasPoll && (
+                              <span className={n.pollClosed ? 'chip' : 'chip bg-accent-soft text-accent'}>
+                                {n.pollClosed ? '투표 마감' : '투표 중'}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <ChevronRight size={16} strokeWidth={1.5} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={Megaphone}
+                    title="아직 공지가 없어요"
+                    description={isOwner ? '모임에 알릴 일을 공지로 올려 보세요' : '방장이 공지를 올리면 여기에 보여요'}
+                  />
+                )}
+              </div>
+            ) : activeTab === 'memos' ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
                   <Segmented
@@ -815,6 +889,23 @@ function GroupDetailContent() {
           onOpenSchedule={handleOpenPollSchedule}
         />
       )}
+
+      <GroupNoticeFormModal
+        groupId={groupId}
+        open={isNoticeFormOpen}
+        onClose={() => setIsNoticeFormOpen(false)}
+        onSaved={(notice) => {
+          setIsNoticeFormOpen(false);
+          setOpenNoticeId(notice.id);
+          fetchGroupData(true);
+        }}
+      />
+      <GroupNoticeModal
+        groupId={groupId}
+        noticeId={openNoticeId}
+        onClose={closeNotice}
+        onChanged={refreshQuietly}
+      />
 
       <GroupModals
         isMemoModalOpen={isMemoModalOpen} setIsMemoModalOpen={setIsMemoModalOpen}
