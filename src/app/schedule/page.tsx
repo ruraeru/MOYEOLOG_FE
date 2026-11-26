@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import Navbar from '@/components/Navbar';
 import AppointmentModal from '@/components/AppointmentModal';
 import AppointmentDetailModal from '@/components/AppointmentDetailModal';
@@ -31,6 +31,7 @@ import {
   isSameMonth,
   isSameDay,
   isToday,
+  isThisYear,
   parseISO,
   startOfDay,
   max as maxDate
@@ -77,10 +78,31 @@ const VIEW_ITEMS: { key: ScheduleView; label: string }[] = [
 
 /** 내가 할 일이 남은 일정(출발지 미입력, 내가 만들었는데 장소 미정)의 칸: 옅은 붉은 바탕 + 붉은 글자 */
 const DEPARTURE_NEEDED_BOX = 'bg-negative-soft text-negative hover:bg-negative-soft/70';
+
+/** md(768px) 이상인지. 월 칸의 일정 줄 높이·탭 동작이 이 기준으로 바뀐다. 서버 렌더링은 모바일. */
+const MD_QUERY = '(min-width: 768px)';
+const subscribeMd = (cb: () => void) => {
+  const mq = window.matchMedia(MD_QUERY);
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+};
+function useIsMd() {
+  return useSyncExternalStore(subscribeMd, () => window.matchMedia(MD_QUERY).matches, () => false);
+}
+
+/** 개인 일정의 출처: 내가 만든 것은 '내 일정', 남이 만들고 나를 넣은 것은 '○○님 일정' */
+const personalLabel = (s: ScheduleResponse, myId?: string) =>
+  !myId || s.authorId === myId ? '내 일정' : `${s.authorNickname}님 일정`;
+
+const VIEW_PARAM = (v: string | null): ScheduleView | null => (v === 'month' || v === 'week' || v === 'list' ? v : null);
+
 export default function SchedulePage() {
   const { data: session } = useSession();
   const accessToken = session?.user?.accessToken;
+  const myId = session?.user?.id;
+  // 주소의 ?view=&date= 로 보던 보기·날짜를 새로고침·뒤로 가기 뒤에도 잇는다
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [urlRead, setUrlRead] = useState(false);
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
   const [userGroups, setUserGroups] = useState<GroupResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +113,28 @@ export default function SchedulePage() {
   const weekStartsOn = useWeekStartsOn();
   const [viewOverride, setViewOverride] = useState<ScheduleView | null>(null);
   const view = viewOverride ?? defaultView;
+
+  // 처음 한 번 주소에서 읽는다(서버 렌더링과 어긋나지 않게 마운트 뒤에)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const v = VIEW_PARAM(params.get('view'));
+    const d = params.get('date');
+    const parsed = d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? parseISO(d) : null;
+    // 주소(외부 상태)를 마운트 때 한 번 옮긴다
+    if (v) setViewOverride(v);
+    if (parsed && !Number.isNaN(parsed.getTime())) setCurrentDate(parsed);
+    setUrlRead(true);
+  }, []);
+
+  // 보기·날짜가 바뀌면 주소에 적는다(기록을 늘리지 않게 replaceState). 오늘이면 date 를 뺀다.
+  useEffect(() => {
+    if (!urlRead) return;
+    const params = new URLSearchParams(window.location.search);
+    if (viewOverride) params.set('view', viewOverride); else params.delete('view');
+    if (isToday(currentDate)) params.delete('date'); else params.set('date', format(currentDate, 'yyyy-MM-dd'));
+    const qs = params.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+  }, [urlRead, viewOverride, currentDate]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
@@ -167,6 +211,23 @@ export default function SchedulePage() {
     setSearchQuery('');
   };
 
+  // 모바일: 달력을 좌우로 밀면 이전·다음
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const t = e.changedTouches[0];
+    if (!start || !t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 2) return;
+    if (dx < 0) goNext(); else goPrev();
+  };
+
   // Filtered schedules logic
   const filteredSchedules = useMemo(() => {
     let result = [...schedules];
@@ -211,20 +272,40 @@ export default function SchedulePage() {
 
   const headers = weekdayHeaders(weekStartsOn);
 
+  /** 보기를 바꿀 때 기준 날짜: 주 → 월은 그 주(오늘이 있으면 오늘, 아니면 첫날), 다른 달의 월 → 주는 그 달 1일 */
+  const changeView = (next: ScheduleView) => {
+    const today = new Date();
+    if (view === 'week' && next !== 'week') {
+      setCurrentDate(weekDays.some((d) => isSameDay(d, today)) ? today : weekDays[0]);
+    } else if (view !== 'week' && next === 'week' && !isSameMonth(today, currentDate)) {
+      setCurrentDate(startOfMonth(currentDate));
+    }
+    setViewOverride(next);
+  };
+
+  /** '일정 추가' 기본 날짜: 보고 있는 범위에 오늘이 있으면 오늘, 아니면 그 주 첫날·그 달 1일 */
+  const addDefaultDate = () => {
+    const today = new Date();
+    if (view === 'week') return weekDays.some((d) => isSameDay(d, today)) ? today : weekDays[0];
+    return isSameMonth(today, currentDate) ? today : startOfMonth(currentDate);
+  };
+
   const filterValue = activeFilter.type === 'group' ? `group:${activeFilter.id}` : activeFilter.type;
   const onFilterSelect = (value: string) => {
     if (value.startsWith('group:')) setActiveFilter({ type: 'group', id: value.slice(6) });
     else setActiveFilter({ type: value as 'all' | 'my' });
   };
 
-  const searchInput = (className: string) => (
+  // 좁은 화면에서는 자리표시 글자가 잘리지 않게 짧게, 지우기 버튼이 없을 때는 오른쪽 여백을 줄인다
+  const searchInput = (className: string, placeholder = '일정 검색') => (
     <div className={`relative ${className}`}>
       <input
         type="text"
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="일정 검색"
-        className="form-input h-9 w-full pl-9 pr-9"
+        placeholder={placeholder}
+        aria-label="일정 검색"
+        className={`form-input h-9 w-full pl-9 ${searchQuery ? 'pr-9' : 'pr-3'}`}
       />
       <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
       {searchQuery && (
@@ -251,7 +332,7 @@ export default function SchedulePage() {
           <SideLabel>보기</SideLabel>
           <div className="space-y-0.5">
             <SideItem label="전체 일정" icon={CalendarIcon} count={schedules.length} active={activeFilter.type === 'all'} onClick={() => setActiveFilter({ type: 'all' })} />
-            <SideItem label="내 일정" icon={User} count={myCount} active={activeFilter.type === 'my'} onClick={() => setActiveFilter({ type: 'my' })} />
+            <SideItem label="개인 일정" icon={User} count={myCount} active={activeFilter.type === 'my'} onClick={() => setActiveFilter({ type: 'my' })} />
           </div>
 
           <SideLabel>모임</SideLabel>
@@ -281,30 +362,32 @@ export default function SchedulePage() {
         <main className="flex-1 flex flex-col overflow-hidden min-w-0 px-4 pt-4 pb-4 lg:px-8 lg:pt-6 lg:pb-6">
           {/* 머리: 제목 ‹ › 오늘 | 검색 · 보기 · 일정 추가 */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-3 shrink-0">
-            <div className="flex items-center gap-1 min-w-0">
-              <h1 className="font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9 whitespace-nowrap tabular-nums mr-2">
+            {/* 모바일: ‹ › 는 32px 그대로 두고 손가락 닿는 곳만 44px 로(after), 서로 겹치지 않게 12px 띄운다 */}
+            <div className="flex items-center gap-3 sm:gap-1 min-w-0">
+              <h1 className="font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9 whitespace-nowrap tabular-nums mr-1 sm:mr-2">
                 {view === 'week' ? (
-                  <>
-                    {format(weekDays[0], 'M.d')} – {format(weekDays[6], isSameMonth(weekDays[0], weekDays[6]) ? 'd' : 'M.d')}
-                  </>
+                  <span className="text-xl sm:text-2xl lg:text-[30px]">
+                    {format(weekDays[0], 'M.d')}<span className="sm:mx-1">–</span>{format(weekDays[6], isSameMonth(weekDays[0], weekDays[6]) ? 'd' : 'M.d')}
+                  </span>
                 ) : (
                   <>
                     <span className="hidden sm:inline">{format(currentDate, 'yyyy년 ')}</span>
+                    {!isThisYear(currentDate) && <span className="sm:hidden text-base text-ink-3">{format(currentDate, 'yy년 ')}</span>}
                     {format(currentDate, 'M월')}
                   </>
                 )}
               </h1>
-              <button onClick={goPrev} aria-label={view === 'week' ? '이전 주' : '이전 달'} className="btn-icon"><ChevronLeft size={18} strokeWidth={1.5} /></button>
-              <button onClick={goNext} aria-label={view === 'week' ? '다음 주' : '다음 달'} className="btn-icon"><ChevronRight size={18} strokeWidth={1.5} /></button>
+              <button onClick={goPrev} aria-label={view === 'week' ? '이전 주' : '이전 달'} className="btn-icon relative after:absolute after:-inset-1.5 lg:after:hidden"><ChevronLeft size={18} strokeWidth={1.5} /></button>
+              <button onClick={goNext} aria-label={view === 'week' ? '다음 주' : '다음 달'} className="btn-icon relative after:absolute after:-inset-1.5 lg:after:hidden"><ChevronRight size={18} strokeWidth={1.5} /></button>
               <button onClick={goToToday} className="btn-secondary btn-sm ml-1 hidden sm:inline-flex lg:h-9 lg:px-3.5 lg:text-[13px]">오늘</button>
             </div>
 
             <div className="ml-auto flex items-center gap-2 lg:gap-3 shrink-0">
               {searchInput('hidden xl:block w-50')}
-              <Segmented items={VIEW_ITEMS} active={view} onChange={setViewOverride} size="sm" ariaLabel="보기 전환" />
+              <Segmented items={VIEW_ITEMS} active={view} onChange={changeView} size="sm" ariaLabel="보기 전환" />
               <button
-                onClick={() => handleOpenCreate(isSameMonth(new Date(), currentDate) ? new Date() : currentDate)}
-                className="btn-primary h-8 px-3 lg:h-9 lg:px-3.5"
+                onClick={() => handleOpenCreate(addDefaultDate())}
+                className="btn-primary relative h-8 px-3 lg:h-9 lg:px-3.5 after:absolute after:inset-x-0 after:-inset-y-1.5 lg:after:hidden"
               >
                 <Plus size={16} strokeWidth={1.5} />
                 <span><span className="hidden sm:inline">일정 </span>추가</span>
@@ -314,11 +397,11 @@ export default function SchedulePage() {
             {/* 작은 화면: 오늘 · 검색 · 필터 */}
             <div className="w-full flex gap-2 xl:hidden">
               <button onClick={goToToday} className="btn-secondary shrink-0 sm:hidden">오늘</button>
-              {searchInput('flex-1 min-w-0')}
+              {searchInput('flex-1 min-w-0', '검색')}
               <div className="relative lg:hidden shrink-0 w-36">
                 <select value={filterValue} onChange={(e) => onFilterSelect(e.target.value)} aria-label="일정 필터" className="form-input h-9 appearance-none pr-8 truncate">
                   <option value="all">전체 일정</option>
-                  <option value="my">내 일정</option>
+                  <option value="my">개인 일정</option>
                   {userGroups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
                 </select>
                 <ChevronDown size={16} strokeWidth={1.5} className="text-ink-3 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -326,8 +409,16 @@ export default function SchedulePage() {
             </div>
           </div>
 
-          {/* 보기 */}
-          <div className="mt-4 lg:mt-5 flex-1 min-h-0 flex flex-col">
+          {/* 검색 결과가 하나도 없을 때 */}
+          {searchQuery.trim() && filteredSchedules.length === 0 && schedules.length > 0 && (
+            <p role="status" className="mt-3 flex shrink-0 items-center gap-2 text-[13px] text-ink-3">
+              <span className="min-w-0 truncate">&lsquo;{searchQuery.trim()}&rsquo;에 맞는 일정이 없어요</span>
+              <button onClick={() => setSearchQuery('')} className="btn-ghost btn-sm shrink-0">검색 지우기</button>
+            </p>
+          )}
+
+          {/* 보기: 모바일은 좌우로 밀어 이전·다음 */}
+          <div className="mt-4 lg:mt-5 flex-1 min-h-0 flex flex-col" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
             {loading && schedules.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-3">
                 <Loader2 size={20} strokeWidth={1.5} className="animate-spin text-ink-3" />
@@ -355,7 +446,8 @@ export default function SchedulePage() {
                 currentDate={currentDate}
                 schedules={filteredSchedules}
                 userGroups={userGroups}
-                onAddClick={() => handleOpenCreate(isSameMonth(new Date(), currentDate) ? new Date() : startOfMonth(currentDate))}
+                myId={myId}
+                onAddClick={() => handleOpenCreate(addDefaultDate())}
                 onScheduleClick={handleOpenDetail}
               />
             ) : (
@@ -378,6 +470,7 @@ export default function SchedulePage() {
                         userGroups={userGroups}
                         weatherOf={weatherOf}
                         onDayClick={handleOpenListModal}
+                        onAddClick={handleOpenCreate}
                         onScheduleClick={(e, schedule) => { e.stopPropagation(); handleOpenDetail(schedule); }}
                       />
                     ))}
@@ -430,6 +523,7 @@ interface CalendarDayProps {
   userGroups: GroupResponse[];
   weatherOf: (s: ScheduleResponse) => WeatherAt | null;
   onDayClick: (date: Date) => void;
+  onAddClick: (date: Date) => void;
   onScheduleClick: (e: React.MouseEvent, schedule: ScheduleResponse) => void;
 }
 
@@ -442,60 +536,113 @@ function dayWeather(items: ScheduleResponse[], day: Date, weatherOf: (s: Schedul
   return null;
 }
 
-function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, weatherOf, onDayClick, onScheduleClick }: CalendarDayProps) {
+/** 월 칸 일정 줄 높이(h-5 / md:h-6), 줄 사이(gap-1), '+n' 줄 높이(leading-4) */
+const ITEM_H = { mobile: 20, md: 24 } as const;
+const ITEM_GAP = 4;
+const MORE_H = 16;
+
+/** 칸 높이 안에 들어가는 일정 수. 다 안 들어가면 '+n' 줄 자리를 남긴다. */
+function visibleCount(total: number, height: number, itemH: number) {
+  const fits = Math.max(0, Math.floor((height + ITEM_GAP) / (itemH + ITEM_GAP)));
+  if (total <= fits) return total;
+  return Math.max(0, Math.floor((height - MORE_H) / (itemH + ITEM_GAP)));
+}
+
+/** 여러 날 일정이 그 날 칸에서 이어지는 쪽의 모서리를 각지게 해 띠처럼 보이게 한다 */
+function spanRounding(s: ScheduleResponse, day: Date) {
+  if (!isMultiDaySchedule(s)) return 'rounded-md';
+  const first = isSameDay(parseISO(s.startTime), day);
+  const last = !schedulesOnDay([s], addDays(day, 1)).length;
+  if (first) return 'rounded-l-md';
+  if (last) return 'rounded-r-md';
+  return '';
+}
+
+function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, weatherOf, onDayClick, onAddClick, onScheduleClick }: CalendarDayProps) {
   const tf = useTimeFormat();
+  const isMd = useIsMd();
   // 여러 날 일정은 걸친 모든 날짜 칸에 나온다.
   const daySchedules = schedulesOnDay(schedules, day);
   const weather = dayWeather(daySchedules, day, weatherOf);
   const isCurrMonth = isSameMonth(day, currentDate);
 
+  // 칸 높이(창 크기·6줄 달)에 맞춰 보이는 개수를 정한다. 재기 전에는 2개.
+  const listRef = useRef<HTMLDivElement>(null);
+  const [listH, setListH] = useState<number | null>(null);
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setListH(entry.contentRect.height));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const shown = listH == null
+    ? Math.min(daySchedules.length, 2)
+    : visibleCount(daySchedules.length, listH, isMd ? ITEM_H.md : ITEM_H.mobile);
+  const hidden = daySchedules.length - shown;
+  const dateLabel = format(day, 'M월 d일 EEEE', { locale: ko });
+
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${dateLabel}, 일정 ${daySchedules.length}개`}
       onClick={() => onDayClick(day)}
-      className={`${lastCol ? '' : 'border-r'} border-b border-line p-1 md:p-2 min-h-0 min-w-0 flex flex-col gap-1 relative group cursor-pointer transition-colors duration-150 ease-out ${
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onDayClick(day);
+        }
+      }}
+      className={`${lastCol ? '' : 'border-r'} border-b border-line p-1 md:p-2 min-h-0 min-w-0 flex flex-col gap-1 relative group cursor-pointer transition-colors duration-150 ease-out focus-visible:-outline-offset-2 ${
         isCurrMonth ? 'bg-surface hover:bg-canvas' : 'bg-canvas'
       }`}
     >
-      <div className="flex items-center justify-between shrink-0">
+      <div className="flex items-center justify-between gap-0.5 shrink-0">
         <DayNumber day={day} muted={!isCurrMonth} />
         <span className="flex items-center gap-0.5">
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onDayClick(day);
+            onAddClick(day);
           }}
-          aria-label="이 날 일정 보기"
-          className="hidden md:inline-flex size-6 items-center justify-center rounded-md text-ink-3 opacity-0 group-hover:opacity-100 hover:bg-raised hover:text-ink transition-opacity duration-150 ease-out"
+          aria-label={`${format(day, 'M월 d일', { locale: ko })}에 일정 추가`}
+          className="hidden md:inline-flex size-6 items-center justify-center rounded-md text-ink-3 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-raised hover:text-ink transition-opacity duration-150 ease-out"
         >
           <Plus size={16} strokeWidth={1.5} />
         </button>
-        {weather && <WeatherIcon weather={weather} className="md:mr-0.5" />}
+        {weather && <WeatherIcon weather={weather} size={isMd ? 16 : 14} className="md:mr-0.5" />}
         </span>
       </div>
-      <div className={`flex-1 flex flex-col gap-1 overflow-hidden min-h-0 ${isCurrMonth ? '' : 'opacity-70'}`}>
-        {daySchedules.slice(0, 3).map((s, idx) => (
-          <div
-            key={s.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              onScheduleClick(e, s);
-            }}
-            title={`${s.title} · ${formatScheduleRange(s, tf)}${scheduleAlert(s) ? ` · ${scheduleAlert(s)}` : ''}`}
-            className={`${idx === 2 ? 'hidden md:flex' : 'flex'} items-center gap-1 md:gap-1.5 h-5 md:h-6 px-1 md:px-1.5 rounded-md text-[11px] md:text-xs cursor-pointer transition-colors duration-150 ease-out shrink-0 min-w-0 ${scheduleAlert(s) ? DEPARTURE_NEEDED_BOX : 'bg-raised text-ink hover:bg-line'}`}
-          >
-            <Ribbon color={scheduleHex(s, userGroups)} className="h-3" />
-            <span className="stamp shrink-0 hidden md:inline">{formatTimeOnDay(s, day, tf)}</span>
-            <span className="truncate min-w-0">{s.title}</span>
-          </div>
-        ))}
-        {daySchedules.length > 2 && (
-          <div className="md:hidden text-[11px] text-ink-3 tabular-nums px-1 shrink-0">
-            +{daySchedules.length - 2}
-          </div>
-        )}
-        {daySchedules.length > 3 && (
-          <div className="hidden md:block text-xs text-ink-3 tabular-nums px-1.5 shrink-0">
-            +{daySchedules.length - 3}개 더
+      <div ref={listRef} className={`flex-1 flex flex-col gap-1 overflow-hidden min-h-0 ${isCurrMonth ? '' : 'opacity-70'}`}>
+        {daySchedules.slice(0, shown).map((s) => {
+          const alert = scheduleAlert(s);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              // 모바일은 일정 줄이 작아 칸 전체를 한 동작(그 날 목록)으로 둔다. 데스크톱은 바로 상세.
+              tabIndex={isMd ? 0 : -1}
+              onClick={(e) => {
+                if (!isMd) return;
+                e.stopPropagation();
+                onScheduleClick(e, s);
+              }}
+              title={`${s.title} · ${formatScheduleRange(s, tf)}${alert ? ` · ${alert}` : ''}`}
+              className={`flex items-center gap-0.5 md:gap-1.5 h-5 md:h-6 px-0.5 md:px-1.5 text-left text-[11px] md:text-xs cursor-pointer transition-colors duration-150 ease-out shrink-0 min-w-0 ${spanRounding(s, day)} ${alert ? DEPARTURE_NEEDED_BOX : 'bg-raised text-ink hover:bg-line'}`}
+            >
+              <Ribbon color={scheduleHex(s, userGroups)} className="h-3" />
+              {/* 붉은 칸은 시각 자리에 까닭을 적는다 */}
+              <span className={`shrink-0 hidden md:inline ${alert ? 'text-[11px]' : 'stamp'}`}>{alert ?? formatTimeOnDay(s, day, tf)}</span>
+              {/* 모바일은 칸이 좁아 말줄임표 대신 들어가는 만큼 글자를 보여 준다 */}
+              <span className="min-w-0 overflow-hidden whitespace-nowrap text-clip md:text-ellipsis">{s.title}</span>
+            </button>
+          );
+        })}
+        {hidden > 0 && (
+          <div className="text-[11px] md:text-xs leading-4 text-ink-3 tabular-nums px-1 md:px-1.5 shrink-0">
+            +{hidden}<span className="hidden md:inline">개 더</span>
           </div>
         )}
       </div>
@@ -515,21 +662,31 @@ interface WeekViewProps {
 
 function WeekView({ days, schedules, userGroups, weatherOf, onDayClick, onAddClick, onScheduleClick }: WeekViewProps) {
   const tf = useTimeFormat();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const todayRef = useRef<HTMLDivElement>(null);
+  const weekKey = format(days[0], 'yyyy-MM-dd');
+  // 모바일은 날짜가 세로로 쌓이므로 이번 주를 열면 오늘로 스크롤한다
+  useEffect(() => {
+    const box = scrollRef.current;
+    const today = todayRef.current;
+    if (!box || !today) return;
+    box.scrollTop = today.offsetTop; // 카드가 relative 라 카드 기준 위치
+  }, [weekKey]);
   return (
-    <div className="card flex-1 min-h-0 overflow-y-auto no-scrollbar">
+    <div ref={scrollRef} className="card relative flex-1 min-h-0 overflow-y-auto no-scrollbar">
       <div className="grid grid-cols-1 md:grid-cols-7 md:min-h-full md:divide-x divide-line">
         {days.map((day) => {
           const items = schedulesOnDay(schedules, day);
           const weather = dayWeather(items, day, weatherOf);
           return (
-            <div key={day.toISOString()} className="flex flex-col border-b md:border-b-0 border-line last:border-b-0 min-w-0">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 md:sticky md:top-0 bg-surface border-b border-line">
-                <button type="button" onClick={() => onDayClick(day)} className="flex items-center gap-1.5 text-left">
+            <div key={day.toISOString()} ref={isToday(day) ? todayRef : undefined} className="flex flex-col border-b md:border-b-0 border-line last:border-b-0 min-w-0">
+              <div className="flex items-center justify-between gap-2 px-3 py-1 md:py-2 md:sticky md:top-0 bg-surface border-b border-line">
+                <button type="button" onClick={() => onDayClick(day)} aria-label={`${format(day, 'M월 d일 EEEE', { locale: ko })} 일정 보기`} className="flex min-h-11 md:min-h-0 items-center gap-1.5 text-left">
                   <span className="text-xs text-ink-3">{format(day, 'EEE', { locale: ko })}</span>
                   <DayNumber day={day} />
                   {weather && <WeatherIcon weather={weather} />}
                 </button>
-                <button type="button" onClick={() => onAddClick(day)} aria-label={`${format(day, 'M월 d일', { locale: ko })}에 일정 추가`} className="btn-icon text-ink-3">
+                <button type="button" onClick={() => onAddClick(day)} aria-label={`${format(day, 'M월 d일', { locale: ko })}에 일정 추가`} className="btn-icon size-11 md:size-8 text-ink-3">
                   <Plus size={16} strokeWidth={1.5} />
                 </button>
               </div>
@@ -545,7 +702,8 @@ function WeekView({ days, schedules, userGroups, weatherOf, onDayClick, onAddCli
                     <Ribbon color={scheduleHex(s, userGroups)} className="h-auto" />
                     <span className="flex-1 min-w-0">
                       <span className="stamp block">{formatTimeOnDay(s, day, tf)}</span>
-                      <span className={`block text-[13px] line-clamp-2 break-words ${scheduleAlert(s) ? '' : 'text-ink'}`}>{s.title}</span>
+                      {/* line-clamp 는 display 를 직접 정하므로 block 을 같이 쓰지 않는다. 한글은 단어 단위로 줄바꿈 */}
+                      <span className={`text-[13px] line-clamp-2 break-keep [overflow-wrap:anywhere] ${scheduleAlert(s) ? '' : 'text-ink'}`}>{s.title}</span>
                       {scheduleAlert(s) && <span className="block text-[11px]">{scheduleAlert(s)}</span>}
                     </span>
                   </button>
@@ -564,6 +722,7 @@ interface ListViewProps {
   currentDate: Date;
   schedules: ScheduleResponse[];
   userGroups: GroupResponse[];
+  myId?: string;
   onAddClick: () => void;
   onScheduleClick: (schedule: ScheduleResponse) => void;
 }
@@ -576,7 +735,7 @@ function dayHeading(day: Date) {
   return base;
 }
 
-function ListView({ currentDate, schedules, userGroups, onAddClick, onScheduleClick }: ListViewProps) {
+function ListView({ currentDate, schedules, userGroups, myId, onAddClick, onScheduleClick }: ListViewProps) {
   const tf = useTimeFormat();
   // 이 달에 걸친 일정을 날짜별로 묶는다. 지난달에 시작한 일정은 1일에 둔다.
   const groups = useMemo(() => {
@@ -595,6 +754,25 @@ function ListView({ currentDate, schedules, userGroups, onAddClick, onScheduleCl
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => ({ ...v, items: sortSchedules(v.items) }));
   }, [currentDate, schedules]);
 
+  // 이번 달을 열면 오늘(없으면 오늘 뒤 첫 날) 묶음으로 한 번 스크롤한다. 자동 갱신 때는 다시 움직이지 않는다.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrolledFor = useRef<string | null>(null);
+  const monthKey = format(currentDate, 'yyyy-MM');
+  const todayKey = useMemo(() => {
+    const today = startOfDay(new Date());
+    if (!isSameMonth(today, currentDate)) return null;
+    const target = groups.find((g) => g.day >= today);
+    return target ? format(target.day, 'yyyy-MM-dd') : null;
+  }, [groups, currentDate]);
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!box || !todayKey || scrolledFor.current === monthKey) return;
+    const el = box.querySelector<HTMLElement>(`[data-day="${todayKey}"]`);
+    if (!el) return;
+    box.scrollTop = el.offsetTop; // 스크롤 상자가 relative 라 상자 기준 위치
+    scrolledFor.current = monthKey;
+  }, [todayKey, monthKey]);
+
   if (groups.length === 0) {
     return (
       <EmptyState
@@ -607,15 +785,15 @@ function ListView({ currentDate, schedules, userGroups, onAddClick, onScheduleCl
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar">
-      <div className="max-w-3xl space-y-5 pb-4">
+    <div ref={scrollRef} className="relative flex-1 min-h-0 overflow-y-auto no-scrollbar">
+      <div className="space-y-5 pb-4">
         {groups.map(({ day, items }) => (
-          <section key={day.toISOString()}>
+          <section key={day.toISOString()} data-day={format(day, 'yyyy-MM-dd')}>
             <h3 className="font-display text-[15px] leading-6 text-ink-2 mb-2">{dayHeading(day)}</h3>
             <div className="space-y-2">
               {items.map((s) => {
                 const group = s.groupId ? userGroups.find((g) => g.id === s.groupId) : undefined;
-                const meta = [group ? group.name : '내 일정', s.location].filter(Boolean).join(' · ');
+                const meta = [group ? group.name : s.groupId ? '모임' : personalLabel(s, myId), s.location].filter(Boolean).join(' · ');
                 return (
                   <button
                     key={s.id}
