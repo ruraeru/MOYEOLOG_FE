@@ -21,6 +21,25 @@ const getCallbackPath = () =>
 
 const getLoginError = () => new URLSearchParams(window.location.search).get('error');
 
+/** 이메일 폼을 펼친 상태는 주소(?email=1)에, 쓰던 이메일은 이 탭의 sessionStorage 에 둔다 — 찾기 화면에서 돌아와도 그대로 */
+const EMAIL_DRAFT_KEY = 'moyeolog:login-email';
+const readEmailOpen = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('email') === '1';
+const readEmailDraft = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return sessionStorage.getItem(EMAIL_DRAFT_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+const saveEmailDraft = (value: string) => {
+  try {
+    sessionStorage.setItem(EMAIL_DRAFT_KEY, value);
+  } catch {
+    // 저장소를 못 쓰면 기억하지 않는다
+  }
+};
+
 /** NextAuth 오류 코드 → 문구. CredentialsSignin·TooManyAttempts 는 auth.ts 의 credentials 로그인이 낸다 */
 const loginErrorMessage = (code: string | null | undefined) => {
   if (code === 'CredentialsSignin') return '이메일 또는 비밀번호가 올바르지 않아요.';
@@ -38,11 +57,11 @@ const PREVIEW_ROWS = [
 export default function LoginPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(readEmailDraft);
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [emailOpen, setEmailOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(readEmailOpen);
 
   const isMounted = useSyncExternalStore(
     emptySubscribe,
@@ -130,7 +149,12 @@ export default function LoginPage() {
           {!showEmail && (
             <button
               type="button"
-              onClick={() => setEmailOpen(true)}
+              onClick={() => {
+                setEmailOpen(true);
+                const url = new URL(window.location.href);
+                url.searchParams.set('email', '1');
+                window.history.replaceState(window.history.state, '', url);
+              }}
               className="btn-secondary mt-6 h-12 w-full max-w-[400px] text-[15px]"
             >
               이메일로 계속하기
@@ -151,7 +175,10 @@ export default function LoginPage() {
                 placeholder="이메일"
                 autoFocus={emailOpen}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  saveEmailDraft(e.target.value);
+                }}
                 className="form-input h-11"
               />
             </div>
@@ -178,11 +205,14 @@ export default function LoginPage() {
               {submitting ? '로그인하는 중...' : '이메일로 로그인'}
             </button>
           </form>
-          <div className="mt-4 flex w-full max-w-[400px] items-center justify-between text-[13px]">
-            <Link href="/signup" className="text-accent underline-offset-2 hover:underline">
+          <div className="mt-1 flex w-full max-w-[400px] items-center justify-between text-[13px]">
+            <Link href="/signup" className="inline-flex min-h-11 items-center pr-3 text-accent underline-offset-2 hover:underline">
               이메일로 가입
             </Link>
-            <Link href="/reset-password" className="text-ink-2 underline-offset-2 hover:text-ink hover:underline">
+            <Link
+              href={email.trim() ? `/reset-password?email=${encodeURIComponent(normalizeEmail(email))}` : '/reset-password'}
+              className="inline-flex min-h-11 items-center pl-3 text-ink-2 underline-offset-2 hover:text-ink hover:underline"
+            >
               비밀번호를 잊었어요
             </Link>
           </div>

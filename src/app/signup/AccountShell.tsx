@@ -8,12 +8,12 @@ import { Logo } from '@/components/Logo';
  */
 export function AccountShell({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
   return (
-    <main className="flex min-h-screen items-start justify-center bg-canvas px-4 py-12 sm:items-center">
+    <main className="flex min-h-screen items-start justify-center bg-canvas px-6 py-12 sm:items-center">
       <div className="w-full max-w-[400px]">
         <Link href="/" className="inline-flex items-center">
           <Logo height={46} />
         </Link>
-        <div className="card mt-8 p-6">
+        <div className="card mt-8 break-keep p-6">
           <h1 className="font-display text-2xl leading-8 text-ink">{title}</h1>
           {description && <div className="mt-1 text-sm text-ink-2">{description}</div>}
           <div className="mt-6">{children}</div>

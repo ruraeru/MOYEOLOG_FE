@@ -51,6 +51,8 @@ export default function SessionGuard() {
       wasAuthenticated.current = true;
       return;
     }
+    // 비밀번호 재설정 화면은 저장한 뒤 스스로 로그아웃하고 완료 안내를 보여 준다(그 화면은 로그인 없이 쓴다)
+    if (window.location.pathname.startsWith('/reset-password')) return;
     if (status === 'unauthenticated' && wasAuthenticated.current && !signingOut.current) {
       // 다른 탭에서 로그아웃함(next-auth 가 탭 사이에 알려 줌) 또는 세션 쿠키가 만료됨
       signingOut.current = true;
