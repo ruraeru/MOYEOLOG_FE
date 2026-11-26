@@ -37,7 +37,7 @@ export function MemberCard({ member, isOwner, isMe, currentUserIsOwner, onKick }
           onClick={onKick}
           aria-label={`${member.nickname} 내보내기`}
           title="내보내기"
-          className="btn-icon shrink-0 hover:!bg-negative-soft hover:!text-negative focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/member:opacity-100"
+          className="btn-icon shrink-0 text-ink-3 max-md:size-11 hover:!bg-negative-soft hover:!text-negative"
         >
           <UserMinus size={16} strokeWidth={1.5} />
         </button>

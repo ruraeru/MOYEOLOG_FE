@@ -352,14 +352,13 @@ function NotificationsContent() {
   /** 초대 수락·거절. 이미 처리됐거나(409) 모임·초대가 사라졌으면(404) 안내하고 카드를 없앱니다. */
   const handleInvitation = async (invite: GroupInvitationResponse, kind: 'accept' | 'reject') => {
     if (processingId) return;
-    if (kind === 'reject') {
-      const ok = await confirm(
-        `"${invite.groupName}" 모임 초대를 거절하면 며칠 동안 이 모임에 다시 초대받을 수 없어요.`,
-        '모임 초대를 거절할까요?',
-        '거절',
-      );
-      if (!ok) return;
-    }
+    // 거절은 되돌릴 수 없다. 방장이 아닌 멤버는 며칠 동안 다시 초대하지 못한다(백엔드 GroupService 재초대 대기)
+    if (kind === 'reject' && !(await confirm(
+      '거절하면 이 초대는 사라져요. 며칠 동안은 방장만 다시 초대할 수 있어요.',
+      `'${invite.groupName}' 모임 초대를 거절할까요?`,
+      '거절',
+      '취소',
+    ))) return;
     setProcessingId(invite.id);
     try {
       if (kind === 'accept') await groupApi.acceptInvitation(invite.id, session);
@@ -367,6 +366,8 @@ function NotificationsContent() {
       setInvitations((prev) => prev.filter((i) => i.id !== invite.id));
       toast.success(kind === 'accept' ? `"${invite.groupName}" 모임에 참여했어요` : '모임 초대를 거절했어요');
       refreshUnreadCounts();
+      // 수락하면 바로 그 모임으로 간다
+      if (kind === 'accept') router.push(`/groups/${invite.groupId}`);
     } catch (error) {
       const code = axios.isAxiosError(error) ? error.response?.status : undefined;
       if (code === 409) {
@@ -470,6 +471,20 @@ function NotificationsContent() {
                           </p>
                           <span className="stamp shrink-0 pt-1.5 max-lg:hidden">{formatStamp(invite.invitedAt, tf)}</span>
                         </div>
+                        {/* 수락 전에 어떤 모임인지(인원·방장·소개) */}
+                        {(invite.memberCount != null || invite.ownerNickname || invite.groupDescription) && (
+                          <div className="mt-1 text-[13px] text-ink-3">
+                            {(invite.memberCount != null || invite.ownerNickname) && (
+                              <p className="tabular-nums">
+                                {[invite.memberCount != null ? `멤버 ${invite.memberCount}명` : '', invite.ownerNickname ? `방장 ${invite.ownerNickname}` : '']
+                                  .filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                            {invite.groupDescription && (
+                              <p className="mt-0.5 line-clamp-2 break-words break-keep text-ink-2">{invite.groupDescription}</p>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mt-2.5">
                           <button
                             onClick={() => handleInvitation(invite, 'accept')}
