@@ -23,7 +23,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoCreateModal from '@/components/MemoCreateModal';
-import { memoApi, type MemoResponse } from '@/lib/memo-api';
+import { memoApi, isSharedByMe, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { GroupAvatar } from '@/components/groups/GroupIdentity';
 import type { MemoCardView } from '@/types/memo';
@@ -33,8 +33,8 @@ import { useAlert } from '@/hooks/useAlert';
 
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
-/** 카드에 모임 띠 색(hex)과 작성자를 더한 것 */
-type MemoCardItem = MemoCardView & { ribbon: string; author?: string; groupId?: string; group?: GroupResponse };
+/** 카드에 모임 띠 색(hex)과 작성자, 내가 공유했는지를 더한 것 */
+type MemoCardItem = MemoCardView & { ribbon: string; author?: string; groupId?: string; group?: GroupResponse; sharedByMe?: boolean };
 
 const TAG_PREVIEW_COUNT = 15;
 const MEMO_VIEW_KEY = 'moyeolog.memoView';
@@ -233,7 +233,8 @@ function MemoContent() {
         locked: false,
         isFavorite: m.isFavorite,
         groupId: m.groupId,
-        group
+        group,
+        sharedByMe: isSharedByMe(m, userId)
       };
     });
   }, [filter, myMemos, sharedMemos, groupMemos, favoriteMemos, userGroups, combinedUniqueMemos, selectedTags, searchQuery, userId]);
@@ -558,7 +559,7 @@ interface MemoCardProps extends MemoCardItem {
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, viewMode, onClick, onToggleFavorite, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
     <div
@@ -571,6 +572,8 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
           <h3 className="font-display text-[17px] leading-6 text-ink truncate">{title}</h3>
           <div className="-mr-1.5 -mt-1 flex shrink-0 items-center gap-1">
             {locked && <Lock size={16} strokeWidth={1.5} className="text-ink-3" />}
+            {/* 내가 친구나 모임에 공유한 메모 */}
+            {sharedByMe && <span className="chip">공유함</span>}
             <button
               type="button"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}

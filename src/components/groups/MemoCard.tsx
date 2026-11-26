@@ -61,7 +61,8 @@ export function MemoCard({ memo, viewMode, color, onClick }: MemoCardProps) {
           </div>
         )}
         <div className={`flex items-center justify-between gap-2 ${isList ? '' : 'mt-auto pt-1'}`}>
-          <span className="truncate text-xs text-ink-3">{authorName}</span>
+          {/* groupId 가 없는 메모는 작성자가 이 모임에 공유한 개인 메모다(멤버는 읽기만) */}
+          <span className="truncate text-xs text-ink-3">{authorName}{!memo.groupId && ' · 공유된 메모'}</span>
           <span className="stamp shrink-0">{format(new Date(memo.createdAt), 'M.d')}</span>
         </div>
       </div>
