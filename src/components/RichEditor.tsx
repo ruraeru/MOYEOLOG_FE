@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
@@ -151,7 +152,8 @@ export default function RichEditor({ value, onChange, placeholder, mentions, cla
     },
     onUpdate: ({ editor }) => {
       // 끝에 남는 빈 줄은 저장하지 않는다
-      const markdown = editor.getMarkdown().replace(/\n+$/, '');
+      // 빈 문단은 &nbsp; 로 나가므로 그것까지 지운다
+      const markdown = editor.getMarkdown().replace(/(?:\s|&nbsp;|\u00a0)+$/, '');
       emitted.current = markdown;
       onChangeRef.current(markdown);
       setMention(findMention(editor));
@@ -277,57 +279,62 @@ export default function RichEditor({ value, onChange, placeholder, mentions, cla
 
       {notice && <p className="shrink-0 border-t border-line px-4 py-1.5 text-xs text-ink-3">{notice}</p>}
 
-      {matched.length > 0 && (
-        <div
-          role="listbox"
-          aria-label="연결할 일정·메모"
-          style={popupStyle}
-          className={`z-50 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float no-scrollbar ${
-            popupStyle ? 'fixed' : 'absolute bottom-4 left-4 max-h-64 w-72 max-w-[calc(100%-2rem)]'
-          }`}
-        >
-          {matchedSchedules.length > 0 && (
-            <div className="mb-1">
-              <div className="px-2.5 py-1 text-xs font-medium text-ink-3">일정</div>
-              {matchedSchedules.map((s, i) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  role="option"
-                  aria-selected={i === activeIndex}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setActiveIndex(i)}
-                  onClick={() => insertMention(s, 'schedule')}
-                  className={optionClass(i)}
-                >
-                  <Calendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                  <span className="truncate">{s.title}</span>
-                </button>
-              ))}
+      {/* 커서 기준 목록(fixed)은 body 에 그린다. 창(Modal) 패널의 애니메이션이 남긴 transform 이 fixed 의 기준이 되어
+          목록이 창 위치만큼 밀리고 창 밖에서 잘리기 때문이다. React 트리는 그대로라 클릭은 창 안 클릭으로 처리된다 */}
+      {matched.length > 0 && (() => {
+        const list = (
+            <div
+              role="listbox"
+              aria-label="연결할 일정·메모"
+              style={popupStyle}
+              className={`overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float no-scrollbar ${
+                popupStyle ? 'fixed z-[130]' : 'absolute z-50 bottom-4 left-4 max-h-64 w-72 max-w-[calc(100%-2rem)]'
+              }`}
+            >
+              {matchedSchedules.length > 0 && (
+                <div className="mb-1">
+                  <div className="px-2.5 py-1 text-xs font-medium text-ink-3">일정</div>
+                  {matchedSchedules.map((s, i) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="option"
+                      aria-selected={i === activeIndex}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setActiveIndex(i)}
+                      onClick={() => insertMention(s, 'schedule')}
+                      className={optionClass(i)}
+                    >
+                      <Calendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
+                      <span className="truncate">{s.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {matchedMemos.length > 0 && (
+                <div>
+                  <div className="px-2.5 py-1 text-xs font-medium text-ink-3">메모</div>
+                  {matchedMemos.map((m, j) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      role="option"
+                      aria-selected={matchedSchedules.length + j === activeIndex}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseEnter={() => setActiveIndex(matchedSchedules.length + j)}
+                      onClick={() => insertMention(m, 'memo')}
+                      className={optionClass(matchedSchedules.length + j)}
+                    >
+                      <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
+                      <span className="truncate">{m.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-          {matchedMemos.length > 0 && (
-            <div>
-              <div className="px-2.5 py-1 text-xs font-medium text-ink-3">메모</div>
-              {matchedMemos.map((m, j) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  role="option"
-                  aria-selected={matchedSchedules.length + j === activeIndex}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setActiveIndex(matchedSchedules.length + j)}
-                  onClick={() => insertMention(m, 'memo')}
-                  className={optionClass(matchedSchedules.length + j)}
-                >
-                  <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                  <span className="truncate">{m.title}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        );
+        return popupStyle && typeof document !== 'undefined' ? createPortal(list, document.body) : list;
+      })()}
     </div>
   );
 }

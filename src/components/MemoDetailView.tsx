@@ -648,8 +648,14 @@ export default function MemoDetailView({
   }, [isEditing]);
 
   const handleBack = () => {
-    // 주소로 바로 열었으면 돌아갈 곳이 없다 → 메모 목록
-    if (window.history.length > 1) router.back();
+    // 앱 안에서 왔을 때만 뒤로 간다. 주소로 바로·새 탭으로 열었으면(history.length 는 새 탭에서도 2) 메모 목록으로
+    let fromApp = false;
+    try {
+      fromApp = !!document.referrer && new URL(document.referrer).origin === window.location.origin;
+    } catch {
+      fromApp = false;
+    }
+    if (fromApp && window.history.length > 1) router.back();
     else router.push('/memo');
   };
 
@@ -935,6 +941,8 @@ export default function MemoDetailView({
               onChange={setEditContent}
               mentions={{ memos: allMemos.filter((m) => m.id !== memo.id), schedules }}
               className="min-h-[300px] lg:h-[60vh]"
+              // 모바일 편집 중에는 위에 취소·저장 머리(60px)가 붙어 있으므로 도구 막대를 그 아래에 붙인다
+              toolbarStickyClassName="top-[60px] lg:top-0"
             />
           ) : (
             <EdMarkdown
@@ -1046,7 +1054,8 @@ export default function MemoDetailView({
           {isEditing && permissions.tag && (
             <p className="text-xs text-ink-3">태그는 바꾸는 즉시 저장돼요. 수정을 취소해도 그대로예요.</p>
           )}
-          <div className="flex flex-wrap items-center gap-1.5">
+          {/* 터치 기기: 빼기 버튼 누르는 영역이 옆·아랫줄 태그와 겹치지 않게 줄 간격을 벌린다 */}
+          <div className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-x-2 pointer-coarse:gap-y-3">
             {currentTags.map((tag) => (
               <span key={tag} className="chip gap-1">
                 #{tag}
@@ -1054,7 +1063,8 @@ export default function MemoDetailView({
                   <button
                     onClick={() => removeTag(tag)}
                     type="button"
-                    className="relative -mr-0.5 text-ink-3 transition-colors duration-150 ease-out after:absolute after:-inset-4 after:content-[''] hover:text-negative lg:after:-inset-1.5"
+                    // 터치 기기: 버튼 자체를 32px 로(칩 높이 안), 위아래만 6px 더 넓혀 44px. 옆으로는 넓히지 않아 이웃 태그를 덮지 않는다
+                    className="relative -mr-0.5 text-ink-3 transition-colors duration-150 ease-out after:absolute after:-inset-1.5 after:content-[''] hover:text-negative pointer-coarse:-my-1.5 pointer-coarse:-mr-2 pointer-coarse:inline-flex pointer-coarse:size-8 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:after:inset-x-0 pointer-coarse:after:-inset-y-1.5"
                     aria-label={`${tag} 태그 빼기`}
                   >
                     <X size={12} strokeWidth={1.5} />
