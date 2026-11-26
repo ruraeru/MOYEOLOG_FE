@@ -109,7 +109,9 @@ export default function AppointmentDetailView({
         setIsLoadingLocation(true);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const kakao = (window as any).kakao;
-        if (kakao && kakao.maps && kakao.maps.services) {
+        if (kakao?.maps?.load) {
+          // autoload=false 라 load() 뒤에야 services 가 생긴다
+          await new Promise<void>((resolve) => kakao.maps.load(resolve));
           const ps = new kakao.maps.services.Places();
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ps.keywordSearch(schedule.location, async (data: any, status: any) => {
