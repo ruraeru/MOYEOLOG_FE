@@ -23,6 +23,8 @@ export interface MemoSharedUser {
   id: string;
   nickname: string;
   profileImage?: string | null;
+  /** 이 사람이 메모를 고칠 수 있게 공유했는가 (기본 읽기 전용) */
+  canEdit?: boolean;
 }
 
 export interface MemoResponse {
@@ -43,6 +45,8 @@ export interface MemoResponse {
   isFavorite: boolean;
   /** 작성자에게만 채워짐 */
   sharedWith?: MemoSharedUser[];
+  /** 이 개인 메모를 공유한 모임 (작성자에게만 채워짐) */
+  sharedGroupIds?: string[];
   version?: number;
   permissions?: MemoPermissions;
   createdAt: string;
@@ -62,6 +66,12 @@ export function getMemoPermissions(memo: MemoResponse, userId?: string | null): 
     return { edit: true, delete: false, share: false, tag: true, analyze: false };
   }
   return { edit: false, delete: false, share: false, tag: false, analyze: false };
+}
+
+/** 내가 다른 사람(친구·모임)에게 공유한 메모인가. 공유 목록은 작성자에게만 내려온다. */
+export function isSharedByMe(memo: MemoResponse, userId?: string | null): boolean {
+  return !!userId && memo.authorId === userId
+    && ((memo.sharedWith?.length ?? 0) > 0 || (memo.sharedGroupIds?.length ?? 0) > 0);
 }
 
 /** 메모 본문의 [@제목](/memo|schedule/id) 링크에서 id 를 뽑는다. */
@@ -199,11 +209,26 @@ export const memoApi = {
     return processMemoResponse(response.data);
   },
 
-  async share(id: string, friendIds: string[], session: Session | null): Promise<void> {
-    await axiosInstance.post(`/api/memos/${id}/share`, { friendIds }, {
+  /** canEdit: 받은 사람이 고칠 수 있게. 이미 공유한 사람에게 보내면 권한만 바뀐다 */
+  async share(id: string, friendIds: string[], canEdit: boolean, session: Session | null): Promise<void> {
+    await axiosInstance.post(`/api/memos/${id}/share`, { friendIds, canEdit }, {
       headers: getAuthHeaders(session),
     });
   },
+
+  /** 내 개인 메모를 내가 속한 모임에 공유 (멤버는 읽기만) */
+  async shareToGroup(id: string, groupId: string, session: Session | null): Promise<void> {
+    await axiosInstance.post(`/api/memos/${id}/group-share/${groupId}`, null, {
+      headers: getAuthHeaders(session),
+    });
+  },
+
+  async unshareFromGroup(id: string, groupId: string, session: Session | null): Promise<void> {
+    await axiosInstance.delete(`/api/memos/${id}/group-share/${groupId}`, {
+      headers: getAuthHeaders(session),
+    });
+  },
+
 
   async unshare(id: string, targetUserId: string, session: Session | null): Promise<void> {
     await axiosInstance.delete(`/api/memos/${id}/share/${targetUserId}`, {

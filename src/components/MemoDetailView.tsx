@@ -848,6 +848,7 @@ export default function MemoDetailView({
                     {initialOf(u.nickname)}
                   </span>
                   <span className="truncate font-display text-[15px] text-ink">{u.nickname}</span>
+                  {u.canEdit && <span className="chip ml-auto shrink-0">수정 가능</span>}
                 </li>
               ))}
             </ul>
@@ -903,6 +904,8 @@ export default function MemoDetailView({
           memoId={memo.id}
           memoTitle={memo.title}
           sharedWith={memo.sharedWith ?? []}
+          groupId={memo.groupId}
+          sharedGroupIds={memo.sharedGroupIds ?? []}
           onChanged={refreshMemo}
         />
       )}

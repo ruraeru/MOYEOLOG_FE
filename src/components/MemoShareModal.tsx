@@ -5,6 +5,8 @@ import { Check, Loader2, Search, RefreshCw } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { memoApi, type MemoSharedUser } from '@/lib/memo-api';
+import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { GroupAvatar } from './groups/GroupIdentity';
 import { getApiErrorMessage } from '@/lib/axios';
 import ImageWithFallback from './ImageWithFallback';
 import { useAlert } from '@/hooks/useAlert';
@@ -18,11 +20,15 @@ interface MemoShareModalProps {
   memoTitle: string;
   /** 이미 공유한 사람 (MemoResponse.sharedWith) */
   sharedWith?: MemoSharedUser[];
+  /** 모임에서 쓴 메모면 그 모임 ID. 모임 메모는 다른 모임에 공유하지 않는다 */
+  groupId?: string;
+  /** 이 개인 메모를 공유한 모임 (MemoResponse.sharedGroupIds) */
+  sharedGroupIds?: string[];
   /** 공유·공유 해제 뒤 메모를 다시 불러오게 알린다 */
   onChanged?: () => void;
 }
 
-export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sharedWith = [], onChanged }: MemoShareModalProps) {
+export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sharedWith = [], groupId, sharedGroupIds = [], onChanged }: MemoShareModalProps) {
   const { data: session } = useSession();
   const { toast } = useAlert();
   const [friends, setFriends] = useState<FriendResponse[]>([]);
@@ -33,6 +39,11 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
   const [loadError, setLoadError] = useState<string | null>(null);
   const [unsharingId, setUnsharingId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  /** 새로 공유할 친구에게 '수정 가능'으로 공유할지 (기본 읽기 전용) */
+  const [canEdit, setCanEdit] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [groups, setGroups] = useState<GroupResponse[]>([]);
+  const [groupBusyId, setGroupBusyId] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -41,6 +52,11 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
       setLoading(true);
       setLoadError(null);
       setSelectedFriendIds([]);
+      setCanEdit(false);
+      // 개인 메모만 모임에 공유할 수 있다. 모임 목록을 못 불러오면 모임 공유 칸만 숨긴다.
+      if (!groupId) {
+        groupApi.getAll(session).then(setGroups).catch(() => setGroups([]));
+      }
       friendApi.getFriends(session)
         .then(setFriends)
         .catch((e) => {
@@ -49,7 +65,7 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
         })
         .finally(() => setLoading(false));
     }
-  }, [isOpen, session, reloadKey]);
+  }, [isOpen, session, reloadKey, groupId]);
 
   const sharedIds = new Set(sharedWith.map(u => u.id));
 
@@ -68,6 +84,38 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
     }
   };
 
+  /** 이미 공유한 친구의 권한 바꾸기: 같은 친구에게 다시 공유하면 서버가 권한만 바꾼다 */
+  const handleChangePermission = async (user: MemoSharedUser, next: boolean) => {
+    setUpdatingId(user.id);
+    try {
+      await memoApi.share(memoId, [user.id], next, session);
+      toast.success(next ? `${user.nickname}님이 고칠 수 있게 했어요` : `${user.nickname}님은 읽기만 할 수 있어요`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, '권한을 바꾸지 못했어요'));
+    } finally {
+      setUpdatingId(null);
+      onChanged?.();
+    }
+  };
+
+  const handleGroupShare = async (group: GroupResponse, shared: boolean) => {
+    setGroupBusyId(group.id);
+    try {
+      if (shared) {
+        await memoApi.unshareFromGroup(memoId, group.id, session);
+        toast.success(`${group.name} 모임과 공유를 그만뒀어요`);
+      } else {
+        await memoApi.shareToGroup(memoId, group.id, session);
+        toast.success(`${group.name} 모임에 공유했어요`);
+      }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, shared ? '공유를 해제하지 못했어요' : '공유하지 못했어요'));
+    } finally {
+      setGroupBusyId(null);
+      onChanged?.();
+    }
+  };
+
   const toggleFriend = (id: string) => {
     setSelectedFriendIds(prev => 
       prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
@@ -79,7 +127,7 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
     
     setIsSharing(true);
     try {
-      await memoApi.share(memoId, selectedFriendIds, session);
+      await memoApi.share(memoId, selectedFriendIds, canEdit, session);
       toast.success('메모를 공유했어요');
       setSelectedFriendIds([]);
       onChanged?.();
@@ -132,6 +180,10 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
       bodyClassName="px-3! py-3! md:px-3!"
       footer={
         <>
+          <label className="mr-auto inline-flex cursor-pointer items-center gap-1.5 text-[13px] text-ink-2">
+            <input type="checkbox" checked={canEdit} onChange={(e) => setCanEdit(e.target.checked)} className="size-4 accent-accent" />
+            수정 가능
+          </label>
           <button type="button" onClick={onClose} className="btn-secondary">
             취소
           </button>
@@ -169,6 +221,16 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
                   {avatar(user.nickname, user.profileImage, 'size-8', 'text-xs')}
                   <p className="font-display text-[15px] text-ink truncate">{user.nickname}</p>
                 </div>
+                <label className="ml-auto inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={!!user.canEdit}
+                    disabled={updatingId === user.id}
+                    onChange={(e) => handleChangePermission(user, e.target.checked)}
+                    className="size-4 accent-accent"
+                  />
+                  수정 가능
+                </label>
                 <button
                   type="button"
                   onClick={() => handleUnshare(user)}
@@ -227,6 +289,35 @@ export default function MemoShareModal({ isOpen, onClose, memoId, memoTitle, sha
         <p className="py-10 text-center text-sm text-ink-3">
           {q ? '검색 결과가 없어요' : friends.length === 0 ? '아직 친구가 없어요' : '모든 친구와 공유하고 있어요'}
         </p>
+      )}
+
+      {!groupId && groups.length > 0 && (
+        <div className="mt-2 border-t border-line pt-2">
+          <p className="px-2 pb-1 pt-2 text-xs font-medium text-ink-3">모임에 공유</p>
+          <p className="px-2 pb-1 text-xs text-ink-3">모임 멤버는 읽기만 할 수 있어요</p>
+          <ul>
+            {groups.map(group => {
+              const shared = sharedGroupIds.includes(group.id);
+              return (
+                <li key={group.id} className="flex h-14 items-center justify-between gap-3 px-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="sm" />
+                    <p className="truncate font-display text-[15px] text-ink">{group.name}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleGroupShare(group, shared)}
+                    disabled={groupBusyId === group.id}
+                    className="btn-secondary btn-sm shrink-0"
+                  >
+                    {groupBusyId === group.id && <Loader2 size={12} strokeWidth={1.5} className="animate-spin" />}
+                    {shared ? '공유 해제' : '공유'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </Modal>
   );
