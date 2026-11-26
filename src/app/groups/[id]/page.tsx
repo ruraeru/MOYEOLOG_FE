@@ -15,10 +15,14 @@ import {
   LogOut,
   X,
   Image as ImageIcon,
+  CalendarCheck,
+  ChevronRight,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { groupTopicApi } from '@/lib/group-topic-api';
+import { datePollApi, type DatePollSummary } from '@/lib/date-poll-api';
+import DatePollModal, { DatePollCreateModal, pollDateLabel, pollRangeLabel } from '@/components/DatePollModal';
 import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
 import { type MemoResponse } from '@/lib/memo-api';
 import { type TopicResponse } from '@/types/topic';
@@ -57,6 +61,8 @@ const TABS: TabType[] = ['memos', 'calendar', 'topics', 'members'];
 /** 열린 모임 화면을 주기적으로 다시 불러오는 간격 (새 토픽, 내보내짐·삭제 감지) */
 const POLL_INTERVAL_MS = 15000;
 const TOPIC_POLL_INTERVAL_MS = 10000;
+/** 조용한 갱신이 요청 제한(429)에 걸리면 한 번만 이만큼 뒤에 다시 불러온다 (한 IP 에서 여러 탭·사람이 보는 경우) */
+const RATE_LIMIT_RETRY_MS = 1500;
 
 interface GroupLoadError {
   status?: number;
@@ -109,6 +115,9 @@ function GroupDetailContent() {
   const [memos, setMemos] = useState<MemoResponse[]>([]);
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
   const [topics, setTopics] = useState<TopicResponse[]>([]);
+  const [polls, setPolls] = useState<DatePollSummary[]>([]);
+  const [openPollId, setOpenPollId] = useState<string | null>(null);
+  const [isPollCreateOpen, setIsPollCreateOpen] = useState(false);
   const hadGroupRef = useRef(false);
 
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
@@ -134,17 +143,28 @@ function GroupDetailContent() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  /** silent: 주기 갱신. 로딩 표시 없이 바뀐 내용만 반영한다. */
-  const fetchGroupData = useCallback(async (silent = false) => {
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const retryFetchRef = useRef<() => void>(() => {});
+
+  /** silent: 주기 갱신. 로딩 표시 없이 바뀐 내용만 반영한다. isRetry: 429 뒤 다시 부른 것(또 걸리면 다음 주기에 맡긴다) */
+  const fetchGroupData = useCallback(async (silent = false, isRetry = false) => {
     if (!session || !groupId) return;
+    const retrySoon = () => {
+      if (!silent || isRetry || retryTimerRef.current) return;
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = undefined;
+        retryFetchRef.current();
+      }, RATE_LIMIT_RETRY_MS);
+    };
 
     let groupData: GroupResponse;
     try {
       groupData = await groupApi.getById(groupId, session);
     } catch (error) {
       const status = statusOf(error);
-      if (silent && (status === undefined || status >= 500)) {
-        // 주기 갱신 중 일시적인 네트워크·서버 오류는 무시하고 다음 주기에 다시 시도한다
+      if (silent && (status === undefined || status === 429 || status >= 500)) {
+        // 주기·실시간 갱신 중 일시적인 네트워크·서버 오류는 무시하고 다음 주기에 다시 시도한다
+        if (status === 429) retrySoon();
         return;
       }
       console.error('Failed to fetch group:', error);
@@ -165,14 +185,22 @@ function GroupDetailContent() {
     setGroup(groupData);
     setGroupError(null);
 
-    const [memoResult, scheduleResult, topicResult] = await Promise.allSettled([
+    const [memoResult, scheduleResult, topicResult, pollResult] = await Promise.allSettled([
       groupApi.getGroupMemos(groupId, session),
       groupApi.getGroupSchedules(groupId, session),
       groupTopicApi.getByGroup(groupId, session),
+      datePollApi.list(groupId, session),
     ]);
     if (memoResult.status === 'fulfilled') setMemos(memoResult.value);
     if (scheduleResult.status === 'fulfilled') setSchedules(scheduleResult.value);
     if (topicResult.status === 'fulfilled') setTopics(topicResult.value);
+    // 날짜 조율 목록은 실패해도 보던 것을 두고 오류로 띄우지 않는다(일정 달력을 가리지 않게)
+    if (pollResult.status === 'fulfilled') setPolls(pollResult.value);
+    else console.error('Failed to fetch date polls:', pollResult.reason);
+
+    if ([memoResult, scheduleResult, topicResult, pollResult].some(r => r.status === 'rejected' && statusOf(r.reason) === 429)) {
+      retrySoon();
+    }
 
     const failed = [memoResult, scheduleResult, topicResult].find(
       (r): r is PromiseRejectedResult => r.status === 'rejected'
@@ -183,10 +211,15 @@ function GroupDetailContent() {
     } else {
       setListError(null);
     }
-  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setListError]);
+  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setPolls, setListError]);
 
   useEffect(() => {
     fetchGroupData();
+  }, [fetchGroupData]);
+
+  useEffect(() => {
+    retryFetchRef.current = () => fetchGroupData(true, true);
+    return () => clearTimeout(retryTimerRef.current);
   }, [fetchGroupData]);
 
   // 새 토픽·메모와 내보내짐·삭제를 반영하기 위해 화면이 보일 때만 주기적으로 다시 불러온다(SSE 가 붙어 있으면 60초 안전망)
@@ -255,6 +288,31 @@ function GroupDetailContent() {
     handleTopicDetailClose();
     setSelectedTopic(topic);
     setIsTopicModalOpen(true);
+  };
+
+  const refreshQuietly = useCallback(() => { fetchGroupData(true); }, [fetchGroupData]);
+  const closePoll = useCallback(() => setOpenPollId(null), [setOpenPollId]);
+
+  // 확정된 조율의 '일정 보기': 모임 일정 목록에서 찾아 상세를 연다
+  // 방금 정해 목록이 아직 안 바뀌었으면 일정 목록을 새로 받아 찾는다
+  const handleOpenPollSchedule = async (scheduleId: string) => {
+    let schedule = schedules.find(s => s.id === scheduleId);
+    if (!schedule && session) {
+      try {
+        const fresh = await groupApi.getGroupSchedules(groupId, session);
+        setSchedules(fresh);
+        schedule = fresh.find(s => s.id === scheduleId);
+      } catch (error) {
+        toast.error(getApiErrorMessage(error, '일정을 불러오지 못했어요'));
+        return;
+      }
+    }
+    if (!schedule) {
+      toast.error('일정을 찾지 못했어요. 지워졌을 수 있어요');
+      return;
+    }
+    setOpenPollId(null);
+    handleScheduleClick(schedule);
   };
 
   const handleEdit = (schedule: ScheduleResponse) => {
@@ -569,8 +627,55 @@ function GroupDetailContent() {
               listError && schedules.length === 0 ? (
                 <ErrorState message={listError} onRetry={() => fetchGroupData()} />
               ) : (
-                <div className="group-cal card overflow-hidden p-2 md:p-4">
-                  <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
+                <div className="space-y-3">
+                  {(isOwner || polls.length > 0) && (
+                    <div className="space-y-2">
+                      {isOwner && (
+                        <div className="flex justify-end">
+                          <button type="button" onClick={() => setIsPollCreateOpen(true)} className="btn-secondary">
+                            <CalendarCheck size={16} strokeWidth={1.5} /> 날짜 조율
+                          </button>
+                        </div>
+                      )}
+                      {polls.filter(p => p.status === 'OPEN').map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setOpenPollId(p.id)}
+                          className="card flex w-full items-center gap-3 px-4 py-3 text-left hover:border-line-strong"
+                        >
+                          <span aria-hidden className="w-[3px] shrink-0 self-stretch rounded-full bg-group" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate font-display text-[15px] leading-5 text-ink">{p.title}</span>
+                            <span className="stamp mt-0.5 block text-xs text-ink-3">
+                              {pollRangeLabel(p.startDate, p.endDate)} · {p.memberCount}명 중 {p.respondedCount}명 응답
+                            </span>
+                          </span>
+                          {!p.myResponded && (
+                            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-accent">
+                              <span aria-hidden className="size-1.5 rounded-full bg-mark" /> 내 날짜 고르기
+                            </span>
+                          )}
+                          <ChevronRight size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
+                        </button>
+                      ))}
+                      {polls.filter(p => p.status === 'CONFIRMED' && p.confirmedDate).map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setOpenPollId(p.id)}
+                          className="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[13px] text-ink-3 hover:text-ink-2"
+                        >
+                          <Check size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
+                          <span className="truncate">{p.title}</span>
+                          <span className="shrink-0">· {pollDateLabel(p.confirmedDate!)}로 정해짐</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="group-cal card overflow-hidden p-2 md:p-4">
+                    <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
+                  </div>
                 </div>
               )
             ) : activeTab === 'topics' ? (
@@ -678,6 +783,31 @@ function GroupDetailContent() {
           </div>
         </div>
       </main>
+
+      <DatePollCreateModal
+        open={isPollCreateOpen}
+        onClose={() => setIsPollCreateOpen(false)}
+        groupId={groupId}
+        session={session}
+        onCreated={(poll) => {
+          setIsPollCreateOpen(false);
+          setOpenPollId(poll.id);
+          fetchGroupData(true);
+        }}
+      />
+      {openPollId && (
+        <DatePollModal
+          key={openPollId}
+          open
+          onClose={closePoll}
+          groupId={groupId}
+          pollId={openPollId}
+          isOwner={isOwner}
+          session={session}
+          onChanged={refreshQuietly}
+          onOpenSchedule={handleOpenPollSchedule}
+        />
+      )}
 
       <GroupModals
         isMemoModalOpen={isMemoModalOpen} setIsMemoModalOpen={setIsMemoModalOpen}
