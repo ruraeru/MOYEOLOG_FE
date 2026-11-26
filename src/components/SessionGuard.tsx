@@ -52,8 +52,10 @@ export default function SessionGuard() {
       wasAuthenticated.current = true;
       return;
     }
-    // 비밀번호 재설정 화면은 저장한 뒤 스스로 로그아웃하고 완료 안내를 보여 준다(그 화면은 로그인 없이 쓴다)
-    if (window.location.pathname.startsWith('/reset-password')) return;
+    // 비밀번호 재설정 화면은 저장한 뒤 스스로 로그아웃하고 완료 안내를 보여 준다(그 화면은 로그인 없이 쓴다).
+    // 메일 인증 화면도 '새 계정으로 시작하기' 가 지금 계정을 로그아웃한 뒤 새 계정으로 로그인한다(그 사이에 로그인 화면으로 보내면 안 된다)
+    const path = window.location.pathname;
+    if (path.startsWith('/reset-password') || path.startsWith('/verify')) return;
     if (status === 'unauthenticated' && !signingOut.current) {
       // 다른 탭에서 로그아웃함(next-auth 가 탭 사이에 알려 줌) 또는 세션 쿠키가 만료됨.
       // 로그아웃한 뒤 뒤로 가기로 브라우저 캐시의 보호 화면이 열린 경우도(미들웨어를 거치지 않는다) 로그인 화면으로 보낸다.

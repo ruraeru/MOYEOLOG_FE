@@ -37,7 +37,8 @@ export function PageHeader({
         </div>
         {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2 lg:gap-3">{actions}</div>}
+      {/* 좁은 화면에서 동작이 한 줄에 안 들어가면 화면 밖으로 밀지 않고 안에서 줄을 바꾼다 */}
+      {actions && <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 lg:gap-3">{actions}</div>}
     </div>
   );
 }
@@ -97,10 +98,11 @@ export function UnderlineTabs<K extends string>({
             onClick={() => onChange(it.key)}
             className="touch-hit relative flex shrink-0 items-center gap-1.5 pb-2.5 pt-1 pointer-coarse:pt-2.5"
           >
-            {/* 선택 글꼴(주아)로 폭을 미리 잡아 두어 선택이 바뀌어도 탭 폭이 흔들리지 않는다 */}
+            {/* 선택 글꼴(주아)과 비선택 글꼴로 폭을 둘 다 잡아 두어(넓은 쪽) 선택이 바뀌어도 탭 폭이 흔들리지 않는다 */}
             <span className="inline-grid">
               <span className={`col-start-1 row-start-1 ${on ? 'font-display text-base text-ink' : 'text-[15px] text-ink-2 hover:text-ink'}`}>{it.label}</span>
               <span aria-hidden className="invisible col-start-1 row-start-1 h-0 font-display text-base">{it.label}</span>
+              <span aria-hidden className="invisible col-start-1 row-start-1 h-0 text-[15px]">{it.label}</span>
             </span>
             {it.count != null && <span className="stamp text-xs">{it.count}</span>}
             <span
@@ -175,6 +177,36 @@ export function EmptyState({
   );
 }
 
+/**
+ * 최근에 포커스를 받은(또는 누른) 요소 몇 개. 창 안 입력칸의 autoFocus 는 Modal 의 effect 보다 먼저 돌아
+ * 열 때의 document.activeElement 가 이미 새 창 안이므로, 닫을 때 돌아갈 곳(연 버튼)은 여기서 새 창 밖의 가장 최근 것을 찾는다.
+ * (창 위에 연 창이면 아래 창 안의 버튼이 돌아갈 곳이다)
+ */
+const recentFocus: HTMLElement[] = [];
+if (typeof document !== 'undefined') {
+  const remember = (el: Element | null) => {
+    if (!(el instanceof HTMLElement) || el === document.body) return;
+    const i = recentFocus.indexOf(el);
+    if (i >= 0) recentFocus.splice(i, 1);
+    recentFocus.push(el);
+    if (recentFocus.length > 8) recentFocus.shift();
+  };
+  document.addEventListener('focusin', (e) => remember(e.target instanceof Element ? e.target : null), true);
+  // Safari 는 버튼을 눌러도 포커스를 주지 않으므로 누른 버튼·링크도 기억한다
+  document.addEventListener(
+    'pointerdown',
+    (e) => remember(e.target instanceof Element ? e.target.closest('button,a[href],[role="button"],[role="tab"]') : null),
+    true,
+  );
+}
+const openerOutside = (dialog: HTMLElement | null) => {
+  for (let i = recentFocus.length - 1; i >= 0; i--) {
+    const el = recentFocus[i];
+    if (el.isConnected && !dialog?.contains(el)) return el;
+  }
+  return null;
+};
+
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[contenteditable="true"],[tabindex]:not([tabindex="-1"])';
 
@@ -213,8 +245,9 @@ export function Modal({
   // 키보드 사용자: 열면 창 안으로 포커스, Tab 은 창 안에서만 돌고, 닫으면 연 버튼으로 돌아간다
   useEffect(() => {
     if (!open) return;
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
+    const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const opener = active && active !== document.body && !dialog?.contains(active) ? active : openerOutside(dialog);
     const focusables = () =>
       dialog
         ? [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.getClientRects().length > 0)
@@ -291,7 +324,8 @@ export function Modal({
             </div>
             <div className="flex shrink-0 items-center gap-1">
               {headerExtra}
-              <button onClick={onClose} aria-label="닫기" className="btn-icon">
+              {/* 모바일(바텀시트)·터치 기기에서는 닫기 버튼을 44px 로 */}
+              <button onClick={onClose} aria-label="닫기" className="btn-icon max-md:size-11 pointer-coarse:size-11">
                 <X size={18} strokeWidth={1.5} />
               </button>
             </div>
