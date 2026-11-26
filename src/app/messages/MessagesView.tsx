@@ -302,6 +302,8 @@ interface ChatPanelProps {
   onSent: () => void;
 }
 
+const NOT_FRIEND = '친구에게만 메시지를 보낼 수 있어요.';
+
 function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const tf = useTimeFormat();
   const { data: session } = useSession();
@@ -322,8 +324,8 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
   const [sending, setSending] = useState(false);
   /** 처음 열었을 때 첫 안 읽은 메시지. 그 앞에 구분선을 긋는다 */
   const [unreadFromId, setUnreadFromId] = useState<string | null>(null);
-  /** 위로 올려 보는 중 아래에 새 메시지가 왔는지 */
-  const [newBelow, setNewBelow] = useState(false);
+  /** 위로 올려 보는 중 아래에 새로 온 상대 메시지 수(맨 아래로 가면 0) */
+  const [newBelow, setNewBelow] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -338,31 +340,40 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
     else drafts.delete(friendId);
   };
 
-  // 상대 정보와 친구 여부(친구가 아니면 보낼 수 없음)
+
+  // 상대 정보와 친구 여부(친구가 아니면 보낼 수 없음). 대화 중 친구가 끊기거나 다시 맺어지면(friends 토픽) 다시 확인한다
+  const checkFriend = useCallback(
+    (isCancelled: () => boolean = () => false) => {
+      if (!session) return;
+      friendApi
+        .getUserProfile(friendId, session)
+        .then((p) => {
+          if (isCancelled()) return;
+          setProfile(p);
+          if (p.friendStatus !== 'FRIEND') setBlocked(NOT_FRIEND);
+          else setBlocked((b) => (b === NOT_FRIEND ? null : b));
+        })
+        .catch((err) => {
+          if (isCancelled()) return;
+          const code = axios.isAxiosError(err) ? err.response?.status : undefined;
+          if (code === 404 || code === 400) {
+            setProfileMissing(true);
+            setBlocked('사용자를 찾을 수 없어요.');
+          }
+        });
+    },
+    // 세션 객체가 바뀔 때마다 다시 만들지 않도록 토큰 유무만 봅니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [friendId, !!session],
+  );
   useEffect(() => {
-    if (!session) return;
     let cancelled = false;
-    friendApi
-      .getUserProfile(friendId, session)
-      .then((p) => {
-        if (cancelled) return;
-        setProfile(p);
-        if (p.friendStatus !== 'FRIEND') setBlocked('친구에게만 메시지를 보낼 수 있어요.');
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        const code = axios.isAxiosError(err) ? err.response?.status : undefined;
-        if (code === 404 || code === 400) {
-          setProfileMissing(true);
-          setBlocked('사용자를 찾을 수 없어요.');
-        }
-      });
+    checkFriend(() => cancelled);
     return () => {
       cancelled = true;
     };
-    // 세션 객체가 바뀔 때마다 다시 부르지 않도록 토큰 유무만 봅니다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [friendId, !!session]);
+  }, [checkFriend]);
+  useLiveTopics(['friends'], () => checkFriend(), !!session);
 
   const markReadIfNeeded = useCallback(
     (list: MessageResponse[]) => {
@@ -400,7 +411,11 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
           });
           if (data.length < PAGE_SIZE) setHasOlder(false);
           const last = data[data.length - 1];
-          if (!stickToBottom.current && last && last.id !== lastIdRef.current && last.senderId !== myId) setNewBelow(true);
+          if (!stickToBottom.current && last && last.id !== lastIdRef.current) {
+            const from = data.findIndex((m) => m.id === lastIdRef.current);
+            const added = (from >= 0 ? data.slice(from + 1) : [last]).filter((m) => m.senderId !== myId).length;
+            if (added > 0) setNewBelow((n) => n + added);
+          }
         }
         setError(null);
         markReadIfNeeded(data);
@@ -496,7 +511,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
     const el = scrollRef.current;
     if (!el) return;
     stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (stickToBottom.current && newBelow) setNewBelow(false);
+    if (stickToBottom.current && newBelow) setNewBelow(0);
   };
 
   const jumpToBottom = () => {
@@ -504,7 +519,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
     if (!el) return;
     stickToBottom.current = true;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-    setNewBelow(false);
+    setNewBelow(0);
   };
 
   const length = [...draft.trim()].length;
@@ -519,7 +534,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
     try {
       const sent = await messageApi.send(friendId, content, session);
       stickToBottom.current = true;
-      setNewBelow(false);
+      setNewBelow(0);
       setMessages((prev) => mergeMessages(prev, [sent]));
       setDraft('');
       onSent();
@@ -669,11 +684,16 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
             </div>
           )}
         </div>
-        {newBelow && (
+        {newBelow > 0 && (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-            <button type="button" onClick={jumpToBottom} className="btn-secondary pointer-events-auto shadow-float max-lg:h-11">
+            <button
+              type="button"
+              onClick={jumpToBottom}
+              className="btn-secondary pointer-events-auto shadow-float max-lg:h-11"
+              aria-label={`새 메시지 ${newBelow}개, 맨 아래로`}
+            >
               <ArrowDown size={16} strokeWidth={1.5} />
-              새 메시지
+              새 메시지 {newBelow}개
             </button>
           </div>
         )}
@@ -684,6 +704,10 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
           {blocked ? (
             <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 py-1">
               <p className="text-sm text-ink-3 text-center">{blocked}</p>
+              {/* 막혀도 쓰던 글은 지우지 않고 보여 준다(복사해 둘 수 있게) */}
+              {draft.trim() && (
+                <p className="basis-full text-center text-xs text-ink-3 whitespace-pre-wrap break-words select-text">보내지 못한 글: {draft.trim()}</p>
+              )}
               {notFriend && friendInfo && (
                 <Link href={`/profile/${friendInfo.id}`} className="btn-secondary btn-sm max-lg:h-11">
                   <User size={14} strokeWidth={1.5} />

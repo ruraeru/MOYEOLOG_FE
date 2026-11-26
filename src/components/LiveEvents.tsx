@@ -22,6 +22,8 @@ export default function LiveEvents() {
   // 다음 ready 때 전체 새로 고침이 필요한가: 숨겨진 채 열린 탭이면 처음부터 필요하다
   const resyncNext = useRef(!isVisible());
   const [visible, setVisible] = useState(isVisible);
+  // 네트워크가 돌아올 때마다 올린다. 끊긴 동안 스트림이 살아 있는 것처럼 남아 있으면 이벤트를 놓친 채 60초 무응답까지 기다리므로 새로 붙는다
+  const [netGen, setNetGen] = useState(0);
   const enabled = status === 'authenticated' && !!token && !session?.user?.error;
 
   useEffect(() => {
@@ -33,8 +35,16 @@ export default function LiveEvents() {
       if (!isVisible()) resyncNext.current = true;
       setVisible(isVisible());
     };
+    const onOnline = () => {
+      resyncNext.current = true;
+      setNetGen((n) => n + 1);
+    };
     document.addEventListener('visibilitychange', onChange);
-    return () => document.removeEventListener('visibilitychange', onChange);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onChange);
+      window.removeEventListener('online', onOnline);
+    };
   }, []);
 
   useEffect(() => {
@@ -45,7 +55,7 @@ export default function LiveEvents() {
       resyncNext.current = true;
     });
     return () => ctrl.abort();
-  }, [enabled, visible]);
+  }, [enabled, visible, netGen]);
 
   useEffect(
     () =>

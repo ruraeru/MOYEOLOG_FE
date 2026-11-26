@@ -57,7 +57,8 @@ function PersonLink({ person, sub }: { person: FriendResponse; sub?: React.React
     <Link href={`/profile/${person.userId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg">
       <Avatar src={person.profileImage} name={person.nickname} />
       <span className="min-w-0">
-        <span className="flex items-baseline gap-2">
+        {/* 좁은 화면에서는 @아이디를 먼저 줄인다(최소 4.5rem 은 남긴다) */}
+        <span className="flex min-w-0 items-baseline gap-2">
           <span className="font-display text-base leading-6 text-ink truncate">{person.nickname}</span>
           <span className="min-w-[4.5rem] shrink-[4] text-xs text-ink-3 truncate">@{person.customId}</span>
         </span>

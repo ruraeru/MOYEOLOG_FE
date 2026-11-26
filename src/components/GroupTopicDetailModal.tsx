@@ -193,11 +193,16 @@ export default function GroupTopicDetailModal({
     goneHandledRef.current = topicId;
     useAlertStore
       .getState()
-      .addToast(status === 404 ? '삭제된 토픽이에요' : getApiErrorMessage(topicError, '이 토픽을 볼 수 없어요'), 'info');
+      .addToast(
+        (status === 404 ? '토픽이 지워졌어요' : getApiErrorMessage(topicError, '이 토픽을 볼 수 없어요')) +
+          // 쓰던 댓글이 있으면 창과 함께 사라지므로 알려 준다
+          (commentInput.trim() ? ' · 쓰던 댓글은 보내지 못했어요' : ''),
+        'info'
+      );
     queryClient.removeQueries({ queryKey: ['topic', topicId] });
     onDelete?.();
     onClose();
-  }, [isOpen, topicId, topicError, queryClient, onDelete, onClose]);
+  }, [isOpen, topicId, topicError, queryClient, onDelete, onClose, commentInput]);
 
   // 2. 댓글 작성
   const createCommentMutation = useMutation({
