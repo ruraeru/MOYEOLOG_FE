@@ -85,6 +85,11 @@ export const accountApi = {
   },
 
   /** 메일 링크의 토큰으로 새 비밀번호 저장. 성공하면 모든 기기에서 로그아웃된다 */
+  /** 재설정 링크를 열 때 아직 쓸 수 있는지 확인(소모하지 않음). 쓸 수 없으면 400 */
+  async checkPasswordResetToken(token: string): Promise<void> {
+    await axiosInstance.post('/api/account/password-reset/check', { token });
+  },
+
   async confirmPasswordReset(token: string, newPassword: string): Promise<void> {
     await axiosInstance.post('/api/account/password-reset/confirm', { token, newPassword });
   },

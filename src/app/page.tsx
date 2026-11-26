@@ -21,7 +21,8 @@ const getCallbackPath = () =>
 
 const getLoginError = () => new URLSearchParams(window.location.search).get('error');
 
-/** 이메일 폼을 펼쳤는지·입력한 이메일을 기억해 가입·비밀번호 찾기에서 뒤로 와도 그대로 두는 키 */
+/** 이메일 폼을 펼쳤는지·입력한 이메일을 기억해 가입·비밀번호 찾기에서 뒤로 와도 그대로 두는 키.
+ * 펼친 상태는 주소(?email=1)로도 연다(비밀번호 찾기 화면의 '로그인 화면으로' 가 이 주소로 온다) */
 const EMAIL_FORM_KEY = 'login-email-form';
 
 /** 아주 기본적인 형식 검사(@ 앞뒤에 글자, 뒤에 점). 실제 확인은 서버가 한다 */
@@ -82,6 +83,8 @@ export default function LoginPage() {
         if (saved !== null) {
           setEmailOpen(true);
           setEmail(saved);
+        } else if (new URLSearchParams(window.location.search).get('email') === '1') {
+          setEmailOpen(true);
         }
       } catch {
         // 저장소를 못 쓰면 처음 상태로 둔다
@@ -112,6 +115,11 @@ export default function LoginPage() {
     setFormError(null);
     setPassword('');
     if (loginError) clearQueryError();
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('email')) {
+      url.searchParams.delete('email');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    }
     try {
       sessionStorage.removeItem(EMAIL_FORM_KEY);
     } catch {
@@ -209,7 +217,12 @@ export default function LoginPage() {
           {!showEmail && (
             <button
               type="button"
-              onClick={() => setEmailOpen(true)}
+              onClick={() => {
+                setEmailOpen(true);
+                const url = new URL(window.location.href);
+                url.searchParams.set('email', '1');
+                window.history.replaceState(window.history.state, '', url);
+              }}
               className="btn-secondary mt-6 h-12 w-full max-w-[400px] text-[15px]"
             >
               이메일로 계속하기
@@ -290,7 +303,10 @@ export default function LoginPage() {
             >
               접기
             </button>
-            <Link href="/reset-password" className="inline-flex h-11 items-center text-ink-2 underline-offset-2 hover:text-ink hover:underline">
+            <Link
+              href={email.trim() ? `/reset-password?email=${encodeURIComponent(normalizeEmail(email))}` : '/reset-password'}
+              className="inline-flex h-11 items-center pl-3 text-ink-2 underline-offset-2 hover:text-ink hover:underline"
+            >
               비밀번호를 잊었어요
             </Link>
           </div>
