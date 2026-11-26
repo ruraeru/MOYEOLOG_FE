@@ -145,7 +145,7 @@ export const stripMarkdown = (markdown: string): string => {
     // 이미지 제거
     .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
     // 링크 처리 [텍스트](URL) -> 텍스트
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\[((?:\\.|[^\]\\])+)\]\([^)]+\)/g, (_, text: string) => text.replace(/\\([\\[\]])/g, '$1'))
     // 헤더 제거 (# Header -> Header)
     .replace(/^#{1,6}\s+/gm, '')
     // 굵게, 기울임 제거
