@@ -325,18 +325,18 @@ function GroupDetailContent() {
 
   const refreshQuietly = useCallback(() => { fetchGroupData(true); }, [fetchGroupData]);
   const closePoll = useCallback(() => setOpenPollId(null), [setOpenPollId]);
-  const openNotice = useCallback((id: string) => {
+  const openNotice = (id: string) => {
     setPushedNotice(true);
     router.push(`/groups/${groupId}?tab=notice&notice=${id}`, { scroll: false });
-  }, [router, groupId]);
-  const closeNotice = useCallback(() => {
+  };
+  const closeNotice = () => {
     if (pushedNotice) {
       setPushedNotice(false);
       router.back();
     } else {
       router.replace(`/groups/${groupId}?tab=notice`, { scroll: false });
     }
-  }, [router, groupId, pushedNotice]);
+  };
   // 탭을 바꾸면 주소에도 남긴다(새로고침해도 보던 탭)
   const changeTab = (key: TabType) => {
     setActiveTab(key);
@@ -523,10 +523,9 @@ function GroupDetailContent() {
     .sort((a, b) => parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime())
     .slice(0, 3);
 
-  const unreadNotices = notices.filter(n => !n.read).length;
   const tabItems: { key: TabType; label: string; count?: number }[] = [
-    // 공지 탭 숫자는 안 읽은 공지 수(0이면 숨김)
-    { key: 'notice', label: '공지', count: unreadNotices || undefined },
+    // 탭 숫자는 모두 전체 개수(안 읽은 공지는 목록 카드의 점으로 보인다)
+    { key: 'notice', label: '공지', count: notices.length },
     { key: 'calendar', label: '일정', count: schedules.length },
     { key: 'memos', label: '메모', count: memos.length },
     { key: 'topics', label: '토픽', count: topics.length },

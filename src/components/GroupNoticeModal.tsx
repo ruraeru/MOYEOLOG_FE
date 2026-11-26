@@ -388,9 +388,9 @@ function NoticeView({
                 {canManage && pollOpen && (
                   <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-line pt-3">
                     {remindCount > 0 && (
-                      <button type="button" onClick={remind} disabled={busy} className="btn-secondary btn-sm">투표 재촉</button>
+                      <button type="button" onClick={remind} disabled={busy} className="btn-secondary btn-sm max-sm:h-11 max-sm:px-4 max-sm:text-[13px]">투표 재촉</button>
                     )}
-                    <button type="button" onClick={closePoll} disabled={busy} className="btn-secondary btn-sm">투표 마감</button>
+                    <button type="button" onClick={closePoll} disabled={busy} className="btn-secondary btn-sm max-sm:h-11 max-sm:px-4 max-sm:text-[13px]">투표 마감</button>
                   </div>
                 )}
               </section>
@@ -404,11 +404,11 @@ function NoticeView({
 
             {canManage && (
               <section className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
-                <button type="button" onClick={togglePin} disabled={busy} className="btn-secondary btn-sm">
+                <button type="button" onClick={togglePin} disabled={busy} className="btn-secondary btn-sm max-sm:h-11 max-sm:px-4 max-sm:text-[13px]">
                   {detail.pinnedAt ? '고정 풀기' : '맨 위 고정'}
                 </button>
-                <button type="button" onClick={() => setEditing(true)} disabled={busy} className="btn-secondary btn-sm">수정</button>
-                <button type="button" onClick={remove} disabled={busy} className="btn-danger btn-sm">지우기</button>
+                <button type="button" onClick={() => setEditing(true)} disabled={busy} className="btn-secondary btn-sm max-sm:h-11 max-sm:px-4 max-sm:text-[13px]">수정</button>
+                <button type="button" onClick={remove} disabled={busy} className="btn-danger btn-sm max-sm:h-11 max-sm:px-4 max-sm:text-[13px]">지우기</button>
               </section>
             )}
           </div>

@@ -16,6 +16,7 @@ export default function AlertContainer() {
   // Destructive word detection for modal (e.g. '삭제', '내보내기')
   const isDestructive = modal?.message
     ? modal.message.includes('삭제') || modal.message.includes('내보내기') || modal.message.includes('거절')
+      || /^(삭제|지우기)/.test(modal.confirmText ?? '')
     : false;
 
   return (
