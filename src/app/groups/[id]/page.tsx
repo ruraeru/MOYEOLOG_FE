@@ -182,6 +182,40 @@ function GroupDetailContent() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // 메모 탭의 보기 방식·검색어는 메모 상세에 다녀와도(뒤로 가기·새로고침) 그대로 둔다. 탭마다·모임마다 따로
+  const memoPrefKey = `group-memo-pref:${groupId}`;
+  const memoPrefLoadedRef = useRef(false);
+  useEffect(() => {
+    memoPrefLoadedRef.current = false;
+    let saved: { viewMode?: unknown; q?: unknown } | null = null;
+    try { saved = JSON.parse(sessionStorage.getItem(memoPrefKey) || 'null'); } catch { saved = null; }
+    memoPrefLoadedRef.current = true;
+    if (!saved) return;
+    const { viewMode: v, q } = saved;
+    // sessionStorage 는 렌더 중에 읽을 수 없어(서버 렌더와 어긋남) 붙은 뒤에 한 번 되살린다
+    const timer = setTimeout(() => {
+      if (v === 'grid' || v === 'list') setViewMode(v);
+      if (typeof q === 'string') setSearchQuery(q);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [memoPrefKey]);
+  useEffect(() => {
+    if (!memoPrefLoadedRef.current) return;
+    try { sessionStorage.setItem(memoPrefKey, JSON.stringify({ viewMode, q: searchQuery })); } catch { /* 저장 못 해도 화면은 그대로 */ }
+  }, [memoPrefKey, viewMode, searchQuery]);
+
+  // 탭을 바꾸면 주소의 ?tab= 도 바꾼다(뒤로 가기·새로고침·공유 때 같은 탭이 열리게). 다른 쿼리는 그대로 둔다
+  const changeTab = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      // 다른 탭의 창을 여는 쿼리(공지·조율·토픽)는 지운다(새로고침 때 닫은 창이 다시 열리지 않게)
+      ['notice', 'poll', 'topic'].forEach((k) => url.searchParams.delete(k));
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    } catch { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
+  }, []);
+
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retryFetchRef = useRef<() => void>(() => {});
 
@@ -317,6 +351,8 @@ function GroupDetailContent() {
       // 모임 고정(공지). /memo 의 이 모임 폴더와 같은 값이다
       const updated = await memoApi.setGroupPinned(memo.id, !memo.groupPinnedAt, session);
       setMemos(prev => prev.map(m => (m.id === memo.id ? { ...m, groupPinnedAt: updated.groupPinnedAt ?? null } : m)));
+      // 고정하면 카드가 맨 위로 옮겨 가므로 무엇이 바뀌었는지 알려 준다
+      toast.success(updated.groupPinnedAt ? '모임에 고정했어요. 멤버 모두에게 맨 위에 보여요' : '모임 고정을 풀었어요');
     } catch (error) {
       toast.error(getApiErrorMessage(error, '고정을 바꾸지 못했어요'));
       fetchGroupData(true);
@@ -372,11 +408,6 @@ function GroupDetailContent() {
     } else {
       router.replace(`/groups/${groupId}?tab=notice`, { scroll: false });
     }
-  };
-  // 탭을 바꾸면 주소에도 남긴다(새로고침해도 보던 탭)
-  const changeTab = (key: TabType) => {
-    setActiveTab(key);
-    router.replace(`/groups/${groupId}?tab=${key}`, { scroll: false });
   };
 
   // 목록의 '투표 중' 칩이 마감 시각에 '투표 마감'으로 바뀌도록 가장 이른 마감 시각에 다시 부른다(서버는 그 시각에 알려 주지 않는다)
@@ -569,9 +600,23 @@ function GroupDetailContent() {
     }
   };
 
+  // 메모는 있는데 태그·'내 메모' 조건에 걸려 0건이면 '메모가 없어요' 대신 조건 안내 + 풀기 버튼
+  const memoFiltered = selectedTags.length > 0 || memoFilter.type === 'my';
   const memoEmptyText = searchQuery.trim()
     ? '검색 결과가 없어요'
-    : '메모가 없어요';
+    : memoFiltered && memos.length > 0
+      ? '조건에 맞는 메모가 없어요'
+      : '메모가 없어요';
+  const memoEmptyDescription = searchQuery.trim()
+    ? '다른 검색어로 찾아보세요'
+    : memoFiltered && memos.length > 0
+      ? '고른 태그나 범위를 풀어 보세요'
+      : '첫 메모를 남겨 보세요';
+  const clearMemoFilters = () => {
+    setSelectedTags([]);
+    setMemoFilter({ type: 'all' });
+    setSearchQuery('');
+  };
 
   const openPolls = polls.filter(p => p.status === 'OPEN');
   const upcomingSchedules = schedules
@@ -812,7 +857,10 @@ function GroupDetailContent() {
                   <EmptyState
                     icon={FileText}
                     title={memoEmptyText}
-                    description={searchQuery.trim() ? '다른 검색어로 찾아보세요' : '첫 메모를 남겨 보세요'}
+                    description={memoEmptyDescription}
+                    action={(searchQuery.trim() || (memoFiltered && memos.length > 0)) ? (
+                      <button type="button" onClick={clearMemoFilters} className="btn-secondary">조건 풀기</button>
+                    ) : undefined}
                   />
                 )}
               </div>

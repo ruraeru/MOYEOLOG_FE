@@ -62,6 +62,9 @@ export default function MemoCreateModal({
   const [groups, setGroups] = useState<GroupResponse[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorWrapRef = useRef<HTMLDivElement>(null);
+  // 같은 렌더 안에서 저장이 여러 번 눌려도 한 번만 보낸다(isSaving 은 다음 렌더부터 막는다)
+  const savingRef = useRef(false);
 
   // 데이터 로드
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -190,6 +193,7 @@ export default function MemoCreateModal({
   };
 
   const handleSave = async () => {
+    if (savingRef.current) return;
     if (!title.trim()) {
       setError('제목을 입력해 주세요');
       titleRef.current?.focus();
@@ -201,6 +205,7 @@ export default function MemoCreateModal({
       return;
     }
 
+    savingRef.current = true;
     setIsSaving(true);
     setError(null);
 
@@ -226,6 +231,7 @@ export default function MemoCreateModal({
     } catch (e) {
       setError(getApiErrorMessage(e));
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
@@ -263,10 +269,17 @@ export default function MemoCreateModal({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="제목"
-          aria-label="제목"
+          onKeyDown={(e) => {
+            // 제목에서 Enter 는 본문으로 넘어간다(한글 조합 중 Enter 는 건너뜀)
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              editorWrapRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
+            }
+          }}
           maxLength={TITLE_MAX}
           autoFocus
+          placeholder="제목"
+          aria-label="제목"
           className="form-input h-11 font-display text-lg"
         />
 
@@ -405,8 +418,8 @@ export default function MemoCreateModal({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <p className="text-[13px] font-medium text-ink-2">내용</p>
+        <div ref={editorWrapRef} className="space-y-1.5">
+          <p className="text-[13px] font-medium text-ink-2">내용 <span className="text-ink-3">(필수)</span></p>
           <RichEditor
             value={content}
             onChange={setContent}
