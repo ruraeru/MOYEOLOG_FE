@@ -38,7 +38,7 @@ export function PageHeader({
         {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
       </div>
       {/* 좁은 화면에서 동작이 한 줄에 안 들어가면 화면 밖으로 밀지 않고 안에서 줄을 바꾼다 */}
-      {actions && <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 lg:gap-3">{actions}</div>}
+      {actions && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2 lg:gap-3">{actions}</div>}
     </div>
   );
 }
