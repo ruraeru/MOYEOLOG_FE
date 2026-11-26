@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   // 링크를 공유했을 때의 미리보기(Open Graph). og:image·og:url 의 상대 경로는 metadataBase 로 절대 주소가 된다.
   // 초대 링크는 app/invite/*/page.tsx 의 generateMetadata 가 모임 이름·보낸 사람으로 바꾼다
   metadataBase: new URL(SITE_URL),
-  ...pageMeta({ title: SITE_TITLE, description: SITE_DESCRIPTION, path: '/' }),
+  ...pageMeta({ title: SITE_TITLE, description: SITE_DESCRIPTION }),
   // 홈 화면에 추가하면 앱처럼(브라우저 틀 없이) 뜬다. 매니페스트는 app/manifest.ts, iOS 아이콘은 app/apple-icon.png
   applicationName: SITE_NAME,
   appleWebApp: { capable: true, title: '모여로그', statusBarStyle: 'default' },

@@ -37,6 +37,11 @@ function buildRemotePatterns(): RemotePattern[] {
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  // 링크 미리보기 수집기에는 메타 태그를 <head> 에 넣어 한 번에 내려준다. Next 는 서버에서 만드는 화면(초대 링크 등)의
+  // 메타를 본문 뒤쪽으로 흘려보내는데, 수집기 가운데는 <head> 만 읽는 것이 있다. 이 값은 Next 의 기본 목록을 대신하므로
+  // 흔한 수집기를 함께 적는다(카카오톡·카카오스토리·네이버·라인 등은 기본 목록에 없다).
+  htmlLimitedBots:
+    /kakaotalk-scrap|kakaostory-og-reader|Daum|Yeti|naver|Line|facebookexternalhit|Facebot|Twitterbot|Slackbot|Discordbot|TelegramBot|WhatsApp|LinkedInBot|Pinterest|redditbot|SkypeUriPreview|Applebot|Googlebot|Google-InspectionTool|bingbot|DuckDuckBot|Embedly|vkShare|Iframely|bot|crawler|spider|scrap/i,
   turbopack: {
     root: process.cwd(),
   },
