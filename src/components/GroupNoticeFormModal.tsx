@@ -169,7 +169,10 @@ export default function GroupNoticeFormModal({
           <span className="text-[13px] font-medium text-ink-2">제목</span>
           <input
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setError(null);
+            }}
             maxLength={TITLE_MAX}
             placeholder="무엇을 알릴까요"
             className="form-input h-10 font-display text-base"
@@ -211,7 +214,10 @@ export default function GroupNoticeFormModal({
                     <div key={i} className="flex items-center gap-2">
                       <input
                         value={o}
-                        onChange={(e) => setOption(i, e.target.value)}
+                        onChange={(e) => {
+                          setOption(i, e.target.value);
+                          setError(null);
+                        }}
                         maxLength={OPTION_MAX}
                         placeholder={`선택지 ${i + 1}`}
                         aria-label={`선택지 ${i + 1}`}
