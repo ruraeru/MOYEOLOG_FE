@@ -11,7 +11,7 @@
  * - SideItem / SideLabel: 왼쪽 목록 메뉴 행
  */
 
-import React, { useEffect, useId } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { X, type LucideIcon } from 'lucide-react';
 
 export function PageHeader({
@@ -82,7 +82,7 @@ export function UnderlineTabs<K extends string>({
             role="tab"
             aria-selected={on}
             onClick={() => onChange(it.key)}
-            className="relative flex shrink-0 items-center gap-1.5 pb-2.5 pt-1"
+            className="touch-hit relative flex shrink-0 items-center gap-1.5 pb-2.5 pt-1 pointer-coarse:pt-2.5"
           >
             <span className={on ? 'font-display text-base text-ink' : 'text-[15px] text-ink-2 hover:text-ink'}>{it.label}</span>
             {it.count != null && <span className="stamp text-xs">{it.count}</span>}
@@ -123,7 +123,7 @@ export function Segmented<K extends string>({
             aria-checked={on}
             title={it.title}
             onClick={() => onChange(it.key)}
-            className={`inline-flex ${ih} items-center justify-center gap-1 rounded-lg transition-colors ${
+            className={`touch-hit inline-flex ${ih} items-center justify-center gap-1 rounded-lg transition-colors ${
               on ? 'bg-surface text-group-sel font-medium shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:text-ink'
             }`}
           >
@@ -158,6 +158,9 @@ export function EmptyState({
   );
 }
 
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[contenteditable="true"],[tabindex]:not([tabindex="-1"])';
+
 /**
  * 창 껍데기. 내용·버튼은 children/footer 로.
  * size: sm 420 · md 560 · lg 720 · xl 960
@@ -189,6 +192,59 @@ export function Modal({
   closeOnEsc?: boolean;
 }) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // 키보드 사용자: 열면 창 안으로 포커스, Tab 은 창 안에서만 돌고, 닫으면 연 버튼으로 돌아간다
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusables = () =>
+      dialog
+        ? [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.getClientRects().length > 0)
+        : [];
+    const isTop = () => {
+      const all = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      return all[all.length - 1] === dialog;
+    };
+    // 창 안의 autoFocus 가 먼저 잡았으면 그대로 둔다. 아니면 첫 입력칸 → 닫기가 아닌 첫 버튼 → 창 자체
+    const t = window.setTimeout(() => {
+      if (!dialog || dialog.contains(document.activeElement)) return;
+      const els = focusables();
+      const first =
+        els.find((el) => el.matches('input:not([type=hidden]),textarea,select,[contenteditable="true"]')) ??
+        els.find((el) => el.getAttribute('aria-label') !== '닫기') ??
+        dialog;
+      first.focus({ preventScroll: true });
+    }, 0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !dialog || !isTop()) return;
+      const els = focusables();
+      if (els.length === 0) {
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = els[0];
+      const last = els[els.length - 1];
+      const cur = document.activeElement;
+      if (!dialog.contains(cur)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && (cur === first || cur === dialog)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && cur === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('keydown', onKey);
+      if (opener && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [open]);
   useEffect(() => {
     if (!open || !closeOnEsc) return;
     const onKey = (e: KeyboardEvent) => {
@@ -202,11 +258,13 @@ export function Modal({
   return (
     <div className={`fixed inset-0 ${zIndex} flex items-end justify-center bg-black/40 md:items-center md:p-4`} onClick={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-labelledby={title ? titleId : undefined}
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[92dvh] w-full ${w} flex-col overflow-hidden rounded-t-2xl bg-surface animate-slide-up md:max-h-[88vh] md:rounded-2xl md:animate-scale-in`}
+        className={`flex max-h-[92dvh] w-full ${w} flex-col overflow-hidden rounded-t-2xl bg-surface animate-slide-up md:max-h-[88vh] md:rounded-2xl md:animate-scale-in outline-none`}
       >
         {(title || headerExtra) && (
           <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4 md:px-6">

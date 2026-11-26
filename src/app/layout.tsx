@@ -3,6 +3,7 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 import Script from "next/script";
 import BottomNavbar from "@/components/BottomNavbar";
+import SkipLink from "@/components/SkipLink";
 import { Jua } from "next/font/google";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL, pageMeta } from "@/lib/site-meta";
 
@@ -43,6 +44,7 @@ export default function RootLayout({
         <meta httpEquiv="Content-Security-Policy" content="upgrade-insecure-requests" />
       </head>
       <body className="min-h-full flex flex-col font-sans">
+        <SkipLink />
         <Script
           src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&libraries=services&autoload=false`}
           strategy="beforeInteractive"

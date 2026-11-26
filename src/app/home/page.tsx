@@ -140,7 +140,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-ink font-sans">
       <Navbar />
-      <main className="mx-auto w-full max-w-[1400px] flex-1 grid grid-cols-1 gap-8 px-4 pt-5 pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:px-8 lg:pt-8 lg:pb-8 xl:grid-cols-[minmax(0,1fr)_464px]">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 grid content-start grid-cols-1 gap-8 px-4 pt-5 pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:px-8 lg:pt-8 lg:pb-8 xl:grid-cols-[minmax(0,1fr)_464px]">
 
         {/* 왼쪽: 날짜 머리 + 이번 주 + 일정 기록 */}
         <section className="flex flex-col gap-5 lg:rounded-xl lg:border lg:border-line lg:bg-surface lg:p-8 lg:self-start">
@@ -169,7 +169,7 @@ export default function HomePage() {
           ) : (
             <>
               {/* 이번 주 7칸. 누르면 그 날 일정 목록 */}
-              <div className="grid grid-cols-7 gap-1.5 lg:gap-2">
+              <div className="grid grid-cols-7 gap-2">
                 {weekSchedules.map(({ day, items }) => {
                   const isToday = isSameDay(day, today);
                   const first = items[0];
@@ -326,7 +326,7 @@ function SectionHead({ title, href }: { title: string; href: string }) {
   return (
     <div className="flex items-center justify-between">
       <h2 className="font-display text-lg leading-7 text-ink">{title}</h2>
-      <Link href={href} className="text-[13px] text-ink-3 transition-colors hover:text-ink">전체 보기</Link>
+      <Link href={href} className="touch-hit text-[13px] text-ink-3 transition-colors hover:text-ink">전체 보기</Link>
     </div>
   );
 }

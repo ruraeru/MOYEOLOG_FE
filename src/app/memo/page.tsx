@@ -513,7 +513,7 @@ function FilterChip({ label, active, lead, onClick }: { label: string; active: b
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${
+      className={`touch-hit inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors ${
         active ? 'bg-accent text-white' : 'border border-line-strong bg-surface text-ink-2 hover:bg-raised hover:text-ink'
       }`}
     >

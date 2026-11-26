@@ -70,7 +70,7 @@ export default function SignupPage() {
       description={
         <>
           이미 계정이 있나요?{' '}
-          <Link href="/" className="text-accent underline-offset-2 hover:underline">
+          <Link href="/" className="touch-hit text-accent underline-offset-2 hover:underline">
             로그인
           </Link>
         </>

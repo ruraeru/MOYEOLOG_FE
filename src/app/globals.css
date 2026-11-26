@@ -230,6 +230,31 @@ body {
     @apply inline-flex size-8 items-center justify-center rounded-lg text-ink-2 transition-colors hover:bg-raised hover:text-ink disabled:opacity-50;
   }
 
+  /* 터치 영역 44px: 터치 기기에서 작은 버튼·탭의 누르는 영역만 보이지 않게 넓힌다(모양·배치는 그대로).
+     absolute·fixed·sticky 유틸리티가 붙은 버튼은 그 값이 이긴다(유틸리티 레이어가 뒤). 링크·칩 등은 .touch-hit 를 붙인다 */
+  @media (pointer: coarse) {
+    :is(.btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .btn-icon, .touch-hit) {
+      position: relative;
+    }
+    :is(.btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .btn-icon, .touch-hit)::after {
+      content: '';
+      position: absolute;
+      top: min(0px, calc((100% - 44px) / 2));
+      bottom: min(0px, calc((100% - 44px) / 2));
+      left: min(0px, calc((100% - 44px) / 2));
+      right: min(0px, calc((100% - 44px) / 2));
+    }
+    /* 입력칸은 가상 요소를 못 붙여 높이를 44px 로 올린다 */
+    .form-input {
+      min-height: 44px;
+    }
+  }
+
+  /* 키보드 사용자용 '본문으로 건너뛰기' (components/SkipLink.tsx). 포커스를 받을 때만 보인다 */
+  .skip-link {
+    @apply fixed left-3 top-3 z-[200] -translate-y-20 rounded-[10px] bg-accent px-4 py-2 text-sm font-medium text-white focus:translate-y-0;
+  }
+
   .card {
     @apply rounded-xl border border-line bg-surface;
   }

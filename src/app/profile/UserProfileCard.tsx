@@ -140,35 +140,35 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
 
       <div className="flex flex-col sm:flex-row gap-2">
         {profile.friendStatus === 'NONE' && (
-          <button onClick={sendRequest} disabled={busy} className="btn-primary flex-1">
+          <button onClick={sendRequest} disabled={busy} className="btn-primary sm:flex-1">
             <UserPlus size={16} strokeWidth={1.5} />
             친구 신청
           </button>
         )}
         {profile.friendStatus === 'PENDING_SENT' && (
-          <button onClick={cancelRequest} disabled={busy} className="btn-secondary flex-1">
+          <button onClick={cancelRequest} disabled={busy} className="btn-secondary sm:flex-1">
             친구 신청 취소
           </button>
         )}
         {profile.friendStatus === 'PENDING_RECEIVED' && (
           <>
-            <button onClick={acceptRequest} disabled={busy} className="btn-primary flex-1">
+            <button onClick={acceptRequest} disabled={busy} className="btn-primary sm:flex-1">
               <Check size={16} strokeWidth={1.5} />
               수락
             </button>
-            <button onClick={rejectRequest} disabled={busy} className="btn-secondary flex-1">
+            <button onClick={rejectRequest} disabled={busy} className="btn-secondary sm:flex-1">
               거절
             </button>
           </>
         )}
         {profile.friendStatus === 'FRIEND' && (
-          <Link href={`/messages/${profile.id}`} className="btn-primary flex-1">
+          <Link href={`/messages/${profile.id}`} className="btn-primary sm:flex-1">
             <MessageCircle size={16} strokeWidth={1.5} />
             메시지 보내기
           </Link>
         )}
         {profile.friendStatus === 'SELF' && variant === 'page' && (
-          <Link href="/settings" className="btn-secondary flex-1">
+          <Link href="/settings" className="btn-secondary sm:flex-1">
             <Settings size={16} strokeWidth={1.5} />
             프로필 관리
           </Link>

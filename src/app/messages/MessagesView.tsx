@@ -148,7 +148,7 @@ export default function MessagesView({ friendId }: { friendId?: string }) {
           className={`${friendId ? 'hidden lg:flex' : 'flex'} w-full lg:w-[360px] shrink-0 flex-col min-h-0 lg:border-r lg:border-line`}
         >
           <div className="px-4 pt-5 pb-3 lg:px-5 lg:pt-6 space-y-3">
-            <h1 className="font-display text-2xl leading-8 text-ink lg:text-[26px]">메시지</h1>
+            <h1 className="font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9">메시지</h1>
             <div className="relative">
               <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
               <input
