@@ -24,7 +24,7 @@ import { useVisiblePolling } from '@/hooks/useVisiblePolling';
 import { stripMarkdown, initialOf, getThemeColors, getFileUrl } from '@/lib/utils';
 import { getApiErrorMessage } from '@/lib/axios';
 import { useScheduleWeather } from '@/hooks/useWeather';
-import { WeatherLine } from '@/components/Weather';
+import { WeatherIcon, WeatherLine } from '@/components/Weather';
 import type { WeatherAt } from '@/lib/weather';
 import { formatTimeOnDay, schedulesOnDay, sortSchedules, useTimeFormat, useWeekStartsOn } from '@/lib/schedule-utils';
 
@@ -493,7 +493,12 @@ function ScheduleRow({
   const people = schedule.participants ?? [];
   // 참여자는 이름으로(첫 글자 아바타만으로는 누군지 모른다). 좁은 화면은 아바타가 없어 이 글이 유일한 표시다
   const peopleText = people.length === 0 ? '' : people.length === 1 ? people[0].nickname : `${people[0].nickname} 외 ${people.length - 1}명`;
-  const meta = [groupName, schedule.location, peopleText].filter(Boolean).join(' · ');
+  // 참여자를 장소보다 앞에 둔다(좁은 화면에서 줄어들 때 장소가 먼저 잘리게)
+  const meta = [groupName, peopleText, schedule.location].filter(Boolean).join(' · ');
+  // 좁은 화면의 날씨는 아이콘 + 기온만(메타 줄 끝에 붙으므로 메타가 다 줄어들지 않게)
+  const shortWeather = weather
+    ? weather.temp != null ? `${weather.temp}°` : weather.min != null && weather.max != null ? `${weather.min}°/${weather.max}°` : ''
+    : '';
 
   return (
     <button
@@ -524,7 +529,17 @@ function ScheduleRow({
             {meta && group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
             {meta && <span className="min-w-0 truncate">{meta}</span>}
             {meta && weather && <span aria-hidden className="shrink-0">·</span>}
-            {weather && <WeatherLine weather={weather} className="shrink-0 whitespace-nowrap" />}
+            {weather && (
+              <>
+                <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap tabular-nums sm:hidden">
+                  <WeatherIcon weather={weather} />
+                  {shortWeather}
+                </span>
+                <span className="hidden shrink-0 whitespace-nowrap sm:inline">
+                  <WeatherLine weather={weather} />
+                </span>
+              </>
+            )}
           </p>
         )}
       </div>
