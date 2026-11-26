@@ -518,13 +518,15 @@ function ScheduleRow({
       <Ribbon color={groupHex(schedule.groupId, groups)} className="self-stretch" />
       <div className="min-w-0 flex-1">
         <p className={`truncate font-display text-[15px] leading-5 group-hover:text-accent ${ended ? 'text-ink-2' : 'text-ink'}`}>{schedule.title}</p>
-        {meta && (
+        {/* 날씨는 메타 줄 끝에 붙인다(따로 줄을 두면 날씨 있는 줄만 높아진다). 좁으면 메타가 먼저 줄어든다 */}
+        {(meta || weather) && (
           <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-ink-3">
-            {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
-            <span className="min-w-0 truncate">{meta}</span>
+            {meta && group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
+            {meta && <span className="min-w-0 truncate">{meta}</span>}
+            {meta && weather && <span aria-hidden className="shrink-0">·</span>}
+            {weather && <WeatherLine weather={weather} className="shrink-0 whitespace-nowrap" />}
           </p>
         )}
-        {weather && <p className="mt-1 text-[13px] text-ink-3"><WeatherLine weather={weather} /></p>}
       </div>
       {people.length > 0 && (
         <div className="hidden shrink-0 -space-x-1.5 sm:flex" aria-label={`참여자 ${people.length}명`}>

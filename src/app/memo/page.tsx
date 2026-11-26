@@ -24,7 +24,6 @@ import {
 import { PageHeader, Ribbon, Segmented, EmptyState, Modal, SideLabel, SideItem } from '@/components/ui';
 import { format, isSameDay, isSameYear } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import ImageWithFallback from '@/components/ImageWithFallback';
 import MemoCreateModal from '@/components/MemoCreateModal';
 import { memoApi, isSharedByMe, getMemoPermissions, comparePinned, compareGroupPinned, type MemoResponse } from '@/lib/memo-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
@@ -214,7 +213,19 @@ function MemoContent() {
         setFavoritesLoading(true);
         setFavoritesError(null);
       }
-      setFavoriteMemos(await memoApi.getFavorites(session));
+      const next = await memoApi.getFavorites(session);
+      if (!opts.silent) {
+        setFavoriteMemos(next);
+      } else {
+        // 이 보기에서 별을 끈 메모는 자동 갱신이 와도 보기를 다시 열 때까지 제자리에 남긴다(잘못 눌렀으면 바로 다시 켤 수 있게)
+        setFavoriteMemos((prev) => {
+          const merged = [...next];
+          (prev ?? []).forEach((m, i) => {
+            if (m.isFavorite === false && !merged.some((n) => n.id === m.id)) merged.splice(Math.min(i, merged.length), 0, m);
+          });
+          return merged;
+        });
+      }
     } catch (error) {
       console.error('Failed to load favorites:', error);
       if (!opts.silent) setFavoritesError(getApiErrorMessage(error));
@@ -841,62 +852,90 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
   const shownTags = tags.slice(0, CARD_TAG_COUNT);
   const pinLabel = groupPin ? (pinned ? '모임 고정 해제' : '모임에 고정') : (pinned ? '고정 해제' : '고정');
   const pinColor = groupPin ? 'text-group-ink hover:text-group-ink' : 'text-accent hover:text-accent';
+  // 자물쇠·공유 칩·고정·별 (카드 보기와 목록 보기가 같이 쓴다)
+  const actions = (
+    <>
+      {locked && <Lock size={16} strokeWidth={1.5} className="text-ink-3" />}
+      {/* 내가 친구나 모임에 공유한 메모 */}
+      {sharedByMe && <span className="chip" title={sharedTitle}>{sharedChip}</span>}
+      {canPin ? (
+        <button
+          type="button"
+          onClick={(e: React.MouseEvent) => { e.stopPropagation(); onTogglePin(e); }}
+          aria-label={pinLabel}
+          aria-pressed={pinned}
+          aria-busy={pinBusy || undefined}
+          disabled={pinBusy}
+          title={pinLabel}
+          className={`btn-icon pointer-coarse:size-11 ${pinned ? pinColor : 'text-ink-3'}`}
+        >
+          <Pin size={16} strokeWidth={1.5} className={pinned ? 'fill-current' : ''} />
+        </button>
+      ) : pinned && (
+        <span className={`inline-flex size-8 items-center justify-center pointer-coarse:size-11 ${groupPin ? 'text-group-ink' : 'text-ink-2'}`} title={groupPin ? '모임에 고정됨' : '고정됨'}>
+          <Pin size={16} strokeWidth={1.5} className="fill-current" aria-label={groupPin ? '모임에 고정됨' : '고정됨'} />
+        </span>
+      )}
+      {/* 즐겨찾기는 모임 메모도 된다(모임 화면에서는 별을 보이지 않는다) */}
+      <button
+        type="button"
+        onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
+        aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
+        aria-pressed={!!isFavorite}
+        className={`btn-icon pointer-coarse:size-11 ${isFavorite ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
+      >
+        <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
+      </button>
+    </>
+  );
+  const cardProps = {
+    onClick,
+    role: 'link',
+    tabIndex: 0,
+    'aria-label': title,
+    // 모임 폴더에선 고정 색을 모임 탭과 같게(text-group-ink)
+    style: groupPin ? groupStyle(group?.colorTheme) : undefined,
+    onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.target !== e.currentTarget) return;
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); }
+    },
+  } as const;
+  const cardBase = `card relative flex cursor-pointer overflow-hidden pl-5 pr-4 transition-colors duration-700 hover:border-line-strong focus-visible:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${fresh ? 'bg-accent-soft' : ''}`;
+
+  // 목록 보기: 한 줄 행(제목 · 넓으면 설명 · 분류/작성자 · 날짜 · 버튼). 카드 보기보다 한 화면에 더 많이 보이게
+  if (isList) {
+    return (
+      <div {...cardProps} className={`${cardBase} items-center gap-3 py-2.5`}>
+        <Ribbon color={ribbon} className="absolute inset-y-0 left-0" />
+        <h3 className="min-w-0 shrink font-display text-[17px] leading-6 text-ink truncate sm:max-w-[45%]" title={title}>{title}</h3>
+        {description && <p className="hidden min-w-0 flex-1 truncate text-sm text-ink-3 sm:block">{description}</p>}
+        {!description && <span className="hidden flex-1 sm:block" />}
+        <span className="hidden min-w-0 max-w-[30%] shrink items-center gap-1.5 text-xs text-ink-3 md:flex">
+          {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
+          <span className="min-w-0 truncate">
+            {category}
+            {author && <> · {author}</>}
+          </span>
+        </span>
+        {image && <ImageIcon size={16} strokeWidth={1.5} className="hidden shrink-0 text-ink-3 sm:block" aria-label="사진 있음" />}
+        <span className="stamp ml-auto shrink-0 sm:ml-0">{date}</span>
+        <div className="-my-1 -mr-1.5 flex shrink-0 items-center gap-1 pointer-coarse:gap-2">{actions}</div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      onClick={onClick}
-      role="link"
-      tabIndex={0}
-      aria-label={title}
-      // 모임 폴더에선 고정 색을 모임 탭과 같게(text-group-ink)
-      style={groupPin ? groupStyle(group?.colorTheme) : undefined}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); }
-      }}
-      className={`card relative flex cursor-pointer gap-4 overflow-hidden pl-5 pr-4 transition-colors duration-700 hover:border-line-strong focus-visible:border-line-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${isList ? 'items-center py-3' : 'py-4 sm:py-5'} ${fresh ? 'bg-accent-soft' : ''}`}
-    >
+    <div {...cardProps} className={`${cardBase} gap-4 py-4 sm:py-5`}>
       <Ribbon color={ribbon} className="absolute inset-y-0 left-0" />
-      <div className={`flex min-w-0 flex-1 flex-col ${isList ? 'gap-1' : 'gap-2'}`}>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-display text-[17px] leading-6 text-ink truncate" title={title}>{title}</h3>
-          <div className="-mr-1.5 -mt-1 flex shrink-0 items-center gap-1 pointer-coarse:-mt-2.5 pointer-coarse:gap-2">
-            {locked && <Lock size={16} strokeWidth={1.5} className="text-ink-3" />}
-            {/* 내가 친구나 모임에 공유한 메모 */}
-            {sharedByMe && <span className="chip" title={sharedTitle}>{sharedChip}</span>}
-            {canPin ? (
-              <button
-                type="button"
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onTogglePin(e); }}
-                aria-label={pinLabel}
-                aria-pressed={pinned}
-                aria-busy={pinBusy || undefined}
-                disabled={pinBusy}
-                title={pinLabel}
-                className={`btn-icon pointer-coarse:size-11 ${pinned ? pinColor : 'text-ink-3'}`}
-              >
-                <Pin size={16} strokeWidth={1.5} className={pinned ? 'fill-current' : ''} />
-              </button>
-            ) : pinned && (
-              <span className={`inline-flex size-8 items-center justify-center pointer-coarse:size-11 ${groupPin ? 'text-group-ink' : 'text-ink-2'}`} title={groupPin ? '모임에 고정됨' : '고정됨'}>
-                <Pin size={16} strokeWidth={1.5} className="fill-current" aria-label={groupPin ? '모임에 고정됨' : '고정됨'} />
-              </span>
-            )}
-            {/* 즐겨찾기는 모임 메모도 된다(모임 화면에서는 별을 보이지 않는다) */}
-            <button
-              type="button"
-              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
-              aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
-              aria-pressed={!!isFavorite}
-              className={`btn-icon pointer-coarse:size-11 ${isFavorite ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
-            >
-              <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
-            </button>
-          </div>
+          <div className="-mr-1.5 -mt-1 flex shrink-0 items-center gap-1 pointer-coarse:-mt-2.5 pointer-coarse:gap-2">{actions}</div>
         </div>
         {description && (
-          <p className={`text-sm leading-relaxed text-ink-2 ${isList ? 'line-clamp-1' : 'line-clamp-2 sm:line-clamp-3'}`}>{description}</p>
+          <p className="text-sm leading-relaxed text-ink-2 line-clamp-2 sm:line-clamp-3">{description}</p>
         )}
-        {!isList && tags.length > 0 && (
+        {tags.length > 0 && (
           // 모바일에도 보인다. 태그가 많으면 앞의 몇 개만 + '+n'(카드 높이가 크게 달라지지 않게)
           <div className="flex flex-wrap gap-1.5">
             {shownTags.map((tag) => (
@@ -915,14 +954,14 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
             )}
           </div>
         )}
-        {!isList && image && (
+        {image && (
           <p className="flex items-center gap-1.5 text-xs text-ink-3">
             <ImageIcon size={16} strokeWidth={1.5} />
             사진 1장
           </p>
         )}
         {/* 카드 보기에서는 같은 줄 카드 높이를 맞추고 메타 줄을 바닥에 붙인다 */}
-        <div className={`flex items-center justify-between gap-3 ${isList ? 'mt-0.5' : 'mt-auto pt-1'}`}>
+        <div className="mt-auto flex items-center justify-between gap-3 pt-1">
           <span className="flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
             {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
             <span className="min-w-0 truncate">
@@ -933,15 +972,6 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
           <span className="stamp shrink-0">{date}</span>
         </div>
       </div>
-      {isList && image && (
-        <ImageWithFallback
-          src={image}
-          alt=""
-          fill
-          containerClassName="hidden sm:block size-16 shrink-0 rounded-lg bg-raised"
-          className="object-cover"
-        />
-      )}
     </div>
   );
 }
