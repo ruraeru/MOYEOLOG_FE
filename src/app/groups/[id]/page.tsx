@@ -16,6 +16,7 @@ import {
   X,
   Image as ImageIcon,
   CalendarCheck,
+  ChevronLeft,
   ChevronRight,
   Megaphone,
   Pin,
@@ -25,8 +26,8 @@ import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { groupTopicApi } from '@/lib/group-topic-api';
 import { datePollApi, type DatePollSummary } from '@/lib/date-poll-api';
 import DatePollModal, { DatePollCreateModal, pollDateLabel, pollRangeLabel } from '@/components/DatePollModal';
-import { groupNoticeApi, type NoticeSummary } from '@/lib/group-notice-api';
-import GroupNoticeModal from '@/components/GroupNoticeModal';
+import { groupNoticeApi, isNoticeEdited, type NoticeSummary } from '@/lib/group-notice-api';
+import GroupNoticeModal, { msUntil } from '@/components/GroupNoticeModal';
 import GroupNoticeFormModal from '@/components/GroupNoticeFormModal';
 import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
 import { memoApi, compareGroupPinned, type MemoResponse } from '@/lib/memo-api';
@@ -113,6 +114,10 @@ function GroupDetailContent() {
   const groupId = params?.id as string;
   const topicParam = searchParams.get('topic');
   const tabParam = searchParams.get('tab');
+  // 열린 공지는 주소(?notice=)로 둔다: 뒤로 가기로 창만 닫히고, 알림 링크로 바로 열린다
+  const noticeParam = searchParams.get('notice');
+  // 날짜 조율 알림 링크(?tab=calendar&poll={id})는 그 조율 창을 바로 연다
+  const pollParam = searchParams.get('poll');
 
   const [group, setGroup] = useState<GroupResponse | null>(null);
   const [groupError, setGroupError] = useState<GroupLoadError | null>(null);
@@ -121,10 +126,18 @@ function GroupDetailContent() {
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
   const [topics, setTopics] = useState<TopicResponse[]>([]);
   const [polls, setPolls] = useState<DatePollSummary[]>([]);
-  const [openPollId, setOpenPollId] = useState<string | null>(null);
+  const [openPollId, setOpenPollId] = useState<string | null>(pollParam);
   const [isPollCreateOpen, setIsPollCreateOpen] = useState(false);
+  /** 진행 중 조율이 많으면 2개까지만 보이고 접어 둔다(달력이 밀리지 않게) */
+  const [showAllPolls, setShowAllPolls] = useState(false);
+  // 보고 있던 조율이 목록에서 사라지면(다른 사람이 지움) 창을 닫고 알린다
+  const openPollIdRef = useRef<string | null>(null);
+  const prevPollIdsRef = useRef<Set<string>>(new Set());
   const [notices, setNotices] = useState<NoticeSummary[]>([]);
-  const [openNoticeId, setOpenNoticeId] = useState<string | null>(null);
+  const openNoticeId = noticeParam;
+  /** 이 화면에서 push 로 연 공지인가(닫을 때 뒤로 가기로 기록을 되돌린다) */
+  const [pushedNotice, setPushedNotice] = useState(false);
+  if (!noticeParam && pushedNotice) setPushedNotice(false);
   const [isNoticeFormOpen, setIsNoticeFormOpen] = useState(false);
   const hadGroupRef = useRef(false);
 
@@ -133,6 +146,9 @@ function GroupDetailContent() {
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // '표지 바꾸기': 파일을 먼저 고르고, 고른 사진이 표지로 들어간 수정 창을 연다
+  const [coverPick, setCoverPick] = useState<File | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [isTopicDetailOpen, setIsTopicDetailOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -147,9 +163,58 @@ function GroupDetailContent() {
   const [activeTab, setActiveTab] = useState<TabType>(
     TABS.includes(tabParam as TabType) ? (tabParam as TabType) : topicParam ? 'topics' : 'notice'
   );
+  // 같은 화면에서 주소의 ?tab= 만 바뀌어도(알림 등) 탭을 따라 바꾼다
+  const [prevTabParam, setPrevTabParam] = useState(tabParam);
+  if (tabParam !== prevTabParam) {
+    setPrevTabParam(tabParam);
+    if (TABS.includes(tabParam as TabType)) setActiveTab(tabParam as TabType);
+  }
+  // 이미 이 화면에 있을 때 다른 조율 알림을 눌러도 그 창을 연다(렌더 중 상태 맞추기)
+  const [seenPollParam, setSeenPollParam] = useState(pollParam);
+  if (pollParam !== seenPollParam) {
+    setSeenPollParam(pollParam);
+    if (pollParam) {
+      setActiveTab('calendar');
+      setOpenPollId(pollParam);
+    }
+  }
   const [memoFilter, setMemoFilter] = useState<{ type: FilterType; id?: string }>({ type: 'all' });
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 메모 탭의 보기 방식·검색어는 메모 상세에 다녀와도(뒤로 가기·새로고침) 그대로 둔다. 탭마다·모임마다 따로
+  const memoPrefKey = `group-memo-pref:${groupId}`;
+  const memoPrefLoadedRef = useRef(false);
+  useEffect(() => {
+    memoPrefLoadedRef.current = false;
+    let saved: { viewMode?: unknown; q?: unknown } | null = null;
+    try { saved = JSON.parse(sessionStorage.getItem(memoPrefKey) || 'null'); } catch { saved = null; }
+    memoPrefLoadedRef.current = true;
+    if (!saved) return;
+    const { viewMode: v, q } = saved;
+    // sessionStorage 는 렌더 중에 읽을 수 없어(서버 렌더와 어긋남) 붙은 뒤에 한 번 되살린다
+    const timer = setTimeout(() => {
+      if (v === 'grid' || v === 'list') setViewMode(v);
+      if (typeof q === 'string') setSearchQuery(q);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [memoPrefKey]);
+  useEffect(() => {
+    if (!memoPrefLoadedRef.current) return;
+    try { sessionStorage.setItem(memoPrefKey, JSON.stringify({ viewMode, q: searchQuery })); } catch { /* 저장 못 해도 화면은 그대로 */ }
+  }, [memoPrefKey, viewMode, searchQuery]);
+
+  // 탭을 바꾸면 주소의 ?tab= 도 바꾼다(뒤로 가기·새로고침·공유 때 같은 탭이 열리게). 다른 쿼리는 그대로 둔다
+  const changeTab = useCallback((tab: TabType) => {
+    setActiveTab(tab);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      // 다른 탭의 창을 여는 쿼리(공지·조율·토픽)는 지운다(새로고침 때 닫은 창이 다시 열리지 않게)
+      ['notice', 'poll', 'topic'].forEach((k) => url.searchParams.delete(k));
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    } catch { /* 주소를 못 바꿔도 탭은 바뀐다 */ }
+  }, []);
 
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const retryFetchRef = useRef<() => void>(() => {});
@@ -205,8 +270,16 @@ function GroupDetailContent() {
     if (scheduleResult.status === 'fulfilled') setSchedules(scheduleResult.value);
     if (topicResult.status === 'fulfilled') setTopics(topicResult.value);
     // 날짜 조율 목록은 실패해도 보던 것을 두고 오류로 띄우지 않는다(일정 달력을 가리지 않게)
-    if (pollResult.status === 'fulfilled') setPolls(pollResult.value);
-    else console.error('Failed to fetch date polls:', pollResult.reason);
+    if (pollResult.status === 'fulfilled') {
+      const ids = new Set(pollResult.value.map(p => p.id));
+      const opened = openPollIdRef.current;
+      if (opened && prevPollIdsRef.current.has(opened) && !ids.has(opened)) {
+        setOpenPollId(null);
+        toast.info('조율이 지워졌어요');
+      }
+      prevPollIdsRef.current = ids;
+      setPolls(pollResult.value);
+    } else console.error('Failed to fetch date polls:', pollResult.reason);
 
     if ([memoResult, scheduleResult, topicResult, pollResult, noticeResult].some(r => r.status === 'rejected' && statusOf(r.reason) === 429)) {
       retrySoon();
@@ -221,7 +294,7 @@ function GroupDetailContent() {
     } else {
       setListError(null);
     }
-  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setPolls, setNotices, setListError]);
+  }, [session, groupId, refreshGroups, setGroup, setGroupError, setMemos, setSchedules, setTopics, setPolls, setNotices, setListError, setOpenPollId, toast]);
 
   useEffect(() => {
     fetchGroupData();
@@ -278,6 +351,8 @@ function GroupDetailContent() {
       // 모임 고정(공지). /memo 의 이 모임 폴더와 같은 값이다
       const updated = await memoApi.setGroupPinned(memo.id, !memo.groupPinnedAt, session);
       setMemos(prev => prev.map(m => (m.id === memo.id ? { ...m, groupPinnedAt: updated.groupPinnedAt ?? null } : m)));
+      // 고정하면 카드가 맨 위로 옮겨 가므로 무엇이 바뀌었는지 알려 준다
+      toast.success(updated.groupPinnedAt ? '모임에 고정했어요. 멤버 모두에게 맨 위에 보여요' : '모임 고정을 풀었어요');
     } catch (error) {
       toast.error(getApiErrorMessage(error, '고정을 바꾸지 못했어요'));
       fetchGroupData(true);
@@ -292,33 +367,68 @@ function GroupDetailContent() {
     );
   };
 
+  // 카드로 연 상세는 주소(?topic=)에 남겨 브라우저 뒤로 가기가 창만 닫게 한다
+  const pushedTopicRef = useRef(false);
   const handleTopicClick = (topic: TopicResponse) => {
     setSelectedTopic(topic);
     setSelectedTopicId(topic.id);
-    setIsTopicDetailOpen(true);
+    pushedTopicRef.current = true;
+    router.push(`/groups/${groupId}?tab=topics&topic=${encodeURIComponent(topic.id)}`, { scroll: false });
   };
 
   const handleTopicDetailClose = () => {
     setIsTopicDetailOpen(false);
     setSelectedTopicId(null);
     if (topicParam) {
-      router.replace(`/groups/${groupId}`, { scroll: false });
+      if (pushedTopicRef.current) router.back();
+      else router.replace(`/groups/${groupId}?tab=topics`, { scroll: false });
     }
+    pushedTopicRef.current = false;
   };
+  useEffect(() => {
+    if (!topicParam) pushedTopicRef.current = false;
+  }, [topicParam]);
 
+  // 수정 창은 상세 위에 띄운다(z-[120]). 닫거나 저장하면 보던 상세로 돌아간다
   const handleTopicEdit = (topic: TopicResponse) => {
-    handleTopicDetailClose();
     setSelectedTopic(topic);
     setIsTopicModalOpen(true);
   };
 
   const refreshQuietly = useCallback(() => { fetchGroupData(true); }, [fetchGroupData]);
   const closePoll = useCallback(() => setOpenPollId(null), [setOpenPollId]);
-  const closeNotice = useCallback(() => setOpenNoticeId(null), [setOpenNoticeId]);
+  const openNotice = (id: string) => {
+    setPushedNotice(true);
+    router.push(`/groups/${groupId}?tab=notice&notice=${id}`, { scroll: false });
+  };
+  const closeNotice = () => {
+    if (pushedNotice) {
+      setPushedNotice(false);
+      router.back();
+    } else {
+      router.replace(`/groups/${groupId}?tab=notice`, { scroll: false });
+    }
+  };
+
+  // 목록의 '투표 중' 칩이 마감 시각에 '투표 마감'으로 바뀌도록 가장 이른 마감 시각에 다시 부른다(서버는 그 시각에 알려 주지 않는다)
+  const nextNoticeClose = notices
+    .filter(n => n.hasPoll && !n.pollClosed && n.pollClosesAt)
+    .map(n => n.pollClosesAt as string)
+    .sort()[0] ?? null;
+  useEffect(() => {
+    if (!nextNoticeClose) return;
+    const ms = msUntil(nextNoticeClose);
+    if (ms > 24 * 60 * 60 * 1000) return;
+    const timer = setTimeout(() => fetchGroupData(true), Math.max(0, ms) + 1000);
+    return () => clearTimeout(timer);
+  }, [nextNoticeClose, fetchGroupData]);
+  useEffect(() => {
+    openPollIdRef.current = openPollId;
+  }, [openPollId]);
 
   // 상세를 열면 서버가 읽음 처리한다. 읽음 이벤트는 방장에게만 가므로 내 목록의 점·읽음 수는 여기서 바로 고친다
   const handleOpenNotice = (notice: NoticeSummary) => {
-    setOpenNoticeId(notice.id);
+    openNotice(notice.id);
     if (!notice.read) {
       setNotices(prev => prev.map(n => (n.id === notice.id ? { ...n, read: true, readCount: n.readCount + 1 } : n)));
     }
@@ -390,11 +500,12 @@ function GroupDetailContent() {
 
   const handleKickMember = async (memberId: string, nickname: string) => {
     if (!session || !group) return;
-    if (!(await confirm(`${nickname} 님은 초대 코드로 다시 들어올 수 없게 돼요. 방장이 직접 초대하면 다시 들어올 수 있어요.`, '이 멤버를 내보낼까요?', '내보내기', '취소'))) return;
+    if (!(await confirm(`${nickname} 님은 초대 코드로 다시 들어올 수 없게 돼요. 방장이 직접 초대하면 다시 들어올 수 있어요.\n\n초대 링크도 새로 바뀌어서, 전에 보낸 초대 링크는 더 쓸 수 없어요.`, '이 멤버를 내보낼까요?', '내보내기', '취소'))) return;
     try {
       await groupApi.kickMember(group.id, memberId, session);
       fetchGroupData(true);
-      toast.success('멤버를 내보냈어요');
+      // 내보내면 서버가 초대 코드를 새로 만든다(GroupService.kickMember). 전에 보낸 링크가 죽는다는 것을 알린다
+      toast.success(`${nickname} 님을 내보냈어요. 초대 링크가 새로 바뀌었어요`);
     } catch (error) {
       console.error('Failed to kick member:', error);
       toast.error(error instanceof Error ? error.message : '멤버를 내보내지 못했어요');
@@ -481,25 +592,41 @@ function GroupDetailContent() {
     try {
       await navigator.clipboard.writeText(inviteLink);
       setCopied(true);
+      // 모바일 머리 버튼은 아이콘뿐이라 바뀐 아이콘만으로는 알기 어렵다
+      toast.success('초대 링크를 복사했어요');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error(`복사하지 못했어요. 초대 코드는 ${group.inviteCode} 이에요`);
     }
   };
 
+  // 메모는 있는데 태그·'내 메모' 조건에 걸려 0건이면 '메모가 없어요' 대신 조건 안내 + 풀기 버튼
+  const memoFiltered = selectedTags.length > 0 || memoFilter.type === 'my';
   const memoEmptyText = searchQuery.trim()
     ? '검색 결과가 없어요'
-    : '메모가 없어요';
+    : memoFiltered && memos.length > 0
+      ? '조건에 맞는 메모가 없어요'
+      : '메모가 없어요';
+  const memoEmptyDescription = searchQuery.trim()
+    ? '다른 검색어로 찾아보세요'
+    : memoFiltered && memos.length > 0
+      ? '고른 태그나 범위를 풀어 보세요'
+      : '첫 메모를 남겨 보세요';
+  const clearMemoFilters = () => {
+    setSelectedTags([]);
+    setMemoFilter({ type: 'all' });
+    setSearchQuery('');
+  };
 
+  const openPolls = polls.filter(p => p.status === 'OPEN');
   const upcomingSchedules = schedules
     .filter(s => parseISO(s.startTime).getTime() >= now)
     .sort((a, b) => parseISO(a.startTime).getTime() - parseISO(b.startTime).getTime())
     .slice(0, 3);
 
-  const unreadNotices = notices.filter(n => !n.read).length;
   const tabItems: { key: TabType; label: string; count?: number }[] = [
-    // 공지 탭 숫자는 안 읽은 공지 수(0이면 숨김)
-    { key: 'notice', label: '공지', count: unreadNotices || undefined },
+    // 탭 숫자는 모두 전체 개수(안 읽은 공지는 목록 카드의 점으로 보인다)
+    { key: 'notice', label: '공지', count: notices.length },
     { key: 'calendar', label: '일정', count: schedules.length },
     { key: 'memos', label: '메모', count: memos.length },
     { key: 'topics', label: '토픽', count: topics.length },
@@ -511,20 +638,44 @@ function GroupDetailContent() {
       <main className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar pb-24">
         <div className="mx-auto max-w-7xl px-4 pt-4 md:px-8 lg:pt-6">
           {/* 머리: 표지 + 표지에 걸친 모임 얼굴 / 이름·설명·방장 / 얼굴 묶음 + 친구 초대 + 링크 복사 + 설정 */}
-          <header>
+          {/* 모바일에서 공지 외 탭(일정·메모·토픽·멤버)은 머리를 접어(표지·소개·멤버 줄 숨김, 간격 줄임) 첫 카드가 화면 위쪽에 보이게 한다 */}
+          <header data-compact={activeTab !== 'notice' || undefined} className="group/head">
+            {/* 모바일에는 사이드바가 없다. 목록(모임 만들기)으로 돌아가는 길을 둔다 */}
+            <button
+              type="button"
+              onClick={() => router.push('/groups')}
+              className="btn-ghost -ml-2 mb-2 !px-2 lg:hidden"
+            >
+              <ChevronLeft size={16} strokeWidth={1.5} /> 모임 목록
+            </button>
             <GroupCover
               src={group.backgroundImage}
               theme={group.colorTheme}
-              className="h-28 rounded-xl border border-line sm:h-32 lg:h-44"
+              className="h-20 rounded-xl border border-line sm:h-32 lg:h-44 max-md:group-data-[compact]/head:hidden"
             >
               {isOwner && (
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="btn-secondary btn-sm absolute right-3 top-3 border-line bg-surface/90"
-                >
-                  <ImageIcon size={14} strokeWidth={1.5} /> 표지 바꾸기
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    className="btn-secondary btn-sm absolute right-3 top-3 border-line bg-surface/90 max-md:right-2 max-md:top-2 max-md:h-11"
+                  >
+                    <ImageIcon size={14} strokeWidth={1.5} /> 표지 바꾸기
+                  </button>
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      setCoverPick(file);
+                      setIsEditModalOpen(true);
+                    }}
+                  />
+                </>
               )}
             </GroupCover>
 
@@ -534,7 +685,7 @@ function GroupDetailContent() {
                 src={group.profileImage}
                 theme={group.colorTheme}
                 size="xl"
-                className="order-1 -mt-7 ring-4 ring-surface max-lg:size-14 max-lg:rounded-xl max-lg:text-2xl lg:-mt-10"
+                className="order-1 -mt-7 ring-4 ring-surface max-lg:size-14 max-lg:rounded-xl max-lg:text-2xl lg:-mt-10 max-md:group-data-[compact]/head:mt-0"
               />
 
               <div className="order-3 w-full min-w-0 lg:order-2 lg:w-auto lg:flex-1 lg:pt-4">
@@ -542,23 +693,23 @@ function GroupDetailContent() {
                   {group.name}
                 </h1>
                 {group.description && (
-                  <p className="mt-1 line-clamp-2 break-words text-sm text-ink-2">{group.description}</p>
+                  <p className="mt-1 line-clamp-2 whitespace-pre-line break-words text-sm text-ink-2 max-md:group-data-[compact]/head:hidden">{group.description}</p>
                 )}
-                <p className="mt-1 text-[13px] text-ink-3">
+                <p className="mt-1 text-[13px] text-ink-3 max-md:group-data-[compact]/head:hidden">
                   <span className="tabular-nums">멤버 {group.memberCount}명</span> · 방장 {group.createdByNickname}
                 </p>
               </div>
 
-              <div className="order-2 ml-auto flex shrink-0 items-center gap-2 pt-3 lg:order-3 lg:pt-4">
+              <div className="order-2 -mr-3 ml-auto flex shrink-0 items-center gap-2 pt-3 sm:-mr-4 lg:order-3 lg:-mr-6 lg:pt-4 max-md:group-data-[compact]/head:pt-0">
                 <span className="mr-1 hidden lg:flex" title={`멤버 ${group.memberCount}명`}>
                   <AvatarStack people={group.members} max={4} size="size-8" />
                 </span>
-                <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary">
+                <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary max-md:h-11">
                   <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
                 </button>
                 <button
                   onClick={handleCopyInviteLink}
-                  className="btn-secondary !px-2.5 sm:!px-3.5"
+                  className="btn-secondary !px-2.5 max-md:h-11 max-md:min-w-11 sm:!px-3.5"
                   aria-label="초대 링크 복사"
                   title="초대 링크 복사"
                 >
@@ -568,7 +719,7 @@ function GroupDetailContent() {
                 {isOwner && (
                   <button
                     onClick={() => setIsEditModalOpen(true)}
-                    className="btn-secondary size-9 !px-0"
+                    className="btn-secondary size-9 !px-0 max-md:size-11"
                     aria-label="모임 설정"
                     title="모임 설정"
                   >
@@ -579,9 +730,9 @@ function GroupDetailContent() {
             </div>
           </header>
 
-          <UnderlineTabs className="mt-5 lg:mt-6" items={tabItems} active={activeTab} onChange={setActiveTab} />
+          <UnderlineTabs className="sticky top-0 z-10 mt-5 bg-canvas lg:mt-6 max-md:mt-3" items={tabItems} active={activeTab} onChange={changeTab} />
 
-          <div className="mt-5 min-h-[400px] outline-none lg:mt-6">
+          <div className="mt-5 min-h-[400px] outline-none lg:mt-6 max-md:mt-3">
             {activeTab === 'notice' ? (
               <div className="space-y-3">
                 {isOwner && (
@@ -611,15 +762,17 @@ function GroupDetailContent() {
                             <span className="truncate font-display text-[15px] leading-5 text-ink">{n.title}</span>
                             {!n.read && <span role="img" className="size-1.5 shrink-0 rounded-full bg-mark" aria-label="안 읽음" />}
                           </span>
-                          {n.preview && <span className="mt-1 line-clamp-2 block break-words text-sm text-ink-2">{n.preview}</span>}
+                          {n.preview && <span className="mt-1 line-clamp-2 break-words text-sm text-ink-2">{n.preview}</span>}
                           <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-3">
                             <span className="stamp">{formatStamp(n.createdAt, tf)}</span>
+                            {isNoticeEdited(n) && <span>수정됨</span>}
                             <span>{n.memberCount}명 중 {n.readCount}명 읽음</span>
                             {n.hasPoll && (
                               <span className={n.pollClosed ? 'chip' : 'chip bg-accent-soft text-accent'}>
                                 {n.pollClosed ? '투표 마감' : '투표 중'}
                               </span>
                             )}
+                            {n.hasPoll && !n.pollClosed && !n.myVoted && <span className="chip">투표 전</span>}
                           </span>
                         </span>
                         <ChevronRight size={16} strokeWidth={1.5} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
@@ -705,7 +858,10 @@ function GroupDetailContent() {
                   <EmptyState
                     icon={FileText}
                     title={memoEmptyText}
-                    description={searchQuery.trim() ? '다른 검색어로 찾아보세요' : '첫 메모를 남겨 보세요'}
+                    description={memoEmptyDescription}
+                    action={(searchQuery.trim() || (memoFiltered && memos.length > 0)) ? (
+                      <button type="button" onClick={clearMemoFilters} className="btn-secondary">조건 풀기</button>
+                    ) : undefined}
                   />
                 )}
               </div>
@@ -720,7 +876,7 @@ function GroupDetailContent() {
                         <CalendarCheck size={16} strokeWidth={1.5} /> 날짜 조율
                       </button>
                     </div>
-                    {polls.filter(p => p.status === 'OPEN').map(p => (
+                    {(showAllPolls ? openPolls : openPolls.slice(0, 2)).map(p => (
                       <button
                         key={p.id}
                         type="button"
@@ -730,7 +886,7 @@ function GroupDetailContent() {
                         <span aria-hidden className="w-[3px] shrink-0 self-stretch rounded-full bg-group" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-display text-[15px] leading-5 text-ink">{p.title}</span>
-                          <span className="stamp mt-0.5 block text-xs text-ink-3">
+                          <span className="stamp mt-0.5 block break-keep text-xs text-ink-3">
                             {pollRangeLabel(p.startDate, p.endDate)} · {p.memberCount}명 중 {p.respondedCount}명 응답
                           </span>
                         </span>
@@ -742,12 +898,17 @@ function GroupDetailContent() {
                         <ChevronRight size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
                       </button>
                     ))}
+                    {openPolls.length > 2 && (
+                      <button type="button" onClick={() => setShowAllPolls(v => !v)} className="btn-ghost btn-sm w-full max-sm:h-11">
+                        {showAllPolls ? '접기' : `진행 중인 조율 ${openPolls.length - 2}개 더 보기`}
+                      </button>
+                    )}
                     {polls.filter(p => p.status === 'CONFIRMED' && p.confirmedDate).map(p => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => setOpenPollId(p.id)}
-                        className="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[13px] text-ink-3 hover:text-ink-2"
+                        className="flex min-h-11 w-full min-w-0 items-center gap-2 px-1 text-left text-[13px] text-ink-3 hover:text-ink-2 md:min-h-8"
                       >
                         <Check size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
                         <span className="truncate">{p.title}</span>
@@ -765,7 +926,7 @@ function GroupDetailContent() {
                 <section className="min-w-0 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <h2 className="text-sm font-medium text-ink-2">최근 토픽</h2>
-                    <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="btn-primary whitespace-nowrap">
+                    <button onClick={() => { setSelectedTopic(null); setIsTopicModalOpen(true); }} className="btn-primary whitespace-nowrap max-md:h-11">
                       <Plus size={16} strokeWidth={1.5} /> 토픽 올리기
                     </button>
                   </div>
@@ -834,12 +995,17 @@ function GroupDetailContent() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-sm font-medium text-ink-2">
-                    멤버 <span className="tabular-nums">{group.members.length}</span>
-                  </h2>
+                {/* 인원은 탭 숫자에 이미 있어 제목 대신 할 일(초대·링크·나가기)을 둔다 */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary max-md:h-11">
+                    <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
+                  </button>
+                  <button onClick={handleCopyInviteLink} className="btn-secondary max-md:h-11">
+                    {copied ? <Check size={16} strokeWidth={1.5} /> : <LinkIcon size={16} strokeWidth={1.5} />}
+                    {copied ? '복사했어요' : '초대 링크 복사'}
+                  </button>
                   {!isOwner && (
-                    <button onClick={handleLeave} disabled={leaving} className="btn-danger whitespace-nowrap">
+                    <button onClick={handleLeave} disabled={leaving} className="btn-danger ml-auto whitespace-nowrap max-md:h-11">
                       {leaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <LogOut size={16} strokeWidth={1.5} />}
                       모임 나가기
                     </button>
@@ -857,6 +1023,13 @@ function GroupDetailContent() {
                     />
                   ))}
                 </div>
+                {group.members.length <= 1 && (
+                  <EmptyState
+                    icon={UserPlus}
+                    title="아직 혼자 있는 모임이에요"
+                    description="친구를 골라 초대하거나, 초대 링크를 보내 함께할 사람을 불러 보세요"
+                  />
+                )}
                 {isOwner && (
                   <p className="text-xs text-ink-3">방장은 모임을 나갈 수 없어요. 모임을 없애려면 모임 설정에서 삭제해 주세요.</p>
                 )}
@@ -896,7 +1069,7 @@ function GroupDetailContent() {
         onClose={() => setIsNoticeFormOpen(false)}
         onSaved={(notice) => {
           setIsNoticeFormOpen(false);
-          setOpenNoticeId(notice.id);
+          openNotice(notice.id);
           fetchGroupData(true);
         }}
       />
@@ -912,7 +1085,9 @@ function GroupDetailContent() {
         isScheduleModalOpen={isScheduleModalOpen} setIsScheduleModalOpen={setIsScheduleModalOpen}
         isListModalOpen={isListModalOpen} setIsListModalOpen={setIsListModalOpen}
         isDetailOpen={isDetailOpen} setIsDetailOpen={setIsDetailOpen}
-        isEditModalOpen={isEditModalOpen} setIsEditModalOpen={setIsEditModalOpen}
+        isEditModalOpen={isEditModalOpen}
+        setIsEditModalOpen={(o: boolean) => { setIsEditModalOpen(o); if (!o) setCoverPick(null); }}
+        editInitialBgFile={coverPick}
         isTopicModalOpen={isTopicModalOpen} setIsTopicModalOpen={setIsTopicModalOpen}
         isTopicDetailOpen={!!openTopicId}
         isInviteModalOpen={isInviteModalOpen} setIsInviteModalOpen={setIsInviteModalOpen}
@@ -939,9 +1114,10 @@ function GroupErrorView({ error, onRetry, onGoList }: { error: GroupLoadError; o
   let canRetry = true;
 
   if (error.status === 403) {
-    title = error.wasMember ? '이 모임에 더 이상 들어갈 수 없어요' : '이 모임의 멤버가 아니에요';
+    // 이 화면에서 직접 나가면 목록으로 옮겨 가므로, 보고 있던 중 403 이 되면 대개 방장이 내보낸 경우다
+    title = error.wasMember ? '모임에서 내보내졌어요' : '이 모임의 멤버가 아니에요';
     description = error.wasMember
-      ? '모임에서 내보내졌거나 모임을 나갔어요.'
+      ? '방장이 이 모임에서 내보냈어요. 다른 창에서 직접 나갔다면 다시 들어오려면 초대를 받아야 해요.'
       : '모임에 참여하려면 초대 링크나 초대 코드가 필요해요.';
     canRetry = false;
   } else if (error.status === 404 || error.status === 400) {

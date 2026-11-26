@@ -57,6 +57,11 @@ export const notificationApi = {
   async remove(id: string, session: Session | null): Promise<void> {
     await axiosInstance.delete(`/api/notifications/${id}`, { headers: getAuthHeaders(session) });
   },
+
+  /** 읽은 알림 모두 지우기 */
+  async removeRead(session: Session | null): Promise<void> {
+    await axiosInstance.delete('/api/notifications/read', { headers: getAuthHeaders(session) });
+  },
 };
 
 /** 알림 link 는 앱 안 경로만 따라갑니다. */

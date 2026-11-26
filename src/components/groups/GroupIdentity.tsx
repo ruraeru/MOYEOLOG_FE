@@ -72,7 +72,8 @@ export function GroupAvatar({
       {url ? (
         <ImageWithFallback src={url} alt="" fill containerClassName="w-full h-full" className="object-cover" unoptimized />
       ) : (
-        initialOf(name)
+        // 이름이 비었으면(새 모임 창의 미리보기) 글자를 넣지 않는다
+        initialOf(name, '')
       )}
     </span>
   );

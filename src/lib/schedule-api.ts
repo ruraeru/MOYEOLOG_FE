@@ -30,6 +30,7 @@ export interface ScheduleResponse {
 
 /** 달력에서 붉게 표시할 까닭. 없으면 null */
 export function scheduleAlert(s: Pick<ScheduleResponse, 'departureNeeded' | 'placeNeeded'>): string | null {
+  if (s.departureNeeded && s.placeNeeded) return '출발지·장소 미정';
   if (s.departureNeeded) return '출발지 미입력';
   if (s.placeNeeded) return '장소 미정';
   return null;

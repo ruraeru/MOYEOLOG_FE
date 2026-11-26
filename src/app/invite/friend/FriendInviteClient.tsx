@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import axios from 'axios';
 import { friendApi, type UserProfileResponse } from '@/lib/friend-api';
@@ -11,21 +11,16 @@ import { Loader2, AlertCircle, RotateCw } from 'lucide-react';
 import UserProfileCard from '@/app/profile/UserProfileCard';
 import { EmptyState } from '@/components/ui';
 
-function FriendInviteContent() {
+function FriendInviteContent({ inviterName }: { inviterName: string | null }) {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const code = (searchParams.get('code') || '').trim();
 
   const [profile, setProfile] = useState<UserProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ invalid: boolean; message: string } | null>(null);
 
-  useEffect(() => {
-    if (status !== 'unauthenticated') return;
-    const target = code ? `/invite/friend?code=${encodeURIComponent(code)}` : '/invite/friend';
-    router.replace(`/?callbackUrl=${encodeURIComponent(target)}`);
-  }, [status, code, router]);
+  const target = code ? `/invite/friend?code=${encodeURIComponent(code)}` : '/invite/friend';
 
   // 링크를 연 것만으로는 아무것도 보내지 않아요. 누가 초대했는지 보여 주고 '친구 신청'을 눌러야 보냅니다.
   const fetchInviter = useCallback(async (silent = false) => {
@@ -58,6 +53,31 @@ function FriendInviteContent() {
   useEffect(() => {
     fetchInviter();
   }, [fetchInviter]);
+
+  // 로그인 전: 바로 로그인 화면으로 넘기지 않고 누가 초대했는지 먼저 보여 줘요.
+  // 가입 화면에도 돌아올 주소를 넘겨, 가입·인증 뒤 로그인하면 이 화면으로 돌아와요.
+  if (status === 'unauthenticated') {
+    const back = encodeURIComponent(target);
+    return (
+      <Shell>
+        <div className="space-y-1 pb-1">
+          <p className="text-[13px] font-medium text-ink-3">친구 초대</p>
+          <p className="font-display text-2xl leading-8 text-ink [overflow-wrap:anywhere]">
+            {inviterName ? `${inviterName}님이 모여로그 친구로 초대했어요` : '모여로그 친구 초대'}
+          </p>
+        </div>
+        <div className="card p-5 sm:p-6 space-y-4">
+          <p className="text-sm text-ink-2">
+            로그인하거나 가입하면 친구 신청을 보내고 일정과 메모를 함께 쓸 수 있어요
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Link href={`/?callbackUrl=${back}`} className="btn-primary sm:flex-1">로그인</Link>
+            <Link href={`/signup?callbackUrl=${back}`} className="btn-secondary sm:flex-1">가입하기</Link>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
 
   if (loading || status !== 'authenticated') {
     return (
@@ -99,8 +119,14 @@ function FriendInviteContent() {
     <Shell>
       <div className="space-y-1 pb-1">
         <p className="text-[13px] font-medium text-ink-3">친구 초대</p>
-        <p className="font-display text-2xl leading-8 text-ink">
-          {profile.friendStatus === 'SELF' ? '내 친구 초대 링크' : `${profile.nickname}님이 친구가 되고 싶어 해요`}
+        <p className="font-display text-2xl leading-8 text-ink [overflow-wrap:anywhere]">
+          {profile.friendStatus === 'SELF'
+            ? '내 친구 초대 링크'
+            : profile.friendStatus === 'FRIEND'
+              ? `${profile.nickname}님과 이미 친구예요`
+              : profile.friendStatus === 'PENDING_SENT'
+                ? `${profile.nickname}님에게 친구 신청을 보냈어요`
+                : `${profile.nickname}님이 친구가 되고 싶어 해요`}
         </p>
       </div>
       <UserProfileCard profile={profile} variant="invite" onChanged={() => fetchInviter(true)} />
@@ -120,14 +146,14 @@ function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-export default function FriendInvitePage() {
+export default function FriendInvitePage({ inviterName = null }: { inviterName?: string | null }) {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" />
       </div>
     }>
-      <FriendInviteContent />
+      <FriendInviteContent inviterName={inviterName} />
     </Suspense>
   );
 }

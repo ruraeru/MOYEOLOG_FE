@@ -19,6 +19,14 @@ import { initialOf } from '@/lib/utils';
 import { PageHeader, UnderlineTabs, EmptyState } from '@/components/ui';
 
 type Tab = 'friends' | 'received' | 'sent';
+const TABS: Tab[] = ['friends', 'received', 'sent'];
+
+/** 주소의 ?tab= 을 읽어요(알림 링크 /friends?tab=received, 새로고침 뒤 유지). */
+function tabFromUrl(): Tab {
+  if (typeof window === 'undefined') return 'friends';
+  const t = new URLSearchParams(window.location.search).get('tab') as Tab | null;
+  return t && TABS.includes(t) ? t : 'friends';
+}
 
 function Avatar({ src, name, size = 'md' }: { src?: string | null; name: string; size?: 'sm' | 'md' }) {
   const px = size === 'sm' ? 32 : 40;
@@ -49,9 +57,10 @@ function PersonLink({ person, sub }: { person: FriendResponse; sub?: React.React
     <Link href={`/profile/${person.userId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg">
       <Avatar src={person.profileImage} name={person.nickname} />
       <span className="min-w-0">
-        <span className="flex items-baseline gap-2">
-          <span className="font-display text-base leading-6 text-ink truncate">{person.nickname}</span>
-          <span className="text-xs text-ink-3 truncate">@{person.customId}</span>
+        {/* 좁은 화면에서는 @아이디를 먼저(필요하면 다) 줄이고 이름은 다 보이게 한다(이름이 칸보다 길 때만 이름도 줄임) */}
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="font-display text-base leading-6 text-ink truncate shrink-0 max-w-full">{person.nickname}</span>
+          <span className="min-w-0 text-xs text-ink-3 truncate">@{person.customId}</span>
         </span>
         {sub && <span className="block text-xs text-ink-3 truncate mt-0.5">{sub}</span>}
       </span>
@@ -69,7 +78,14 @@ export default function FriendsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>('friends');
+  const [tab, setTabState] = useState<Tab>('friends');
+  const setTab = useCallback((k: Tab) => {
+    setTabState(k);
+    const url = new URL(window.location.href);
+    if (k === 'friends') url.searchParams.delete('tab');
+    else url.searchParams.set('tab', k);
+    window.history.replaceState(window.history.state, '', url.pathname + url.search);
+  }, []);
   const [query, setQuery] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -102,6 +118,22 @@ export default function FriendsPage() {
     fetchFriendsData();
   }, [fetchFriendsData]);
 
+  // 첫 렌더 뒤에 주소의 탭을 반영해요(서버 렌더와 어긋나지 않게).
+  useEffect(() => {
+    const t = tabFromUrl();
+    if (t !== 'friends') setTabState(t);
+  }, []);
+
+  // 더보기 메뉴는 Esc 로 닫아요.
+  useEffect(() => {
+    if (!menuId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuId]);
+
   // 받은 친구 요청·수락을 새로고침 없이 반영한다. 자동 갱신 실패는 알리지 않고 다음 주기에 다시 시도한다
   useVisiblePolling(() => fetchFriendsData({ silent: true, auto: true }), !!session, LIST_POLL_MS);
   useLiveTopics(['friends'], () => fetchFriendsData({ silent: true, auto: true }), !!session);
@@ -133,8 +165,10 @@ export default function FriendsPage() {
   const handleAccept = (requestId: string) =>
     runAction(requestId, () => friendApi.acceptRequest(requestId, session), '친구 요청을 수락했어요', '요청을 수락하지 못했어요.');
 
-  const handleReject = (requestId: string) =>
+  const handleReject = async (requestId: string, name: string) => {
+    if (!(await confirm(`${name}님의 친구 요청을 거절할까요?`, undefined, '거절', '닫기'))) return;
     runAction(requestId, () => friendApi.deleteFriendship(requestId, session), '친구 요청을 거절했어요', '요청을 거절하지 못했어요.');
+  };
 
   const handleCancel = async (requestId: string, name: string) => {
     if (!(await confirm(`${name}님에게 보낸 친구 요청을 취소할까요?`, undefined, '요청 취소', '닫기'))) return;
@@ -143,7 +177,14 @@ export default function FriendsPage() {
 
   const handleDelete = async (id: string, name: string) => {
     setMenuId(null);
-    if (!(await confirm(`${name}님을 친구 목록에서 삭제할까요?`, undefined, '삭제'))) return;
+    if (
+      !(await confirm(
+        '삭제하면 서로 공유한 메모와 개인 일정 참여가 정리되고, 다시 친구가 돼도 돌아오지 않아요. 주고받은 메시지는 남아요.',
+        `${name}님을 친구 목록에서 삭제할까요?`,
+        '삭제',
+      ))
+    )
+      return;
     runAction(id, () => friendApi.deleteFriendship(id, session), '친구 목록에서 삭제했어요', '친구를 삭제하지 못했어요.');
   };
 
@@ -210,9 +251,9 @@ export default function FriendsPage() {
 
             <UnderlineTabs<Tab>
               items={[
-                { key: 'friends', label: '친구', count: loading ? undefined : friends.length },
-                { key: 'received', label: '받은 요청', count: loading ? undefined : friendRequests.length },
-                { key: 'sent', label: '보낸 요청', count: loading ? undefined : sentRequests.length },
+                { key: 'friends', label: '친구', count: loading || loadError ? undefined : friends.length },
+                { key: 'received', label: '받은 요청', count: loading || loadError ? undefined : friendRequests.length },
+                { key: 'sent', label: '보낸 요청', count: loading || loadError ? undefined : sentRequests.length },
               ]}
               active={tab}
               onChange={(k) => {
@@ -252,7 +293,7 @@ export default function FriendsPage() {
                     action={
                       tab === 'friends' ? (
                         <button onClick={() => setIsSearchModalOpen(true)} className="btn-secondary">
-                          친구 찾기
+                          친구 추가
                         </button>
                       ) : undefined
                     }
@@ -266,7 +307,7 @@ export default function FriendsPage() {
                     {tab === 'friends' ? (
                       <>
                         <PersonLink person={p} sub={p.email || undefined} />
-                        <Link href={`/messages/${p.userId}`} className="btn-secondary btn-sm shrink-0">
+                        <Link href={`/messages/${p.userId}`} className="btn-secondary btn-sm shrink-0 max-lg:h-11 max-lg:min-w-11">
                           <MessageCircle size={16} strokeWidth={1.5} />
                           <span className="hidden sm:inline">메시지</span>
                           <span className="sr-only sm:hidden">메시지</span>
@@ -277,7 +318,7 @@ export default function FriendsPage() {
                             disabled={pendingId === p.id}
                             aria-label={`${p.nickname}님 더보기`}
                             aria-expanded={menuId === p.id}
-                            className="btn-icon"
+                            className="btn-icon max-lg:size-11"
                           >
                             <MoreHorizontal size={16} strokeWidth={1.5} />
                           </button>
@@ -307,7 +348,7 @@ export default function FriendsPage() {
                       <>
                         <PersonLink person={p} sub="나에게 친구 신청을 보냈어요" />
                         <button
-                          onClick={() => handleReject(p.id)}
+                          onClick={() => handleReject(p.id, p.nickname)}
                           disabled={pendingId === p.id}
                           className="btn-ghost btn-sm shrink-0"
                         >
@@ -342,7 +383,7 @@ export default function FriendsPage() {
           {/* 오른쪽: 받은 요청 · 초대 링크 */}
           <aside className="space-y-4 lg:pt-1">
             {!loading && !loadError && friendRequests.length > 0 && (
-              <section className="card p-5">
+              <section className="card p-5 hidden lg:block">
                 <div className="flex items-baseline gap-2">
                   <h2 className="font-display text-lg text-ink">받은 요청</h2>
                   <span className="stamp">{friendRequests.length}</span>
@@ -358,7 +399,7 @@ export default function FriendsPage() {
                         </span>
                       </Link>
                       <button
-                        onClick={() => handleReject(req.id)}
+                        onClick={() => handleReject(req.id, req.nickname)}
                         disabled={pendingId === req.id}
                         className="btn-ghost btn-sm shrink-0"
                       >
@@ -384,7 +425,12 @@ export default function FriendsPage() {
 
             {inviteLink && (
               <section className="card p-5">
-                <h2 className="font-display text-lg text-ink">초대 링크</h2>
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2 className="font-display text-lg text-ink">초대 링크</h2>
+                  <span className="text-[13px] text-ink-2">
+                    내 아이디 <span className="stamp text-ink select-all">{myCustomId}</span>
+                  </span>
+                </div>
                 <p className="mt-1 text-[13px] text-ink-2">링크를 받은 사람이 열면 바로 친구 신청을 보낼 수 있어요</p>
                 <p className="mt-3 truncate rounded-[10px] bg-raised px-3 py-2.5 text-[13px] text-ink-2">{inviteLink}</p>
                 <button onClick={handleCopyInviteLink} className="btn-secondary mt-3">
@@ -400,7 +446,10 @@ export default function FriendsPage() {
       <FriendSearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
-        onSuccess={() => fetchFriendsData({ silent: true })}
+        onSuccess={() => {
+          setTab('sent');
+          fetchFriendsData({ silent: true });
+        }}
       />
     </div>
   );

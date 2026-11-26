@@ -1,16 +1,13 @@
-import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { PageHeader } from '@/components/ui';
+import HelpFaq, { AuthOnly, type HelpSection } from '@/components/HelpFaq';
+import { pageMeta } from '@/lib/site-meta';
 
-export const metadata: Metadata = {
-  title: '도움말 | 모여로그',
-  description: '모여로그를 쓰면서 자주 묻는 질문',
-};
+export const metadata: Metadata = pageMeta({ title: '도움말 | 모여로그', description: '모여로그를 쓰면서 자주 묻는 질문', path: '/help' });
 
-const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
+const SECTIONS: HelpSection[] = [
   {
     title: '시작하기',
     items: [
@@ -18,7 +15,7 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
         q: '어떻게 가입하나요?',
         a: (
           <>
-            두 가지 방법이 있어요. 첫 화면에서 카카오로 로그인하면 바로 계정이 만들어져요. 이메일로 가입하려면 첫 화면의 <Link href="/signup" className="text-accent underline-offset-2 hover:underline">이메일로 가입</Link>에서 이메일·활동 이름·비밀번호를 쓰고, 받은 메일의 링크를 30분 안에 눌러 인증하면 가입이 끝나요.
+            두 가지 방법이 있어요. 첫 화면에서 카카오로 로그인하면 바로 계정이 만들어져요. 이메일로 가입하려면 첫 화면의 <Link href="/signup" className="touch-hit text-accent underline-offset-2 hover:underline">이메일로 가입</Link>에서 이메일·활동 이름·비밀번호를 쓰고, 받은 메일의 링크를 30분 안에 눌러 인증하면 가입이 끝나요.
           </>
         ),
       },
@@ -30,7 +27,7 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
         q: '비밀번호를 잊었어요',
         a: (
           <>
-            첫 화면의 <Link href="/reset-password" className="text-accent underline-offset-2 hover:underline">비밀번호를 잊었어요</Link>에 가입한 이메일을 쓰면 비밀번호를 새로 정하는 링크를 보내 드려요. 비밀번호를 바꾸면 모든 기기에서 로그아웃돼요. 카카오로만 로그인해 왔다면 같은 방법으로 비밀번호를 처음 정할 수 있어요. 계정의 이메일이 인증되지 않았다면 메일이 가지 않으니, 카카오로 로그인한 뒤 설정의 &apos;계정 및 보안&apos;에서 정해 주세요.
+            첫 화면의 <Link href="/reset-password" className="touch-hit text-accent underline-offset-2 hover:underline">비밀번호를 잊었어요</Link>에 가입한 이메일을 쓰면 비밀번호를 새로 정하는 링크를 보내 드려요. 비밀번호를 바꾸면 모든 기기에서 로그아웃돼요. 카카오로만 로그인해 왔다면 같은 방법으로 비밀번호를 처음 정할 수 있어요. 계정의 이메일이 인증되지 않았다면 메일이 가지 않으니, 카카오로 로그인한 뒤 설정의 &apos;계정 및 보안&apos;에서 정해 주세요.
           </>
         ),
       },
@@ -38,7 +35,7 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
         q: '닉네임과 프로필 사진은 어디서 바꾸나요?',
         a: (
           <>
-            오른쪽 위 프로필 메뉴의 &apos;설정&apos;이나 <Link href="/settings" className="text-accent underline-offset-2 hover:underline">설정</Link>에서 바꿀 수 있어요. 닉네임은 2~20자예요.
+            오른쪽 위 프로필 메뉴의 &apos;설정&apos;이나 <Link href="/settings" className="touch-hit text-accent underline-offset-2 hover:underline">설정</Link>에서 바꿀 수 있어요. 닉네임은 2~20자예요.
           </>
         ),
       },
@@ -55,7 +52,7 @@ const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
         q: '친구는 어떻게 추가하나요?',
         a: (
           <>
-            <Link href="/friends" className="text-accent underline-offset-2 hover:underline">친구</Link> 화면의 &apos;친구 추가&apos;에서 상대의 ID를 입력하거나, 프로필 메뉴의 &apos;내 친구 초대 링크&apos;를 보내 주세요. 링크를 받은 사람이 누가 초대했는지 확인하고 &apos;친구 신청&apos;을 누르면 요청이 가요.
+            <Link href="/friends" className="touch-hit text-accent underline-offset-2 hover:underline">친구</Link> 화면의 &apos;친구 추가&apos;에서 상대의 ID를 입력하거나, 프로필 메뉴의 &apos;내 친구 초대 링크&apos;를 보내 주세요. 링크를 받은 사람이 누가 초대했는지 확인하고 &apos;친구 신청&apos;을 누르면 요청이 가요.
           </>
         ),
       },
@@ -131,29 +128,10 @@ export default function HelpPage() {
           <PageHeader
             title="도움말"
             description="모여로그를 쓰면서 자주 묻는 질문을 모았어요"
-            actions={<Link href="/settings" className="btn-secondary">설정 열기</Link>}
+            actions={<AuthOnly><Link href="/settings" className="btn-secondary">설정 열기</Link></AuthOnly>}
           />
 
-          {SECTIONS.map((section) => (
-            <section key={section.title} className="space-y-2">
-              <h2 className="px-1 text-[13px] font-medium text-ink-3">{section.title}</h2>
-              <div className="card divide-y divide-line overflow-hidden">
-                {section.items.map((item) => (
-                  <details key={item.q} className="group">
-                    <summary className="flex min-h-14 items-center justify-between gap-3 px-5 py-3 cursor-pointer list-none text-[15px] font-medium text-ink hover:bg-raised transition-colors [&::-webkit-details-marker]:hidden">
-                      <span>{item.q}</span>
-                      <ChevronDown
-                        size={16}
-                        strokeWidth={1.5}
-                        className="text-ink-3 shrink-0 transition-transform group-open:rotate-180"
-                      />
-                    </summary>
-                    <div className="px-5 pb-5 text-sm text-ink-2 leading-relaxed">{item.a}</div>
-                  </details>
-                ))}
-              </div>
-            </section>
-          ))}
+          <HelpFaq sections={SECTIONS} />
 
         </div>
       </main>

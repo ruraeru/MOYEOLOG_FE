@@ -23,6 +23,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   });
 }
 
-export default function GroupInvitePage() {
-  return <GroupInviteClient />;
+/** 비로그인 사용자도 어떤 모임 초대인지 알 수 있게 미리보기 값(이름·인원·방장·소개)을 넘긴다 */
+export default async function GroupInvitePage({ searchParams }: Props) {
+  const raw = (await searchParams).code;
+  const code = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+  const linkPreview = await fetchLinkPreview('group', code);
+  return <GroupInviteClient linkPreview={linkPreview} />;
 }

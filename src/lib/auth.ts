@@ -350,6 +350,8 @@ async function authorizeCredentials(
   }
   user.id = String(user.backendUser.id);
   user.name = user.backendUser.nickname;
+  // 이메일로 로그인한 계정은 그 이메일을 세션에 담는다(프로필 메뉴가 session.user.email 을 보여 준다)
+  user.email = email.trim().toLowerCase();
   return user;
 }
 
@@ -463,6 +465,8 @@ export const authOptions: NextAuthOptions = {
         token.userId = user.backendUser.id;
         token.kakaoId = user.backendUser.kakaoId ?? undefined; // 이메일 가입 계정은 비어 있음
         token.customId = user.backendUser.customId;
+        // 이메일 로그인은 NextAuth 가 token.email 을 채우지 않으므로 백엔드 계정 이메일을 씁니다(프로필 메뉴 표시용).
+        token.email = user.backendUser.email ?? token.email ?? null;
 
         // 백엔드 DB의 정보를 최우선으로 토큰에 저장 (수동 수정된 정보 유지)
         token.name = user.backendUser.nickname;

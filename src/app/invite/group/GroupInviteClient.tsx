@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { groupApi, GroupApiError, type GroupPreviewResponse } from '@/lib/group-api';
 import { GroupAvatar, GroupCover } from '@/components/groups/GroupIdentity';
-import { Loader2, Users } from 'lucide-react';
-import { useAlert } from '@/hooks/useAlert';
+import { Loader2, LogIn, Users } from 'lucide-react';
+import { normalizeInviteCode } from '@/components/groups/InviteCodeModal';
+import type { LinkPreview } from '@/lib/link-preview';
 
 type ViewState =
   | { kind: 'loading' }
@@ -18,28 +19,29 @@ type ViewState =
 
 const BAD_CODE_MESSAGE = '초대 코드가 맞지 않거나 만료됐어요';
 
+/** 코드 정리. 초대 링크 전체를 붙여 넣어도(대문자로 바뀐 링크 포함) code 값만 꺼낸다(InviteCodeModal 과 같은 규칙) */
 function normalizeCode(input: string) {
-  return input.trim().replace(/\s+/g, '').toUpperCase();
+  return normalizeInviteCode(input.replace(/([?&])code=/i, '$1code='));
 }
 
 /** 코드가 바뀌면(다른 코드 입력) 화면 상태를 새로 시작한다 */
-function GroupInviteKeyed() {
+function GroupInviteKeyed({ linkPreview }: { linkPreview: LinkPreview | null }) {
   const searchParams = useSearchParams();
   const code = searchParams.get('code');
-  return <GroupInviteContent key={code || ''} code={code} />;
+  return <GroupInviteContent key={code || ''} code={code} linkPreview={linkPreview} />;
 }
 
-function GroupInviteContent({ code }: { code: string | null }) {
+function GroupInviteContent({ code, linkPreview }: { code: string | null; linkPreview: LinkPreview | null }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { toast } = useAlert();
   const hasCode = !!code && !!normalizeCode(code);
 
   const [fetchedView, setView] = useState<ViewState>({ kind: 'loading' });
   // 코드 없이 들어오면 바로 코드 입력 화면
   const view: ViewState = hasCode ? fetchedView : (fetchedView.kind === 'loading' ? { kind: 'enter' } : fetchedView);
   const [joining, setJoining] = useState(false);
-  const [codeInput, setCodeInput] = useState('');
+  // 링크로 받은 코드가 틀렸을 때도 무엇을 넣었는지 보이고 고칠 수 있게 미리 채운다
+  const [codeInput, setCodeInput] = useState(() => (code ? normalizeCode(code) : ''));
 
   /** 미리보기 조회. 상태는 응답을 받은 뒤에만 바꾼다(로딩 표시는 호출하는 쪽에서). */
   const fetchPreview = useCallback(async (inviteCode: string) => {
@@ -63,12 +65,8 @@ function GroupInviteContent({ code }: { code: string | null }) {
   useEffect(() => {
     if (status === 'loading') return;
 
-    if (status === 'unauthenticated') {
-      toast.warning('로그인이 필요해요');
-      const target = code ? `/invite/group?code=${encodeURIComponent(code)}` : '/invite/group';
-      router.push(`/?callbackUrl=${encodeURIComponent(target)}`);
-      return;
-    }
+    // 비로그인: 바로 로그인 화면으로 보내지 않고, 어떤 모임 초대인지 먼저 보여 준다(아래 'login' 화면)
+    if (status === 'unauthenticated') return;
 
     if (!code || !hasCode) return;
 
@@ -120,6 +118,50 @@ function GroupInviteContent({ code }: { code: string | null }) {
 
   const goGroup = (groupId?: string) => router.push(groupId ? `/groups/${groupId}` : '/groups');
 
+  const goLogin = () => {
+    const target = code ? `/invite/group?code=${encodeURIComponent(normalizeCode(code))}` : '/invite/group';
+    router.push(`/?callbackUrl=${encodeURIComponent(target)}`);
+  };
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-canvas p-4 pb-24">
+        <div className="card w-full max-w-[420px] p-6">
+          <p className="text-xs text-ink-3">모임 초대</p>
+          {linkPreview ? (
+            <>
+              <h1 className="mt-1 break-words break-keep font-display text-xl leading-7 text-ink">{linkPreview.name}</h1>
+              {linkPreview.description && (
+                <p className="mt-1 line-clamp-3 break-words break-keep text-sm text-ink-2">{linkPreview.description}</p>
+              )}
+              {(linkPreview.memberCount != null || linkPreview.ownerNickname) && (
+                <div className="mt-4 flex items-center gap-3 border-t border-line pt-4 text-[13px] text-ink-2">
+                  {linkPreview.memberCount != null && (
+                    <span className="flex items-center gap-1.5 tabular-nums">
+                      <Users size={16} strokeWidth={1.5} className="text-ink-3" />
+                      멤버 {linkPreview.memberCount}명
+                    </span>
+                  )}
+                  {linkPreview.memberCount != null && linkPreview.ownerNickname && <span aria-hidden className="h-3 w-px bg-line-strong" />}
+                  {linkPreview.ownerNickname && <span className="truncate">방장 {linkPreview.ownerNickname}</span>}
+                </div>
+              )}
+            </>
+          ) : (
+            <h1 className="mt-1 font-display text-xl leading-7 text-ink">모여로그 모임에 초대받았어요</h1>
+          )}
+          <p className="mt-5 text-[13px] text-ink-3">로그인하면 모임 정보를 확인하고 참여할 수 있어요</p>
+          <div className="mt-5 flex justify-end">
+            <button onClick={goLogin} className="btn-primary max-md:h-11 max-md:flex-1">
+              <LogIn size={16} strokeWidth={1.5} />
+              로그인하고 참여하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-canvas p-4 pb-24">
       <div className="card w-full max-w-[420px] p-6">
@@ -152,11 +194,12 @@ function GroupInviteContent({ code }: { code: string | null }) {
             <p className="mt-5 text-[13px] text-ink-3">
               참여하면 모임 멤버에게 내 닉네임과 프로필 사진이 보여요
             </p>
+            {/* 모바일은 버튼을 폭 가득·44px 로 */}
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => router.push('/groups')} disabled={joining} className="btn-secondary">
+              <button onClick={() => router.push('/groups')} disabled={joining} className="btn-secondary max-md:h-11 max-md:flex-1">
                 참여하지 않기
               </button>
-              <button onClick={handleJoin} disabled={joining} className="btn-primary">
+              <button onClick={handleJoin} disabled={joining} className="btn-primary max-md:h-11 max-md:flex-1">
                 {joining && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
                 {joining ? '참여하는 중' : '참여하기'}
               </button>
@@ -210,7 +253,7 @@ function GroupInviteContent({ code }: { code: string | null }) {
               type="text"
               value={codeInput}
               onChange={(e) => setCodeInput(e.target.value)}
-              placeholder="예: AB12CD"
+              placeholder="예: AB12CD 또는 초대 링크"
               aria-label="초대 코드"
               autoComplete="off"
               autoCapitalize="characters"
@@ -218,8 +261,8 @@ function GroupInviteContent({ code }: { code: string | null }) {
               className="form-input mt-4 h-10 text-center text-base font-medium tabular-nums tracking-wide"
             />
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => router.push('/groups')} className="btn-secondary">모임 목록으로</button>
-              <button type="submit" disabled={!normalizeCode(codeInput)} className="btn-primary">확인</button>
+              <button type="button" onClick={() => router.push('/groups')} className="btn-secondary max-md:h-11 max-md:flex-1">모임 목록으로</button>
+              <button type="submit" disabled={!normalizeCode(codeInput)} className="btn-primary max-md:h-11 max-md:flex-1">확인</button>
             </div>
           </form>
         )}
@@ -242,9 +285,9 @@ function GroupPreviewCard({ preview }: { preview: GroupPreviewResponse }) {
         className="-mt-7 shadow-[0_0_0_3px_var(--surface)]"
       />
       <p className="mt-3 text-xs text-ink-3">모임 초대</p>
-      <h1 className="mt-1 break-words font-display text-xl leading-7 text-ink">{preview.name}</h1>
+      <h1 className="mt-1 break-words break-keep font-display text-xl leading-7 text-ink">{preview.name}</h1>
       {preview.description && (
-        <p className="mt-1 line-clamp-3 break-words text-sm text-ink-2">{preview.description}</p>
+        <p className="mt-1 line-clamp-3 break-words break-keep text-sm text-ink-2">{preview.description}</p>
       )}
       <div className="mt-4 flex items-center gap-3 border-t border-line pt-4 text-[13px] text-ink-2">
         <span className="flex items-center gap-1.5 tabular-nums">
@@ -258,14 +301,14 @@ function GroupPreviewCard({ preview }: { preview: GroupPreviewResponse }) {
   );
 }
 
-export default function GroupInvitePage() {
+export default function GroupInvitePage({ linkPreview = null }: { linkPreview?: LinkPreview | null }) {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-canvas flex items-center justify-center">
         <Loader2 size={18} strokeWidth={1.5} className="text-ink-3 animate-spin" />
       </div>
     }>
-      <GroupInviteKeyed />
+      <GroupInviteKeyed linkPreview={linkPreview} />
     </Suspense>
   );
 }

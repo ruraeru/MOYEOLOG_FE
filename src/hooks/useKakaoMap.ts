@@ -18,9 +18,9 @@ export function useKakaoMap(containerRef: React.RefObject<HTMLDivElement | null>
         const coords = new kakao.maps.LatLng(lat, lng);
         const options = { center: coords, level: KAKAO_MAP_CONFIG.DEFAULT_LEVEL };
         const newMap = new kakao.maps.Map(containerRef.current, options);
+        // 핀은 장소를 고른 뒤에만 보인다(updatePosition). 처음에는 현재 위치·기본 위치를 보여 줄 뿐이다.
         const newMarker = new kakao.maps.Marker({ position: coords });
-        
-        newMarker.setMap(newMap);
+
         setMap(newMap);
         setMarker(newMarker);
         
@@ -74,13 +74,19 @@ export function useKakaoMap(containerRef: React.RefObject<HTMLDivElement | null>
     };
   }, [isOpen, initMap, containerRef]);
 
-  const updatePosition = (lat: number, lng: number) => {
+  const updatePosition = useCallback((lat: number, lng: number) => {
     if (!map || !marker) return;
     const kakao = (window as any).kakao;
     const coords = new kakao.maps.LatLng(lat, lng);
     map.setCenter(coords);
     marker.setPosition(coords);
-  };
+    marker.setMap(map);
+  }, [map, marker]);
 
-  return { map, marker, isMapLoading, updatePosition, setupMap };
+  /** 장소가 없을 때 핀을 숨긴다. */
+  const hideMarker = useCallback(() => {
+    marker?.setMap(null);
+  }, [marker]);
+
+  return { map, marker, isMapLoading, updatePosition, hideMarker, setupMap };
 }

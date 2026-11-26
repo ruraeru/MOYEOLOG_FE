@@ -49,7 +49,14 @@ interface SaveInput {
   image: File | null;
 }
 
-export default function ProfileSection({ user }: { user: UserResponse }) {
+export default function ProfileSection({
+  user,
+  onDirtyChange,
+}: {
+  user: UserResponse;
+  /** 저장하지 않은 변경(이름·소개·고른 사진)이 생기거나 없어질 때 */
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
   const { data: session, update: updateSession } = useSession();
   const queryClient = useQueryClient();
   const { confirm } = useAlertStore();
@@ -67,7 +74,7 @@ export default function ProfileSection({ user }: { user: UserResponse }) {
     handleSubmit,
     reset,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: { nickname: user.nickname ?? '', bio: user.bio ?? '' },
@@ -81,6 +88,22 @@ export default function ProfileSection({ user }: { user: UserResponse }) {
   useEffect(() => () => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
   }, []);
+
+  // 저장하지 않은 변경을 알린다: 부모(메뉴 전환 확인)와 브라우저(새로고침·창 닫기 확인)
+  const dirty = isDirty || !!imageFile;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const showNotice = (type: 'success' | 'info', text: string) => {
     setNotice({ type, text });
@@ -317,7 +340,9 @@ export default function ProfileSection({ user }: { user: UserResponse }) {
         </div>
 
         {/* 저장 */}
-        <div className="flex items-center justify-end gap-3 px-5 py-3 lg:px-6">
+        {/* 좁은 화면에서는 하단 탭(높이 65px) 바로 위에 붙여 첫 화면에서도 저장 버튼이 보이게 한다.
+            sticky 기준은 스크롤 칸(settings/page.tsx)의 아래 안쪽 여백(pb-24 = 6rem)만큼 올라가 있으므로 그만큼 뺀다 */}
+        <div className="sticky bottom-[calc(65px-6rem)] z-10 flex items-center justify-end gap-3 rounded-b-xl bg-surface px-5 py-3 lg:static lg:px-6">
           {notice && !error && (
             <p role="status" className="mr-auto flex items-center gap-1.5 text-sm text-ink-2">
               {notice.type === 'success' && <CheckCircle2 size={16} strokeWidth={1.5} className="text-positive" />}

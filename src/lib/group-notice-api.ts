@@ -1,4 +1,5 @@
 import { Session } from 'next-auth';
+import { parseISO } from 'date-fns';
 import { axiosInstance, getAuthHeaders } from './axios';
 
 export interface NoticeUser {
@@ -25,6 +26,8 @@ export interface NoticeSummary {
   myVoted: boolean;
   /** 방장 */
   canManage: boolean;
+  /** 투표 마감 시각(목록에만 온다, 없으면 null). 이 시각에 목록을 다시 불러 '투표 마감'으로 바꾼다 */
+  pollClosesAt?: string | null;
 }
 
 export interface NoticeDetail extends NoticeSummary {
@@ -52,6 +55,11 @@ export interface NoticeCreateInput {
   content: string;
   /** 만들 때만 붙인다. closesAt 은 yyyy-MM-dd'T'HH:mm:ss(한국 시간, 오프셋 없음) */
   poll?: { options: string[]; multiple: boolean; anonymous: boolean; closesAt?: string | null };
+}
+
+/** 작성 뒤 내용을 고쳤나(고정은 updatedAt 을 바꾸지 않는다). 같은 요청 안의 작은 차이는 무시한다 */
+export function isNoticeEdited(notice: Pick<NoticeSummary, 'createdAt' | 'updatedAt'>): boolean {
+  return parseISO(notice.updatedAt).getTime() - parseISO(notice.createdAt).getTime() > 1000;
 }
 
 const base = (groupId: string) => `/api/groups/${groupId}/notices`;

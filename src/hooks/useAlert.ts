@@ -14,6 +14,8 @@ export interface ModalOptions {
   type: 'alert' | 'confirm';
   confirmText?: string;
   cancelText?: string;
+  /** 되돌릴 수 없는 동작이면 확인 버튼을 btn-danger 로 */
+  danger?: boolean;
   resolve?: (value: boolean) => void;
 }
 
@@ -23,7 +25,7 @@ interface AlertStore {
   addToast: (message: string, type?: ToastType, duration?: number) => void;
   removeToast: (id: string) => void;
   alert: (message: string, title?: string, confirmText?: string) => Promise<boolean>;
-  confirm: (message: string, title?: string, confirmText?: string, cancelText?: string) => Promise<boolean>;
+  confirm: (message: string, title?: string, confirmText?: string, cancelText?: string, danger?: boolean) => Promise<boolean>;
   closeModal: (value: boolean) => void;
 }
 
@@ -32,9 +34,11 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
   modal: null,
 
   addToast: (message, type = 'info', duration = 3000) => {
+    // 같은 내용이 이미 떠 있으면 다시 쌓지 않고, 화면에는 최근 2개까지만 둔다
+    if (get().toasts.some((t) => t.message === message && t.type === type)) return;
     const id = Math.random().toString(36).substring(2, 9);
     set((state) => ({
-      toasts: [...state.toasts, { id, message, type }],
+      toasts: [...state.toasts.slice(-1), { id, message, type }],
     }));
 
     setTimeout(() => {
@@ -64,7 +68,7 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
     });
   },
 
-  confirm: (message, title, confirmText = '확인', cancelText = '취소') => {
+  confirm: (message, title, confirmText = '확인', cancelText = '취소', danger) => {
     return new Promise<boolean>((resolve) => {
       set({
         modal: {
@@ -73,6 +77,7 @@ export const useAlertStore = create<AlertStore>((set, get) => ({
           type: 'confirm',
           confirmText,
           cancelText,
+          danger,
           resolve,
         },
       });

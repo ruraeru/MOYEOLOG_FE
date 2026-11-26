@@ -44,7 +44,7 @@ export interface MemoResponse {
   groupId?: string;
   tags: string[];
   taggedMemos?: { id: string; title: string }[];
-  taggedSchedules?: { id: string; title: string }[];
+  taggedSchedules?: { id: string; title: string; startTime?: string }[];
   insight?: MemoInsight;
   isFavorite: boolean;
   /** 내 고정 시각(오프셋 없는 한국 시간, 보는 사람 기준). 고정 안 됐으면 null */
@@ -100,9 +100,10 @@ export function isSharedByMe(memo: MemoResponse, userId?: string | null): boolea
 
 /** 메모 본문의 [@제목](/memo|schedule/id) 링크에서 id 를 뽑는다. */
 export function extractMentionIds(content: string, type: 'memo' | 'schedule'): string[] {
+  // 링크 글자 안의 \] 처럼 이스케이프된 글자도 건너뛴다(제목에 [ ] 가 있는 일정·메모)
   const regex = type === 'memo'
-    ? /\[@[^\]]+\]\(\/memo\/([a-zA-Z0-9-]+)\)/g
-    : /\[@[^\]]+\]\(\/schedule\/([a-zA-Z0-9-]+)\)/g;
+    ? /\[@(?:\\.|[^\]\\])+\]\(\/memo\/([a-zA-Z0-9-]+)\)/g
+    : /\[@(?:\\.|[^\]\\])+\]\(\/schedule\/([a-zA-Z0-9-]+)\)/g;
   return Array.from(new Set([...(content || '').matchAll(regex)].map(m => m[1])));
 }
 
@@ -116,16 +117,16 @@ function syncMentionTitles(content: string, taggedMemos?: {id:string, title:stri
   if (!content) return content;
   let updatedContent = content;
 
+  // 제목의 \ [ ] 는 이스케이프해서 넣는다(안 하면 링크가 깨진다). 찾을 때도 이스케이프된 글자를 건너뛴다.
+  const escapeTitle = (title: string) => title.replace(/[\\[\]]/g, '\\$&');
   taggedMemos?.forEach(m => {
-    // 마크다운 형식 [@[^\\]]+](/memo/${m.id}) 를 찾아서 최신 제목으로 변경
-    const regex = new RegExp(`\\[@[^\\]]+\\]\\(\\/memo\\/${m.id}\\)`, 'g');
-    updatedContent = updatedContent.replace(regex, `[@${m.title}](/memo/${m.id})`);
+    const regex = new RegExp(`\\[@(?:\\\\.|[^\\]\\\\])+\\]\\(\\/memo\\/${m.id}\\)`, 'g');
+    updatedContent = updatedContent.replace(regex, () => `[@${escapeTitle(m.title)}](/memo/${m.id})`);
   });
 
   taggedSchedules?.forEach(s => {
-    // 마크다운 형식 [@[^\\]]+](/schedule/${s.id}) 를 찾아서 최신 제목으로 변경
-    const regex = new RegExp(`\\[@[^\\]]+\\]\\(\\/schedule\\/${s.id}\\)`, 'g');
-    updatedContent = updatedContent.replace(regex, `[@${s.title}](/schedule/${s.id})`);
+    const regex = new RegExp(`\\[@(?:\\\\.|[^\\]\\\\])+\\]\\(\\/schedule\\/${s.id}\\)`, 'g');
+    updatedContent = updatedContent.replace(regex, () => `[@${escapeTitle(s.title)}](/schedule/${s.id})`);
   });
 
   return updatedContent;
