@@ -144,12 +144,12 @@ export default function GroupInviteModal({
           <span className="mr-auto text-[13px] text-ink-3">
             선택 <span className="tabular-nums text-ink-2">{selectedUserIds.length}명</span>
           </span>
-          <button type="button" onClick={onClose} className="btn-secondary">취소</button>
+          <button type="button" onClick={onClose} className="btn-secondary max-md:h-11">취소</button>
           <button
             type="button"
             onClick={handleInvite}
             disabled={inviting || selectedUserIds.length === 0}
-            className="btn-primary"
+            className="btn-primary max-md:h-11"
           >
             {inviting && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
             {inviting ? '보내는 중' : '초대 보내기'}

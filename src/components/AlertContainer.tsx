@@ -2,7 +2,7 @@
 
 import { useAlertStore } from '@/hooks/useAlert';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 const emptySubscribe = () => () => {};
 
@@ -10,12 +10,41 @@ export default function AlertContainer() {
   const { toasts, removeToast, modal, closeModal } = useAlertStore();
   // Hydration safety: 서버 렌더링과 첫 하이드레이션에서는 그리지 않습니다.
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // 확인 창: 열리면 창 안 버튼으로 포커스, Esc 는 취소. 캡처 단계에서 받아 뒤 창의 Esc 보다 먼저 처리한다
+  useEffect(() => {
+    if (!modal) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    dialogRef.current?.querySelector<HTMLButtonElement>('[data-autofocus]')?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeModal(false);
+      } else if (e.key === 'Tab' && dialogRef.current) {
+        // 포커스를 창 안 버튼에만 가둔다
+        const buttons = Array.from(dialogRef.current.querySelectorAll<HTMLButtonElement>('button'));
+        if (buttons.length === 0) return;
+        const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        const next = e.shiftKey ? (i <= 0 ? buttons.length - 1 : i - 1) : (i + 1) % buttons.length;
+        e.preventDefault();
+        buttons[next].focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      prevFocus?.focus?.();
+    };
+  }, [modal, closeModal]);
 
   if (!mounted) return null;
 
-  // Destructive word detection for modal (e.g. '삭제', '내보내기')
-  const isDestructive = modal?.message
-    ? modal.message.includes('삭제') || modal.message.includes('내보내기') || modal.message.includes('거절')
+  // 되돌릴 수 없는 동작이면 확인 버튼을 위험색으로 (본문·확인 버튼 글자로 판단)
+  const destructiveWords = ['삭제', '내보내기', '내보낼', '나가기', '거절'];
+  const isDestructive = modal
+    ? destructiveWords.some((w) => modal.message?.includes(w) || modal.confirmText?.includes(w))
     : false;
 
   return (
@@ -62,15 +91,25 @@ export default function AlertContainer() {
 
       {/* 확인 창: 다른 창과 같은 모양 (바탕 black/40, r16, 왼쪽 정렬, 버튼 오른쪽) */}
       {modal && (
-        <div className="fixed inset-0 bg-black/40 z-[9998] flex items-center justify-center p-4">
-          <div className="w-full max-w-[400px] rounded-2xl bg-surface animate-scale-in">
+        <div
+          className="fixed inset-0 bg-black/40 z-[9998] flex items-center justify-center p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) closeModal(false); }}
+        >
+          <div
+            ref={dialogRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={modal.title ? 'alert-modal-title' : undefined}
+            aria-describedby="alert-modal-message"
+            className="w-full max-w-[400px] rounded-2xl bg-surface animate-scale-in"
+          >
             <div className="px-6 pt-6 pb-5">
               {modal.title && (
-                <h3 className="font-display text-xl leading-7 text-ink mb-2">
+                <h3 id="alert-modal-title" className="font-display text-xl leading-7 text-ink mb-2">
                   {modal.title}
                 </h3>
               )}
-              <p className={`whitespace-pre-wrap leading-relaxed ${modal.title ? 'text-sm text-ink-2' : 'text-[15px] text-ink'}`}>
+              <p id="alert-modal-message" className={`whitespace-pre-wrap leading-relaxed ${modal.title ? 'text-sm text-ink-2' : 'text-[15px] text-ink'}`}>
                 {modal.message}
               </p>
             </div>
@@ -79,7 +118,9 @@ export default function AlertContainer() {
               {modal.type === 'confirm' && (
                 <button
                   onClick={() => closeModal(false)}
-                  className="btn-secondary"
+                  // 위험한 동작은 잘못 Enter 를 눌러도 취소되게 취소에 포커스
+                  data-autofocus={isDestructive ? '' : undefined}
+                  className="btn-secondary max-md:h-11 max-md:px-5"
                 >
                   {modal.cancelText || '취소'}
                 </button>
@@ -87,7 +128,8 @@ export default function AlertContainer() {
 
               <button
                 onClick={() => closeModal(true)}
-                className={isDestructive ? 'btn-danger' : 'btn-primary'}
+                data-autofocus={isDestructive && modal.type === 'confirm' ? undefined : ''}
+                className={`${isDestructive ? 'btn-danger' : 'btn-primary'} max-md:h-11 max-md:px-5`}
               >
                 {modal.confirmText || '확인'}
               </button>

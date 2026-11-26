@@ -344,6 +344,20 @@ function NotificationsContent() {
                           </p>
                           <span className="stamp shrink-0 pt-1.5">{formatStamp(invite.invitedAt, tf)}</span>
                         </div>
+                        {/* 수락 전에 어떤 모임인지(인원·방장·소개) */}
+                        {(invite.memberCount != null || invite.ownerNickname || invite.groupDescription) && (
+                          <div className="mt-1 text-[13px] text-ink-3">
+                            {(invite.memberCount != null || invite.ownerNickname) && (
+                              <p className="tabular-nums">
+                                {[invite.memberCount != null ? `멤버 ${invite.memberCount}명` : '', invite.ownerNickname ? `방장 ${invite.ownerNickname}` : '']
+                                  .filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                            {invite.groupDescription && (
+                              <p className="mt-0.5 line-clamp-2 break-words break-keep text-ink-2">{invite.groupDescription}</p>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mt-2.5">
                           <button
                             onClick={() => handleInvitation(invite, 'accept')}

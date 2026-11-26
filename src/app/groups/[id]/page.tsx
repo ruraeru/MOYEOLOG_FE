@@ -482,6 +482,8 @@ function GroupDetailContent() {
     try {
       await navigator.clipboard.writeText(inviteLink);
       setCopied(true);
+      // 모바일 머리 버튼은 아이콘뿐이라 바뀐 아이콘만으로는 알기 어렵다
+      toast.success('초대 링크를 복사했어요');
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error(`복사하지 못했어요. 초대 코드는 ${group.inviteCode} 이에요`);

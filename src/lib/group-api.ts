@@ -32,6 +32,10 @@ export interface GroupInvitationResponse {
   inviterNickname: string;
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
   invitedAt: string;
+  /** 수락 전 확인용 모임 정보. 예전 서버면 없다 */
+  groupDescription?: string | null;
+  memberCount?: number;
+  ownerNickname?: string | null;
 }
 
 /** POST /api/groups/{id}/invitations 응답 */
