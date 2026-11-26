@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import ImageWithFallback from './ImageWithFallback';
 import {
   X,
@@ -38,6 +39,9 @@ import { markdownRehypePlugins } from '@/lib/markdown';
 import { useRouter } from 'next/navigation';
 import { fileToDataUrl, convertToWebP, initialOf } from '@/lib/utils';
 import { EmptyState } from './ui';
+import { GroupAvatar } from './groups/GroupIdentity';
+import { groupApi, type GroupResponse } from '@/lib/group-api';
+import { useLiveTopics } from '@/lib/live';
 import RichEditor from './RichEditor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
@@ -69,12 +73,25 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
   onImageRemove?: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   if (isEditing) {
     return (
       <div
-        className="relative mb-5 flex min-h-30 w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed border-line-strong bg-surface p-5 transition-colors duration-150 ease-out hover:bg-raised"
+        className={`relative mb-5 flex min-h-30 w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-xl border border-dashed p-5 transition-colors duration-150 ease-out hover:bg-raised ${dragOver ? 'border-accent bg-accent-soft' : 'border-line-strong bg-surface'}`}
         onClick={() => fileInputRef.current?.click()}
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) onImageSelect?.(file);
+        }}
       >
         <input
           ref={fileInputRef}
@@ -83,6 +100,8 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
+            // 같은 파일을 다시 골라도 onChange 가 오게 비운다
+            e.target.value = '';
             if (file) onImageSelect?.(file);
           }}
         />
@@ -98,7 +117,7 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
             <Upload size={16} strokeWidth={1.5} className="text-ink-3" />
             <div className="text-center">
               <p className="text-sm font-medium text-ink">
-                새 이미지를 끌어다 놓거나 눌러서 바꿔요
+                새 이미지를 <span className="max-lg:hidden">끌어다 놓거나 </span>눌러서 바꿔요
               </p>
             </div>
           </>
@@ -139,7 +158,24 @@ function MemoImage({ src, alt, isEditing, onImageSelect, onImageRemove }: {
   );
 }
 
-import { useAlert } from '@/hooks/useAlert';
+import { useAlert, useAlertStore } from '@/hooks/useAlert';
+
+/** 받을 수 있는 이미지인지 실제로 디코드해 본다(확장자만 이미지인 파일 거르기) */
+async function canDecodeImage(file: File): Promise<boolean> {
+  if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(file.type)) return false;
+  try {
+    const bitmap = await createImageBitmap(file);
+    bitmap.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** LLM 요약의 '11 월 28 일', '50 만 원' 같은 숫자·단위 띄어쓰기를 붙인다 */
+function tidySummary(text: string): string {
+  return text.replace(/(\d)\s+(?=(?:년|월|일|시|분|초|명|개|원|만|천|억|주|%))/g, '$1');
+}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LEAVE_MESSAGE = '저장하지 않은 내용이 있어요. 나가면 고친 내용이 사라져요. 나갈까요?';
@@ -170,6 +206,12 @@ export default function MemoDetailView({
   const [loadError, setLoadError] = useState<LoadError | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  /** 수정 중 다른 곳에서 메모가 바뀌었는지 (실시간 이벤트로 알게 됨) */
+  const [remoteChanged, setRemoteChanged] = useState(false);
+  const [group, setGroup] = useState<GroupResponse | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const asideRef = useRef<HTMLElement>(null);
 
   // Editing states
   const [isEditing, setIsEditing] = useState(false);
@@ -249,6 +291,35 @@ export default function MemoDetailView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memoId, session]);
 
+  // 모임 메모면 어느 모임인지 보여 준다
+  const memoGroupId = memo?.groupId;
+  useEffect(() => {
+    if (!memoGroupId || !session) {
+      setGroup(null);
+      return;
+    }
+    let alive = true;
+    groupApi.getById(memoGroupId, session).then(g => { if (alive) setGroup(g); }).catch(() => { if (alive) setGroup(null); });
+    return () => { alive = false; };
+  }, [memoGroupId, session]);
+
+  // 다른 사람의 변경: 보는 중이면 조용히 다시 받고, 수정 중이면 입력은 두고 바뀌었다고만 알린다
+  useLiveTopics(['memos'], () => {
+    if (!memo || !session) return;
+    memoApi.getById(memo.id, session).then(latest => {
+      if (isEditing) {
+        if ((latest.version ?? 0) !== (memo.version ?? 0)) setRemoteChanged(true);
+      } else {
+        applyMemo(latest);
+      }
+    }).catch(() => { /* 삭제·공유 해제는 다음 동작에서 안내한다 */ });
+  }, !!memo && !!session);
+
+  // 수정을 시작하면 제목 칸에 커서
+  useEffect(() => {
+    if (isEditing) titleRef.current?.focus();
+  }, [isEditing]);
+
   const permissions = memo ? getMemoPermissions(memo, session?.user?.id) : null;
 
   const isDirty = !!memo && isEditing && (
@@ -299,6 +370,7 @@ export default function MemoDetailView({
     }
     setEditImageFile(null);
     setEditImageRemoved(false);
+    setRemoteChanged(false);
     setIsEditing(true);
 
     // 편집 모드 시작 시 멘션 데이터 최신 갱신
@@ -324,6 +396,7 @@ export default function MemoDetailView({
     if (!memo) return;
     if (!editTitle.trim()) {
       toast.error('제목을 입력해 주세요');
+      titleRef.current?.focus();
       return;
     }
     if (!editContent.trim()) {
@@ -354,21 +427,33 @@ export default function MemoDetailView({
       setIsEditing(false);
       setEditImageFile(null);
       setEditImageRemoved(false);
-        toast.success('저장했어요');
+      setRemoteChanged(false);
+      toast.success('저장했어요');
     } catch (error) {
       console.error('Failed to save memo:', error);
       const status = getStatus(error);
       if (status === 409) {
-        // 다른 사람이 먼저 고침: 입력은 그대로 두고 최신 내용을 불러올지 묻는다.
+        // 다른 사람이 먼저 고침: 입력은 그대로 두고 최신 내용을 불러올지, 내 내용을 지킬지 묻는다.
+        setIsSaving(false);
         const reload = await confirm(
-          `${getApiErrorMessage(error, '다른 곳에서 먼저 바뀌었어요.')} 최신 내용을 불러오면 지금 고친 내용은 사라져요. 불러올까요?`,
+          '내가 고치는 동안 다른 곳에서 이 메모가 바뀌었어요.\n최신 내용을 불러오면 지금 고친 내용은 사라져요. 내 내용 유지를 고르고 다시 저장하면 다른 곳에서 바뀐 내용을 내 내용으로 덮어써요.',
           '먼저 바뀐 메모예요',
           '최신 내용 불러오기',
-          '계속 고치기'
+          '내 내용 유지'
         );
         if (reload) {
           setIsEditing(false);
+          setRemoteChanged(false);
           await fetchMemoDetail();
+        } else {
+          // 최신 판 번호를 받아 두면 다음 저장이 내 내용으로 덮어쓴다(입력은 그대로).
+          try {
+            applyMemo(await memoApi.getById(memo.id, session));
+            setRemoteChanged(false);
+            toast.info('다시 저장하면 내 내용으로 저장돼요');
+          } catch (e) {
+            toast.error(getApiErrorMessage(e));
+          }
         }
       } else if (status === 403 || status === 404) {
         toast.error(getApiErrorMessage(error));
@@ -383,6 +468,10 @@ export default function MemoDetailView({
   };
 
   const handleImageSelect = async (file: File) => {
+    if (!(await canDecodeImage(file))) {
+      toast.error('JPG·PNG·GIF·WEBP 이미지 파일만 올릴 수 있어요');
+      return;
+    }
     try {
       const webpFile = await convertToWebP(file);
       if (webpFile.size > MAX_IMAGE_BYTES) {
@@ -401,12 +490,15 @@ export default function MemoDetailView({
   const handleAnalyze = async () => {
     if (!memoId || !session) return;
     setLoadingInsight(true);
+    setAnalyzeError(null);
     try {
       const res = await memoApi.analyze(memoId, session);
       setInsight(res);
     } catch (error) {
       console.error('Failed to analyze memo:', error);
-      toast.error(getApiErrorMessage(error, getStatus(error) ? undefined : '분석하지 못했어요'));
+      const message = getApiErrorMessage(error, getStatus(error) ? undefined : '분석하지 못했어요');
+      toast.error(message);
+      setAnalyzeError(message);
     } finally {
       setLoadingInsight(false);
     }
@@ -426,7 +518,12 @@ export default function MemoDetailView({
 
   const addTag = (tag: string) => {
     const trimmed = tag.trim().replace(/^#/, '');
-    if (!trimmed || currentTags.includes(trimmed)) return;
+    if (!trimmed) return;
+    if (currentTags.includes(trimmed)) {
+      toast.info('이미 붙은 태그예요');
+      setTagInput('');
+      return;
+    }
     const newTags = [...currentTags, trimmed];
     syncTags(newTags);
     setTagInput('');
@@ -438,10 +535,12 @@ export default function MemoDetailView({
   };
 
   const handleDelete = async () => {
-    if (!(await confirm('이 메모를 삭제할까요?'))) return;
+    const sharedNote = (memo?.sharedWith?.length || memo?.sharedGroupIds?.length) ? ' 공유받은 사람도 더 볼 수 없어요.' : '';
+    if (!(await confirm(`삭제하면 되돌릴 수 없어요.${sharedNote}`, `'${memo?.title ?? ''}' 메모를 삭제할까요?`, '삭제', '취소'))) return;
     setIsDeleting(true);
     try {
       await memoApi.delete(memoId, session);
+      toast.success('메모를 삭제했어요');
       onDelete?.();
       if (isPage) {
         router.push('/memo');
@@ -486,6 +585,32 @@ export default function MemoDetailView({
       toast.error(getApiErrorMessage(error, status ? undefined : '고정을 바꾸지 못했어요'));
       if (status === 403 || status === 404) await fetchMemoDetail();
     }
+  };
+
+  // 수정 중 Esc = 취소, Ctrl/Cmd+S = 저장 (확인 창이 떠 있으면 그 창에 맡긴다)
+  const editKeysRef = useRef({ save: handleSaveEdit, cancel: handleCancelEdit, saving: isSaving });
+  editKeysRef.current = { save: handleSaveEdit, cancel: handleCancelEdit, saving: isSaving };
+  useEffect(() => {
+    if (!isEditing) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || useAlertStore.getState().modal) return;
+      const k = editKeysRef.current;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (!k.saving) k.save();
+      } else if (e.key === 'Escape' && !k.saving) {
+        e.preventDefault();
+        k.cancel();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isEditing]);
+
+  const handleBack = () => {
+    // 주소로 바로 열었으면 돌아갈 곳이 없다 → 메모 목록
+    if (window.history.length > 1) router.back();
+    else router.push('/memo');
   };
 
   const heightClass = isPage ? 'h-full' : 'h-[100dvh] sm:h-[85vh] w-full';
