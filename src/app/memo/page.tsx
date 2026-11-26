@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useMemo, Suspense } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo, Suspense } from 'react';
 import { useVisiblePolling, LIST_POLL_MS } from '@/hooks/useVisiblePolling';
 import { useLiveTopics } from '@/lib/live';
 import { useSession } from 'next-auth/react';
@@ -17,6 +17,7 @@ import {
   Loader2,
   RefreshCw,
   PenLine,
+  ArrowUp,
   Image as ImageIcon,
 } from 'lucide-react';
 import { PageHeader, Ribbon, Segmented, EmptyState, Modal, SideLabel, SideItem } from '@/components/ui';
@@ -173,6 +174,48 @@ function MemoContent() {
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
   }, [myMemos, sharedMemos, groupMemos]);
 
+  // 자동 갱신으로 새로 들어온 메모: 맨 위를 보고 있으면 바로 넣고 잠깐 강조(fresh),
+  // 아래로 내려 보고 있으면 카드가 한 칸씩 밀리지 않게 '새 메모 n개' 칩으로 모아 둔다(held). 내가 쓴 메모는 모으지 않는다
+  const seenIds = useRef<Set<string> | null>(null);
+  const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+  const [heldIds, setHeldIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!loaded) return;
+    const seen = seenIds.current;
+    const now = new Set(combinedUniqueMemos.map(m => m.id));
+    seenIds.current = now;
+    // 모아 두는 사이 지워진 메모는 칩 숫자에서 뺀다
+    setHeldIds(prev => (prev.size === 0 || [...prev].every(id => now.has(id)) ? prev : new Set([...prev].filter(id => now.has(id)))));
+    if (!seen) return;
+    const added = combinedUniqueMemos.filter(m => !seen.has(m.id));
+    if (added.length === 0) return;
+    const atTop = window.scrollY < 120;
+    const hold = atTop ? [] : added.filter(m => m.authorId !== userId).map(m => m.id);
+    const show = added.map(m => m.id).filter(id => !hold.includes(id));
+    if (hold.length > 0) setHeldIds(prev => new Set([...prev, ...hold]));
+    if (show.length > 0) setFreshIds(prev => new Set([...prev, ...show]));
+  }, [combinedUniqueMemos, loaded, userId]);
+  useEffect(() => {
+    if (freshIds.size === 0) return;
+    const t = setTimeout(() => setFreshIds(new Set()), 2000);
+    return () => clearTimeout(t);
+  }, [freshIds]);
+  const showHeld = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setFreshIds(prev => new Set([...prev, ...heldIds]));
+    setHeldIds(new Set());
+  };
+  // 맨 위로 직접 올라오면 모아 둔 메모를 넣는다
+  useEffect(() => {
+    if (heldIds.size === 0) return;
+    const onScroll = () => {
+      if (window.scrollY < 120) showHeld();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heldIds]);
+
   const toggleTag = (tag: string) => {
     setSelectedTags(prev =>
       prev.includes(tag)
@@ -204,6 +247,7 @@ function MemoContent() {
     } else {
       filtered = combinedUniqueMemos;
     }
+    if (heldIds.size > 0) filtered = filtered.filter(m => !heldIds.has(m.id));
 
     if (selectedTags.length > 0) {
       filtered = filtered.filter(m =>
@@ -247,7 +291,7 @@ function MemoContent() {
         sharedByMe: isSharedByMe(m, userId)
       };
     });
-  }, [filter, myMemos, sharedMemos, groupMemos, favoriteMemos, userGroups, combinedUniqueMemos, selectedTags, searchQuery, userId]);
+  }, [filter, myMemos, sharedMemos, groupMemos, favoriteMemos, userGroups, combinedUniqueMemos, selectedTags, searchQuery, userId, heldIds]);
 
   // 자주 쓴 태그부터
   const allTags = useMemo(() => {
@@ -464,6 +508,7 @@ function MemoContent() {
                       key={memo.id}
                       {...memo}
                       viewMode={viewMode}
+                      fresh={freshIds.has(memo.id)}
                       onClick={() => router.push(`/memo/${memo.id}`)}
                       onToggleFavorite={(e: React.MouseEvent) => handleToggleFavorite(e, memo.id)}
                       onTogglePin={(e: React.MouseEvent) => handleTogglePin(e, memo.id, memo.pinned)}
@@ -476,6 +521,17 @@ function MemoContent() {
           </div>
         </main>
       </div>
+
+      {heldIds.size > 0 && (
+        <button
+          type="button"
+          onClick={showHeld}
+          className="btn-secondary btn-sm fixed left-1/2 -translate-x-1/2 bottom-24 lg:bottom-8 z-30 shadow-sm"
+        >
+          <ArrowUp size={14} strokeWidth={1.5} />
+          새 메모 {heldIds.size}개
+        </button>
+      )}
 
       <Modal open={isFilterSheetOpen} onClose={() => setIsFilterSheetOpen(false)} title="태그로 거르기" size="sm">
         {tagPanel}
@@ -587,18 +643,19 @@ function MemoEmpty({ type, onCreate }: { type: string; onCreate: () => void }) {
 
 interface MemoCardProps extends MemoCardItem {
   viewMode: 'grid' | 'list';
+  fresh?: boolean;
   onClick?: () => void;
   onToggleFavorite: (e: React.MouseEvent) => void;
   onTogglePin: (e: React.MouseEvent) => void;
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, viewMode, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, viewMode, fresh, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
     <div
       onClick={onClick}
-      className={`card relative flex cursor-pointer gap-4 overflow-hidden py-4 pl-5 pr-4 transition-colors hover:border-line-strong ${isList ? 'items-center' : 'sm:py-5'}`}
+      className={`card relative flex cursor-pointer gap-4 overflow-hidden py-4 pl-5 pr-4 transition-colors duration-700 hover:border-line-strong ${isList ? 'items-center' : 'sm:py-5'} ${fresh ? 'bg-accent-soft' : ''}`}
     >
       <Ribbon color={ribbon} className="absolute inset-y-0 left-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-2">
