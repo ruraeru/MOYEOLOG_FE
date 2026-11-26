@@ -41,16 +41,18 @@ export function SettingsRow({
   return (
     // 조작(스위치·버튼)은 자리가 되면 설명 오른쪽에 두고, 넓은 조작(Segmented)만 좁은 화면에서 아래 줄로 내린다
     <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 lg:px-6">
-      <div className="min-w-0 flex-1 basis-[180px]">
-        {htmlFor ? (
-          <label htmlFor={htmlFor} className="text-[15px] font-medium text-ink">
-            {label}
-          </label>
-        ) : (
+      {htmlFor ? (
+        // 조작과 이어진 행은 이름·설명 전체가 label 이라 글자 어디를 눌러도 스위치가 바뀐다
+        <label htmlFor={htmlFor} className="block min-w-0 flex-1 basis-[180px] cursor-pointer">
+          <span className="block text-[15px] font-medium text-ink">{label}</span>
+          {description && <span className="mt-0.5 block text-[13px] text-ink-3">{description}</span>}
+        </label>
+      ) : (
+        <div className="min-w-0 flex-1 basis-[180px]">
           <p className="text-[15px] font-medium text-ink">{label}</p>
-        )}
-        {description && <div className="mt-0.5 text-[13px] text-ink-3">{description}</div>}
-      </div>
+          {description && <div className="mt-0.5 text-[13px] text-ink-3">{description}</div>}
+        </div>
+      )}
       {children && <div className="shrink-0">{children}</div>}
     </div>
   );

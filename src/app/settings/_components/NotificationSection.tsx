@@ -10,10 +10,10 @@ import { InlineError, LoadError, SettingsGroup, SettingsRow, Toggle } from './ui
 
 const ITEMS: { key: keyof NotificationPreferences; label: string; description: string }[] = [
   { key: 'friendRequest', label: '친구 요청', description: '누군가 친구 요청을 보내거나 내 요청을 받아 줬을 때' },
-  { key: 'groupInvite', label: '모임 초대', description: '모임에 초대받았을 때' },
+  { key: 'groupInvite', label: '모임 초대', description: '모임에 초대받거나 모임에서 내보내졌을 때' },
   { key: 'memoShared', label: '메모 공유', description: '친구가 나에게 메모를 공유했을 때' },
   { key: 'topicComment', label: '토픽 댓글', description: '내가 쓴 토픽에 댓글이 달렸을 때' },
-  { key: 'scheduleParticipant', label: '일정 참여', description: '일정 참여자로 추가됐을 때' },
+  { key: 'scheduleParticipant', label: '일정 참여', description: '일정 참여자로 추가, 중간 지점 요청·확정, 날짜 조율 재촉·확정' },
   { key: 'message', label: '메시지', description: '끄면 새 메시지가 와도 알림 배지에 세지 않아요' },
 ];
 
@@ -73,7 +73,7 @@ export default function NotificationSection() {
 
   return (
     <div className="space-y-6">
-      <SettingsGroup title="알림" description="받고 싶은 알림만 골라요. 끈 종류는 알림 목록에도 쌓이지 않아요.">
+      <SettingsGroup title="알림" description="받고 싶은 알림만 골라요. 끈 종류는 알림 목록에도 쌓이지 않아요(모임 공지는 빼고).">
         {isLoading ? (
           <div className="flex justify-center py-10">
             <Loader2 size={20} strokeWidth={1.5} className="animate-spin text-ink-3" />
@@ -93,7 +93,17 @@ export default function NotificationSection() {
                 onChange={(next) => toggle(item.key, next)}
               />
             </SettingsRow>
-          ))
+          )).concat(
+            // 모임 공지는 설정 칸이 없고 늘 받는다(백엔드 NotificationPreference.allows 의 GROUP_NOTICE)
+            <SettingsRow
+              key="groupNotice"
+              label="모임 공지"
+              description="모임 공지와 투표 재촉은 끌 수 없어요"
+              htmlFor="notif-groupNotice"
+            >
+              <Toggle id="notif-groupNotice" label="모임 공지 알림(끌 수 없음)" checked disabled onChange={() => {}} />
+            </SettingsRow>
+          )
         )}
       </SettingsGroup>
       {error && <InlineError message={error} />}
