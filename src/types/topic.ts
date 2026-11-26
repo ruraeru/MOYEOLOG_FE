@@ -15,6 +15,8 @@ export interface TopicResponse {
   pinnedAt?: string | null;
   /** 보는 사람이 고정·해제할 수 있는가(방장 또는 작성자) */
   canPin?: boolean;
+  /** 보는 사람이 삭제할 수 있는가(작성자 또는 방장) */
+  canDelete?: boolean;
 }
 
 export interface TopicCommentResponse {

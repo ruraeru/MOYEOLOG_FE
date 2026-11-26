@@ -473,8 +473,13 @@ export default function MemoDetailView({
   const handleTogglePin = async () => {
     if (!memoId || !session || !memo) return;
     try {
-      const updated = await memoApi.setPinned(memoId, !memo.pinnedAt, session);
-      setMemo(prev => (prev ? { ...prev, pinnedAt: updated.pinnedAt ?? null } : updated));
+      // 모임 메모는 모임 고정만, 개인 메모는 내 고정
+      const updated = memo.groupId
+        ? await memoApi.setGroupPinned(memoId, !memo.groupPinnedAt, session)
+        : await memoApi.setPinned(memoId, !memo.pinnedAt, session);
+      setMemo(prev => (prev
+        ? { ...prev, pinnedAt: updated.pinnedAt ?? null, groupPinnedAt: updated.groupPinnedAt ?? null }
+        : updated));
     } catch (error) {
       console.error('Failed to toggle pin:', error);
       const status = getStatus(error);
@@ -536,6 +541,13 @@ export default function MemoDetailView({
 
   const readOnly = !permissions.edit && !permissions.tag && !permissions.analyze;
 
+  // 모임 메모 상세에는 모임 고정 버튼만, 개인 메모는 내 고정
+  const pinned = memo.groupId ? !!memo.groupPinnedAt : !!memo.pinnedAt;
+  const canPin = memo.groupId ? permissions.groupPin : permissions.pin;
+  const pinLabel = memo.groupId
+    ? (pinned ? '모임 고정 해제' : '모임에 고정')
+    : (pinned ? '고정 해제' : '고정');
+
   return (
     <div className={`flex flex-col lg:flex-row bg-surface overflow-y-auto lg:overflow-hidden no-scrollbar ${heightClass}`}>
       {/* 본문 — 모바일에서는 화면 전체가 한 번에 스크롤되도록 안쪽 스크롤을 lg 이상에서만 쓴다 */}
@@ -574,20 +586,20 @@ export default function MemoDetailView({
               </>
             ) : (
               <>
-                {permissions.pin ? (
+                {canPin ? (
                   <button
                     type="button"
                     onClick={handleTogglePin}
-                    className={`btn-icon ${memo.pinnedAt ? 'text-accent hover:text-accent' : ''}`}
-                    title={memo.pinnedAt ? '고정 해제' : '고정'}
-                    aria-label={memo.pinnedAt ? '고정 해제' : '고정'}
-                    aria-pressed={!!memo.pinnedAt}
+                    className={`btn-icon ${pinned ? 'text-accent hover:text-accent' : ''}`}
+                    title={pinLabel}
+                    aria-label={pinLabel}
+                    aria-pressed={pinned}
                   >
-                    <Pin size={18} strokeWidth={1.5} className={memo.pinnedAt ? 'fill-current' : ''} />
+                    <Pin size={18} strokeWidth={1.5} className={pinned ? 'fill-current' : ''} />
                   </button>
-                ) : memo.pinnedAt && (
-                  <span className="inline-flex size-8 items-center justify-center text-ink-2" title="고정됨">
-                    <Pin size={18} strokeWidth={1.5} className="fill-current" aria-label="고정됨" />
+                ) : pinned && (
+                  <span className="inline-flex size-8 items-center justify-center text-ink-2" title={memo.groupId ? '모임 고정됨' : '고정됨'}>
+                    <Pin size={18} strokeWidth={1.5} className="fill-current" aria-label={memo.groupId ? '모임 고정됨' : '고정됨'} />
                   </span>
                 )}
                 {/* 모임 메모 상세에는 즐겨찾기 별을 두지 않는다(/memo 목록에서만) */}
