@@ -25,6 +25,8 @@ export interface NoticeSummary {
   myVoted: boolean;
   /** 방장 */
   canManage: boolean;
+  /** 투표 마감 시각(목록에만 온다, 없으면 null). 이 시각에 목록을 다시 불러 '투표 마감'으로 바꾼다 */
+  pollClosesAt?: string | null;
 }
 
 export interface NoticeDetail extends NoticeSummary {

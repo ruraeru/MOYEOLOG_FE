@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
 import { Loader2, Plus, X } from 'lucide-react';
@@ -50,6 +50,10 @@ export default function GroupNoticeFormModal({
   const [closesTime, setClosesTime] = useState('23:59');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const optionRefs = useRef<(HTMLInputElement | null)[]>([]);
+  /** 선택지를 더한 뒤 이 번호 칸에 포커스 */
+  const [focusOption, setFocusOption] = useState<number | null>(null);
 
   // 창이 열릴 때만 채운다(열려 있는 동안 상세가 조용히 다시 불려도 쓰던 글을 덮지 않게)
   const [wasOpen, setWasOpen] = useState(false);
@@ -99,6 +103,24 @@ export default function GroupNoticeFormModal({
     return () => window.removeEventListener('keydown', onKey, true);
   }, [open]);
 
+  // 오류 문구는 스크롤 영역 맨 아래에 있어 올리기를 눌러도 안 보일 수 있다 → 보이게 내린다
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [error]);
+
+  useEffect(() => {
+    if (focusOption === null) return;
+    optionRefs.current[focusOption]?.focus();
+    setFocusOption(null);
+  }, [focusOption, options.length]);
+
+  const addOption = () => {
+    if (options.length >= OPTIONS_MAX) return;
+    setOptions((prev) => [...prev, '']);
+    setFocusOption(options.length);
+    setError(null);
+  };
+
   const closesAt = pollOn && closesDate ? `${closesDate}T${closesTime || '23:59'}:00` : null;
 
   const findProblem = (): string | null => {
@@ -119,6 +141,11 @@ export default function GroupNoticeFormModal({
     const problem = findProblem();
     if (problem) {
       setError(problem);
+      // 빈 선택지면 그 칸으로 바로 간다
+      if (!editing && pollOn) {
+        const blank = options.findIndex((o) => !hasVisibleText(o.trim()));
+        if (blank >= 0 && problem.startsWith('빈 선택지')) optionRefs.current[blank]?.focus();
+      }
       return;
     }
     setSaving(true);
@@ -143,7 +170,18 @@ export default function GroupNoticeFormModal({
     }
   };
 
-  const setOption = (i: number, value: string) => setOptions((prev) => prev.map((o, j) => (j === i ? value : o)));
+  const setOption = (i: number, value: string) => {
+    setOptions((prev) => prev.map((o, j) => (j === i ? value : o)));
+    setError(null);
+  };
+
+  /** 선택지 칸에서 Enter: 다음 칸으로, 마지막 칸이면 새 칸을 더한다 */
+  const onOptionKeyDown = (i: number) => (e: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    if (i < options.length - 1) optionRefs.current[i + 1]?.focus();
+    else addOption();
+  };
 
   return (
     <Modal
@@ -169,7 +207,10 @@ export default function GroupNoticeFormModal({
           <span className="text-[13px] font-medium text-ink-2">제목</span>
           <input
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setError(null);
+            }}
             maxLength={TITLE_MAX}
             placeholder="무엇을 알릴까요"
             className="form-input h-10 font-display text-base"
@@ -191,11 +232,14 @@ export default function GroupNoticeFormModal({
           notice?.poll && <p className="text-xs text-ink-3">붙인 투표는 고칠 수 없어요</p>
         ) : (
           <section className="rounded-xl border border-line p-4">
-            <label className="flex cursor-pointer items-center gap-2">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 md:min-h-0">
               <input
                 type="checkbox"
                 checked={pollOn}
-                onChange={(e) => setPollOn(e.target.checked)}
+                onChange={(e) => {
+                  setPollOn(e.target.checked);
+                  setError(null);
+                }}
                 className="size-4 accent-accent"
               />
               <span className="font-display text-base text-ink">투표 붙이기</span>
@@ -210,8 +254,13 @@ export default function GroupNoticeFormModal({
                   {options.map((o, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <input
+                        ref={(el) => {
+                          optionRefs.current[i] = el;
+                        }}
                         value={o}
                         onChange={(e) => setOption(i, e.target.value)}
+                        onKeyDown={onOptionKeyDown(i)}
+                        enterKeyHint={i < options.length - 1 || options.length < OPTIONS_MAX ? 'next' : 'done'}
                         maxLength={OPTION_MAX}
                         placeholder={`선택지 ${i + 1}`}
                         aria-label={`선택지 ${i + 1}`}
@@ -220,9 +269,12 @@ export default function GroupNoticeFormModal({
                       {options.length > OPTIONS_MIN && (
                         <button
                           type="button"
-                          onClick={() => setOptions((prev) => prev.filter((_, j) => j !== i))}
+                          onClick={() => {
+                            setOptions((prev) => prev.filter((_, j) => j !== i));
+                            setError(null);
+                          }}
                           aria-label={`선택지 ${i + 1} 지우기`}
-                          className="btn-icon shrink-0"
+                          className="btn-icon shrink-0 max-md:size-11"
                         >
                           <X size={16} strokeWidth={1.5} />
                         </button>
@@ -230,33 +282,36 @@ export default function GroupNoticeFormModal({
                     </div>
                   ))}
                   {options.length < OPTIONS_MAX && (
-                    <button type="button" onClick={() => setOptions((prev) => [...prev, ''])} className="btn-ghost btn-sm">
+                    <button type="button" onClick={addOption} className="btn-ghost btn-sm max-md:h-11">
                       <Plus size={14} strokeWidth={1.5} /> 선택지 추가
                     </button>
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-x-5 gap-y-2">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
-                    <input type="checkbox" checked={multiple} onChange={(e) => setMultiple(e.target.checked)} className="size-4 accent-accent" />
+                <div className="flex flex-wrap gap-x-5 gap-y-2 max-md:gap-y-0">
+                  <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink md:min-h-0">
+                    <input type="checkbox" checked={multiple} onChange={(e) => { setMultiple(e.target.checked); setError(null); }} className="size-4 accent-accent" />
                     여러 개 고르기
                   </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                  <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-ink md:min-h-0">
                     <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="size-4 accent-accent" />
                     익명 투표
                   </label>
                 </div>
-                {anonymous && <p className="-mt-2 text-xs text-ink-3">누가 무엇을 골랐는지 방장에게도 보이지 않고 인원만 보여요</p>}
+                {anonymous && <p className="-mt-2 text-xs text-ink-3 max-md:-mt-3">누가 무엇을 골랐는지 방장에게도 보이지 않고 인원만 보여요</p>}
 
                 <div>
                   <span className="mb-1.5 block text-[13px] text-ink-2">마감 (선택)</span>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
                     <input
                       type="date"
                       aria-label="마감 날짜"
                       value={closesDate}
                       min={format(new Date(), 'yyyy-MM-dd')}
-                      onChange={(e) => setClosesDate(e.target.value)}
+                      onChange={(e) => {
+                        setClosesDate(e.target.value);
+                        setError(null);
+                      }}
                       className="form-input px-2 tabular-nums md:px-3"
                     />
                     <input
@@ -264,14 +319,25 @@ export default function GroupNoticeFormModal({
                       aria-label="마감 시각"
                       value={closesTime}
                       disabled={!closesDate}
-                      onChange={(e) => setClosesTime(e.target.value)}
+                      onChange={(e) => {
+                        setClosesTime(e.target.value);
+                        setError(null);
+                      }}
                       className="form-input px-2 tabular-nums md:px-3"
                     />
                   </div>
-                  <p className="mt-1.5 flex items-center gap-2 text-xs text-ink-3">
+                  <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-3">
                     {closesDate ? '이 시각이 지나면 저절로 닫혀요' : '비워 두면 방장이 직접 마감해요'}
                     {closesDate && (
-                      <button type="button" onClick={() => setClosesDate('')} className="underline underline-offset-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClosesDate('');
+                          setClosesTime('23:59');
+                          setError(null);
+                        }}
+                        className="-my-1 px-1 py-1 underline underline-offset-2 max-md:min-h-11 max-md:px-2"
+                      >
                         마감 없애기
                       </button>
                     )}
@@ -283,7 +349,7 @@ export default function GroupNoticeFormModal({
         )}
 
         {error && (
-          <p role="alert" className="rounded-[10px] bg-negative-soft px-3 py-2.5 text-sm text-negative">
+          <p ref={errorRef} role="alert" className="rounded-[10px] bg-negative-soft px-3 py-2.5 text-sm text-negative">
             {error}
           </p>
         )}
