@@ -13,9 +13,15 @@ export interface ConversationResponse {
   friend: { id: string; nickname: string; profileImage?: string | null; customId: string };
   lastMessage: { id: string; content: string; senderId: string; createdAt: string } | null;
   unreadCount: number;
+  /** 지금 친구라 보낼 수 있는지. 친구를 끊어도 대화는 목록에 남는다 (옛 백엔드는 주지 않음) */
+  canSend?: boolean;
 }
 
 export const MESSAGE_MAX_LENGTH = 2000;
+
+/** 공백과 보이지 않는 문자(폭 없는 공백, 방향 표시, 단어 결합자, BOM 등)만 있는지. 백엔드 MessageService.BLANK 와 같은 범위 */
+const BLANK = /^[\s\p{Z}\u200B-\u200F\u2028-\u202F\u2060-\u2064\uFEFF]*$/u;
+export const isBlankMessage = (value: string) => BLANK.test(value);
 
 export const messageApi = {
   async getConversations(session: Session | null): Promise<ConversationResponse[]> {

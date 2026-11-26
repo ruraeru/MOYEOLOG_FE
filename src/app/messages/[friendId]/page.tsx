@@ -1,10 +1,4 @@
-'use client';
-
-import { useParams } from 'next/navigation';
-import MessagesView from '../MessagesView';
-
+// 화면은 ../layout.tsx 의 MessagesView 가 그린다 (friendId 는 useParams 로 읽는다)
 export default function ConversationPage() {
-  const params = useParams();
-  const friendId = typeof params.friendId === 'string' ? params.friendId : undefined;
-  return <MessagesView friendId={friendId} />;
+  return null;
 }
