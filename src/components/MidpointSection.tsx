@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Loader2, Search, X } from 'lucide-react';
@@ -13,6 +13,7 @@ import { usePlaceWeather } from '@/hooks/useWeather';
 import { recommendFor, weatherAt } from '@/lib/weather';
 import { WeatherLine } from './Weather';
 import ImageWithFallback from './ImageWithFallback';
+import { withEuro } from '@/lib/kakao';
 
 /** 가운데 좌표 근처에서 찾은 지하철역. 같은 역의 여러 노선은 한 줄로 묶는다 */
 interface Station {
@@ -25,6 +26,13 @@ interface Station {
 }
 
 const STATION_LIMIT = 5;
+
+/** 32px 작은 버튼의 누르는 영역을 위아래로 넓혀 44px 로 (모양은 그대로) */
+const HIT_Y = 'relative after:absolute after:inset-x-0 after:-inset-y-1.5';
+/** 아이콘 링크(32px)의 누르는 영역을 사방으로 넓혀 44px 로 */
+const HIT = 'relative after:absolute after:-inset-1.5';
+/** '여기로 정하기'·'정한 장소' 폭을 같게 해 옆의 카카오맵 아이콘 열이 줄마다 맞게 */
+const PICK_BTN = `btn-secondary btn-sm min-w-[92px] shrink-0 ${HIT_Y}`;
 
 /**
  * 일정의 중간 지점 찾기.
@@ -40,6 +48,8 @@ export default function MidpointSection({
   place,
   onLocationChange,
   onDepartureChange,
+  readOnly = false,
+  audience = '만날 사람',
   wrap = (content) => content,
 }: {
   scheduleId: string;
@@ -50,6 +60,10 @@ export default function MidpointSection({
   onLocationChange?: (place: MidpointPlace) => void;
   /** 내 출발지를 적거나 지웠을 때 (일정 목록의 '출발지 미입력' 표시를 다시 불러오게) */
   onDepartureChange?: () => void;
+  /** 끝난 일정: 목록만 보이고 출발지 적기·물어보기·정하기는 숨긴다 */
+  readOnly?: boolean;
+  /** 대상이 누구인지 ('모임 멤버', '만든 사람과 참여자') */
+  audience?: string;
   wrap?: (content: ReactNode) => ReactNode;
 }) {
   const { data: session } = useSession();
@@ -68,6 +82,17 @@ export default function MidpointSection({
   const [editing, setEditing] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [busy, setBusy] = useState(false);
+  // 출발지 물어보기를 보낸 뒤에는 버튼을 '물어봤어요' 로 잠가 같은 알림이 연달아 가지 않게 한다 (서버도 10분 간격 제한)
+  const [asked, setAsked] = useState(false);
+  // 장소가 이미 정해져 있고 가운데 좌표가 없으면 접어 둔다. '중간 지점 다시 찾기' 로 펼친다
+  const [expanded, setExpanded] = useState(false);
+  // 검색 결과 키보드 선택 (↑↓ Enter)
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // '바꾸기' 를 누르면 바로 검색칸에 쓸 수 있게
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
   const { searchResults, isSearching, recommendations, isRecommending, searchPlaces, fetchRecommendations, clearSearchResults } = usePlaceSearch();
 
   const stations = useStations(data?.center ?? null);
@@ -115,30 +140,40 @@ export default function MidpointSection({
     }
   };
 
+  const cancelEditing = () => {
+    setEditing(false);
+    setKeyword('');
+    setActiveIndex(-1);
+    clearSearchResults();
+  };
+
   const saveDeparture = (place: MidpointPlace) =>
     run(async () => {
       apply(await midpointApi.saveDeparture(scheduleId, place, session));
-      setEditing(false);
-      setKeyword('');
-      clearSearchResults();
+      cancelEditing();
       onDepartureChange?.();
+      toast.success('출발지를 저장했어요');
     });
 
-  const removeDeparture = () =>
-    run(async () => {
+  const removeDeparture = async () => {
+    if (!(await confirm('내 출발지를 지울까요?', undefined, '지우기'))) return;
+    await run(async () => {
       apply(await midpointApi.removeDeparture(scheduleId, session));
       onDepartureChange?.();
+      toast.success('출발지를 지웠어요');
     });
+  };
 
   const askOthers = () =>
     run(async () => {
       const sent = await midpointApi.requestDepartures(scheduleId, session);
+      setAsked(true);
       if (sent > 0) toast.success(`${sent}명에게 출발지를 물어봤어요`);
       else toast.info('모두 출발지를 적었어요');
     });
 
   const confirmStation = async (station: Station) => {
-    if (!(await confirm(`일정 장소를 ${station.name}(으)로 정할까요?`))) return;
+    if (!(await confirm(`일정 장소를 ${withEuro(station.name)} 정할까요?`))) return;
     await run(async () => {
       const place = { name: station.name, latitude: station.latitude, longitude: station.longitude };
       apply(await midpointApi.confirm(scheduleId, place, session));
@@ -153,7 +188,7 @@ export default function MidpointSection({
   /** 추천 장소를 일정 장소로 정한다. 추천 목록은 지금 기준 역 그대로 둔다 */
   const confirmRecommendation = async (rec: { name: string; y: string; x: string }) => {
     if (chosenLat == null || chosenLng == null) return;
-    if (!(await confirm(`일정 장소를 ${rec.name}(으)로 정할까요?`))) return;
+    if (!(await confirm(`일정 장소를 ${withEuro(rec.name)} 정할까요?`))) return;
     const base = { name: baseName, latitude: chosenLat, longitude: chosenLng };
     await run(async () => {
       const picked = { name: rec.name.slice(0, 255), latitude: Number(rec.y), longitude: Number(rec.x) };
@@ -174,35 +209,69 @@ export default function MidpointSection({
   // 만날 사람이 나뿐이면 중간 지점을 찾을 일이 없다
   if (data.expectedCount <= 1) return null;
 
-  const showForm = editing || !data.myDeparture;
+  const showForm = !readOnly && (editing || !data.myDeparture);
   const waiting = data.expectedCount - data.enteredCount;
+  const results = searchResults.slice(0, 8);
+  const pickResult = (place: (typeof results)[number]) =>
+    saveDeparture({
+      name: place.place_name.slice(0, 100),
+      latitude: Number(place.y),
+      longitude: Number(place.x),
+    });
+
+  // 머리 줄: 높이를 20px 로 고정해(버튼은 -my 로 줄 높이에 넣는다) 행 아이콘과 글자 중심이 맞고, 버튼이 사라져도 아래가 튀지 않는다
+  const header = (
+    <div className="flex h-5 items-center justify-between gap-2">
+      <p className="min-w-0 truncate text-[13px] text-ink-3">
+        중간 지점 · 출발지 <span className="stamp">{data.enteredCount}/{data.expectedCount}</span>명
+      </p>
+      {!readOnly && data.canConfirm && waiting > 0 && (
+        <button type="button" onClick={askOthers} disabled={busy || asked} className={`btn-ghost btn-sm -my-1.5 shrink-0 ${HIT_Y}`}>
+          {asked ? '물어봤어요' : '출발지 물어보기'}
+        </button>
+      )}
+    </div>
+  );
+
+  // 장소가 이미 정해졌고 아직 가운데 좌표가 없으면 다시 정해야 하는 것처럼 보이지 않게 접어 둔다
+  if (!expanded && !data.center && (readOnly || confirmedName)) {
+    return wrap(
+      <div className="flex h-5 items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-[13px] text-ink-3">
+          중간 지점 · 출발지 <span className="stamp">{data.enteredCount}/{data.expectedCount}</span>명
+          {readOnly ? ' · 끝난 일정' : ' · 장소가 정해져 있어요'}
+        </p>
+        {!readOnly && (
+          <button type="button" onClick={() => setExpanded(true)} className={`btn-ghost btn-sm -my-1.5 shrink-0 ${HIT_Y}`}>
+            중간 지점 다시 찾기
+          </button>
+        )}
+      </div>,
+    );
+  }
 
   return wrap(
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[13px] text-ink-3">
-          중간 지점 · 출발지 <span className="stamp">{data.enteredCount}/{data.expectedCount}</span>명
-        </p>
-        {data.canConfirm && waiting > 0 && (
-          <button type="button" onClick={askOthers} disabled={busy} className="btn-ghost btn-sm">
-            출발지 물어보기
-          </button>
-        )}
-      </div>
+      {header}
+      {/* 참여자 수(만든 사람 빠짐)와 헷갈리지 않게 출발지를 적을 대상이 누구인지 적는다 */}
+      <p className="mt-0.5 break-keep text-[13px] text-ink-3">
+        대상: {audience} <span className="stamp">{data.expectedCount}</span>명
+        {readOnly && ' · 끝난 일정이라 출발지와 장소를 바꿀 수 없어요'}
+      </p>
 
-      {/* 적은 사람들: 다른 사람의 출발지는 이름만 보인다 */}
+      {/* 적은 사람들: 다른 사람의 출발지는 이름만 보인다. 줄 높이는 모두 20px (내 줄 버튼도 -my 로 넣는다) */}
       {data.departures.length > 0 && (
         <ul className="mt-2 space-y-1">
           {data.departures.map((d) => (
-            <li key={d.userId} className="flex items-center gap-2 text-sm">
+            <li key={d.userId} className="flex h-6 items-center gap-2 text-sm">
               <span className="shrink-0 text-ink-2">{d.mine ? '나' : d.nickname}</span>
-              <span className="min-w-0 flex-1 truncate text-ink">{d.name}</span>
-              {d.mine && !editing && (
-                <span className="flex shrink-0 items-center gap-1">
-                  <button type="button" onClick={() => setEditing(true)} disabled={busy} className="btn-ghost btn-sm">
+              <span className="min-w-0 flex-1 truncate text-ink" title={d.name}>{d.name}</span>
+              {d.mine && !editing && !readOnly && (
+                <span className="-my-1 flex shrink-0 items-center gap-2">
+                  <button type="button" onClick={() => setEditing(true)} disabled={busy} className={`btn-ghost btn-sm ${HIT_Y}`}>
                     바꾸기
                   </button>
-                  <button type="button" onClick={removeDeparture} disabled={busy} className="btn-ghost btn-sm">
+                  <button type="button" onClick={removeDeparture} disabled={busy} className={`btn-ghost btn-sm ${HIT_Y}`}>
                     지우기
                   </button>
                 </span>
@@ -218,25 +287,46 @@ export default function MidpointSection({
           <div className="relative">
             <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" aria-hidden />
             <input
+              ref={inputRef}
               type="text"
               value={keyword}
               onChange={(e) => {
                 setKeyword(e.target.value);
+                setActiveIndex(-1);
                 searchPlaces(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return;
+                if (e.key === 'Escape' && editing) {
+                  // 상세 모달의 Esc 닫기보다 먼저 받아 편집만 취소한다
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
+                  cancelEditing();
+                } else if (e.key === 'ArrowDown' && results.length > 0) {
+                  e.preventDefault();
+                  setActiveIndex((i) => (i + 1) % results.length);
+                } else if (e.key === 'ArrowUp' && results.length > 0) {
+                  e.preventDefault();
+                  setActiveIndex((i) => (i <= 0 ? results.length - 1 : i - 1));
+                } else if (e.key === 'Enter' && !busy && !isSearching && results.length > 0) {
+                  e.preventDefault();
+                  pickResult(results[Math.max(0, activeIndex)]);
+                }
               }}
               placeholder="내 출발지 검색 (역, 동네, 건물)"
               aria-label="내 출발지 검색"
+              role="combobox"
+              aria-expanded={!!keyword.trim() && results.length > 0}
+              aria-controls={`midpoint-results-${scheduleId}`}
+              aria-activedescendant={activeIndex >= 0 ? `midpoint-result-${scheduleId}-${activeIndex}` : undefined}
               className="form-input w-full pl-9 pr-9"
             />
             {editing && (
               <button
                 type="button"
-                onClick={() => {
-                  setEditing(false);
-                  setKeyword('');
-                  clearSearchResults();
-                }}
-                className="btn-icon absolute right-1 top-1/2 size-7 -translate-y-1/2"
+                onClick={cancelEditing}
+                className={`btn-icon absolute right-0.5 top-1/2 -translate-y-1/2 ${HIT}`}
                 aria-label="출발지 바꾸기 취소"
               >
                 <X size={14} strokeWidth={1.5} />
@@ -249,7 +339,7 @@ export default function MidpointSection({
               type="button"
               onClick={() => saveDeparture(data.lastDeparture!)}
               disabled={busy}
-              className="btn-secondary btn-sm mt-2 max-w-full"
+              className={`btn-secondary btn-sm mt-2 max-w-full ${HIT_Y}`}
             >
               <span className="truncate">지난번 출발지 쓰기: {data.lastDeparture.name}</span>
             </button>
@@ -261,23 +351,19 @@ export default function MidpointSection({
                 <p className="flex items-center gap-2 px-3 py-2.5 text-[13px] text-ink-3">
                   <Loader2 size={14} strokeWidth={1.5} className="animate-spin" /> 찾는 중
                 </p>
-              ) : searchResults.length === 0 ? (
+              ) : results.length === 0 ? (
                 <p className="px-3 py-2.5 text-[13px] text-ink-3">찾은 장소가 없어요</p>
               ) : (
-                <ul className="max-h-56 overflow-y-auto">
-                  {searchResults.slice(0, 8).map((place) => (
-                    <li key={place.id}>
+                <ul id={`midpoint-results-${scheduleId}`} role="listbox" aria-label="출발지 검색 결과" className="max-h-56 overflow-y-auto">
+                  {results.map((place, index) => (
+                    <li key={place.id} id={`midpoint-result-${scheduleId}-${index}`} role="option" aria-selected={index === activeIndex}>
                       <button
                         type="button"
+                        tabIndex={-1}
                         disabled={busy}
-                        onClick={() =>
-                          saveDeparture({
-                            name: place.place_name.slice(0, 100),
-                            latitude: Number(place.y),
-                            longitude: Number(place.x),
-                          })
-                        }
-                        className="block w-full px-3 py-2 text-left transition-colors hover:bg-raised"
+                        onClick={() => pickResult(place)}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        className={`block w-full px-3 py-2 text-left transition-colors hover:bg-raised ${index === activeIndex ? 'bg-raised' : ''}`}
                       >
                         <span className="block truncate text-sm text-ink">{place.place_name}</span>
                         <span className="block truncate text-[13px] text-ink-3">
@@ -304,7 +390,7 @@ export default function MidpointSection({
         <p className="mt-3 text-[13px] text-ink-3">가운데 근처에서 지하철역을 찾지 못했어요</p>
       ) : (
         <div className="mt-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex h-5 items-center justify-between gap-2">
             <p className="text-[13px] text-ink-3">
               가운데에서 가까운 지하철역{!stationsOpen && <> <span className="stamp">{stations.items.length}</span>곳</>}
             </p>
@@ -313,7 +399,7 @@ export default function MidpointSection({
                 type="button"
                 onClick={() => setStationsToggle(!stationsOpen)}
                 aria-expanded={stationsOpen}
-                className="btn-ghost btn-sm"
+                className={`btn-ghost btn-sm -my-1.5 ${HIT_Y}`}
               >
                 {stationsOpen ? '접기' : '펼치기'}
               </button>
@@ -323,41 +409,44 @@ export default function MidpointSection({
           <>
           <ul className="mt-1 divide-y divide-line rounded-lg border border-line">
             {stations.items.map((station, index) => (
-              <li key={station.id} className="flex items-center gap-2 px-3 py-2">
-                <div className="min-w-0 flex-1">
+              <li key={station.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                <div className="min-w-[8rem] flex-1">
                   <p className="flex items-center gap-1.5 text-sm text-ink">
-                    <span className="truncate font-display text-[15px]">{station.name}</span>
+                    <span className="min-w-0 break-keep font-display text-[15px]">{station.name}</span>
                     {index === 0 && <span className="chip shrink-0">가장 가까움</span>}
                   </p>
-                  <p className="truncate text-[13px] text-ink-3">
-                    {station.lines.join(' · ')}
-                    {station.lines.length > 0 && ' · '}
+                  {/* 거리를 앞에 둬 좁은 폭에서 말줄임이 돼도 숫자는 보이게 */}
+                  <p className="truncate text-[13px] text-ink-3" title={station.lines.join(' · ')}>
                     가운데에서 <span className="stamp">{formatDistance(station.distance)}</span>
+                    {station.lines.length > 0 && ` · ${station.lines.join(' · ')}`}
                   </p>
                 </div>
-                <a
-                  href={`https://map.kakao.com/link/map/${station.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-icon size-7 shrink-0"
-                  title="카카오맵에서 보기"
-                >
-                  <ExternalLink size={14} strokeWidth={1.5} />
-                </a>
-                {data.canConfirm && (
-                  <button
-                    type="button"
-                    onClick={() => confirmStation(station)}
-                    disabled={busy || data.location === station.name}
-                    className="btn-secondary btn-sm shrink-0"
+                <span className="ml-auto flex shrink-0 items-center gap-3">
+                  <a
+                    href={`https://map.kakao.com/link/map/${station.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`btn-icon ${HIT}`}
+                    title="카카오맵에서 보기"
+                    aria-label={`${station.name} 카카오맵에서 보기`}
                   >
-                    {data.location === station.name ? '정한 장소' : '여기로 정하기'}
-                  </button>
-                )}
+                    <ExternalLink size={14} strokeWidth={1.5} />
+                  </a>
+                  {data.canConfirm && !readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => confirmStation(station)}
+                      disabled={busy || data.location === station.name}
+                      className={PICK_BTN}
+                    >
+                      {data.location === station.name ? '정한 장소' : '여기로 정하기'}
+                    </button>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
-          {!data.canConfirm && <p className="mt-1.5 text-[13px] text-ink-3">장소는 일정을 만든 사람이 정해요</p>}
+          {!data.canConfirm && !readOnly && <p className="mt-1.5 text-[13px] text-ink-3">장소는 일정을 만든 사람이 정해요</p>}
           </>
           )}
         </div>
@@ -366,23 +455,24 @@ export default function MidpointSection({
       {/* 정해진 역 근처 추천 장소 (날씨 기반) */}
       {hasChosen && (isRecommending || recommendations.length > 0) && (
         <div className="mt-4">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-start justify-between gap-2">
             <p className="min-w-0 text-[13px] text-ink-3">
               <span className="text-ink-2">{baseName} 근처 추천 장소</span>
               {!recsOpen && !isRecommending && <> <span className="stamp">{recommendations.length}</span>곳</>}
-              {recsOpen && recommend.reason && <span className="ml-2">{recommend.reason}</span>}
             </p>
             {(!recsOpen || recsToggle !== null || pickedNonStation) && (
               <button
                 type="button"
                 onClick={() => setRecsToggle(!recsOpen)}
                 aria-expanded={recsOpen}
-                className="btn-ghost btn-sm shrink-0"
+                className={`btn-ghost btn-sm -my-1.5 shrink-0 ${HIT_Y}`}
               >
                 {recsOpen ? '접기' : '펼치기'}
               </button>
             )}
           </div>
+          {/* 이유 문장은 다음 줄에 한 덩어리로 (어절 단위 줄바꿈) */}
+          {recsOpen && recommend.reason && <p className="mt-0.5 break-keep text-[13px] text-ink-3">{recommend.reason}</p>}
           {!recsOpen ? null : (
           <>
           {weather && <WeatherLine weather={weather} className="mt-1 text-[13px] text-ink-2" />}
@@ -393,36 +483,41 @@ export default function MidpointSection({
           ) : (
             <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
               {recommendations.map((rec, index) => (
-                <li key={`${rec.id}-${index}`} className="flex items-center gap-3 px-3 py-2">
-                  <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-raised">
-                    <ImageWithFallback src={rec.image} alt="" fill containerClassName="w-full h-full" className="object-cover" unoptimized />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-display text-[15px] text-ink">{rec.name}</span>
-                    <span className="block truncate text-[13px] text-ink-3">
-                      {rec.category}
-                      {rec.distance && <> · 역에서 <span className="stamp">{rec.distance}</span></>}
+                <li key={`${rec.id}-${index}`} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                  <span className="flex min-w-[8rem] flex-1 items-center gap-3">
+                    <span className="relative size-10 shrink-0 overflow-hidden rounded-lg bg-raised">
+                      <ImageWithFallback src={rec.image} alt="" fill containerClassName="w-full h-full" className="object-cover" unoptimized />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[15px] text-ink" title={rec.name}>{rec.name}</span>
+                      <span className="block truncate text-[13px] text-ink-3">
+                        {rec.distance && <>역에서 <span className="stamp">{rec.distance}</span> · </>}
+                        {rec.category}
+                      </span>
                     </span>
                   </span>
-                  <a
-                    href={`https://map.kakao.com/link/map/${rec.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-icon size-7 shrink-0"
-                    title="카카오맵에서 보기"
-                  >
-                    <ExternalLink size={14} strokeWidth={1.5} />
-                  </a>
-                  {data.canConfirm && (
-                    <button
-                      type="button"
-                      onClick={() => confirmRecommendation(rec)}
-                      disabled={busy || data.location === rec.name}
-                      className="btn-secondary btn-sm shrink-0"
+                  <span className="ml-auto flex shrink-0 items-center gap-3">
+                    <a
+                      href={`https://map.kakao.com/link/map/${rec.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`btn-icon ${HIT}`}
+                      title="카카오맵에서 보기"
+                      aria-label={`${rec.name} 카카오맵에서 보기`}
                     >
-                      {data.location === rec.name ? '정한 장소' : '여기로 정하기'}
-                    </button>
-                  )}
+                      <ExternalLink size={14} strokeWidth={1.5} />
+                    </a>
+                    {data.canConfirm && !readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => confirmRecommendation(rec)}
+                        disabled={busy || data.location === rec.name}
+                        className={PICK_BTN}
+                      >
+                        {data.location === rec.name ? '정한 장소' : '여기로 정하기'}
+                      </button>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>

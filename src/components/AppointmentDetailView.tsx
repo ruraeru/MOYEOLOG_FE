@@ -11,7 +11,7 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { type ScheduleResponse, scheduleApi } from '@/lib/schedule-api';
 import { useSession } from 'next-auth/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, isValidElement } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { groupApi } from '@/lib/group-api';
@@ -241,6 +241,8 @@ export default function AppointmentDetailView({
   const startTime = parseISO(schedule.startTime);
   const endTime = parseISO(schedule.endTime);
   const multiDay = isMultiDaySchedule(schedule);
+  // 끝난 일정은 중간 지점을 읽기 전용으로 (달력의 '출발지 미입력' 표시도 끝난 일정은 뺀다)
+  const ended = endTime.getTime() < Date.now();
 
   const groupLabel = schedule.groupId ? (scheduleGroup ? scheduleGroup.name : '모임 일정') : '개인 일정';
   const ribbonColor = schedule.groupId ? getThemeColors(scheduleGroup?.colorTheme).hex : 'var(--line-strong)';
@@ -250,13 +252,16 @@ export default function AppointmentDetailView({
   return (
     <div className={`flex flex-col bg-surface overflow-hidden ${isPage ? 'h-full' : 'w-full max-h-full rounded-t-2xl md:rounded-2xl'}`}>
       {/* 머리: 모임 띠 + '모임 · 일정', 주아 제목, 작성자·시각 */}
-      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4 md:px-6">
+      <div className="shrink-0 border-b border-line px-5 py-4 md:px-6">
+      {/* 페이지에서는 머리도 본문과 같은 720px 폭에 맞춰 수정·삭제가 본문 오른쪽 끝에 붙게 */}
+      <div className={`flex items-start justify-between gap-3 ${isPage ? 'max-w-[720px]' : ''}`}>
         <div className="flex min-w-0 items-start gap-2">
           {isPage && (
             <button
               onClick={goBack}
-              className="btn-icon -ml-2 mt-0.5 shrink-0"
+              className="btn-icon relative -ml-2 mt-0.5 shrink-0 after:absolute after:-inset-1.5"
               title="뒤로가기"
+              aria-label="뒤로가기"
             >
               <ChevronLeft size={18} strokeWidth={1.5} />
             </button>
@@ -270,7 +275,7 @@ export default function AppointmentDetailView({
               )}
               <span className="truncate">{groupLabel} · 일정</span>
             </p>
-            <h1 className="mt-1 font-display text-2xl leading-8 text-ink break-words">
+            <h1 className="mt-1 font-display text-2xl leading-8 text-ink break-keep break-words">
               {schedule.title}
             </h1>
             <div className="mt-2 flex items-center gap-2 text-[13px] text-ink-2">
@@ -278,37 +283,40 @@ export default function AppointmentDetailView({
                 {initialOf(schedule.authorNickname)}
               </span>
               <span className="truncate">{schedule.authorNickname}</span>
-              <span className="stamp">{formatStamp(schedule.createdAt, tf)}</span>
+              <span className="stamp shrink-0 whitespace-nowrap">{formatStamp(schedule.createdAt, tf)}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-2">
           {session?.user?.id === schedule.authorId && (
             <>
               <button
                 onClick={() => onEdit ? onEdit(schedule) : setIsEditModalOpen(true)}
-                className="btn-icon"
+                className="btn-icon relative after:absolute after:-inset-1.5"
                 title="일정 수정"
+                aria-label="일정 수정"
               >
                 <Pencil size={16} strokeWidth={1.5} />
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="btn-icon hover:text-negative"
+                className="btn-icon relative hover:text-negative after:absolute after:-inset-1.5"
                 title="삭제하기"
+                aria-label="삭제하기"
               >
                 {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
               </button>
             </>
           )}
           {!isPage && onClose && (
-            <button onClick={onClose} className="btn-icon" aria-label="닫기">
+            <button onClick={onClose} className="btn-icon relative after:absolute after:-inset-1.5" aria-label="닫기">
               <X size={18} strokeWidth={1.5} />
             </button>
           )}
         </div>
+      </div>
       </div>
 
       {/* 본문: 아이콘 + 글자 행 */}
@@ -334,15 +342,16 @@ export default function AppointmentDetailView({
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
-                    <p className="text-sm font-medium text-ink break-words">{schedule.location}</p>
+                    <p className="text-sm font-medium text-ink break-keep break-words">{schedule.location}</p>
                     {isLoadingLocation && <Loader2 size={14} strokeWidth={1.5} className="shrink-0 animate-spin text-ink-3" />}
                     {locationDetail?.placeUrl && (
                       <a
                         href={locationDetail.placeUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="btn-icon size-7 shrink-0"
+                        className="btn-icon relative shrink-0 after:absolute after:-inset-1.5"
                         title="카카오맵에서 보기"
+                        aria-label="카카오맵에서 보기"
                       >
                         <ExternalLink size={14} strokeWidth={1.5} />
                       </a>
@@ -372,9 +381,10 @@ export default function AppointmentDetailView({
           )}
 
           {/* 날씨: 약속 장소의 예보(10일 안) */}
+          {/* 행 아이콘 자리에 날씨 아이콘 하나만 둔다 */}
           {weather && (
-            <InfoRow icon={CloudSun} label="날씨">
-              <p className="text-sm text-ink"><WeatherLine weather={weather} /></p>
+            <InfoRow icon={<WeatherIcon weather={weather} className="mt-0.5" />} label="날씨">
+              <p className="text-sm text-ink tabular-nums">{weatherText(weather)}</p>
               <p className="mt-0.5 text-[13px] text-ink-3">일정 시작 시각 기준 · 기상청 예보</p>
             </InfoRow>
           )}
@@ -382,7 +392,7 @@ export default function AppointmentDetailView({
           {/* 참여자 */}
           {participants.length > 0 && (
             <InfoRow icon={Users} label="참여자">
-              <p className="mb-2 text-[13px] text-ink-3">참여자 {participants.length}명</p>
+              <p className="mb-2 text-[13px] text-ink-3">참여자 {participants.length}명 · 만든 사람까지 {participants.length + 1}명</p>
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {participants.map((p) => (
                   <div key={p.id} className="flex items-center gap-2">
@@ -418,6 +428,8 @@ export default function AppointmentDetailView({
                 onSuccess?.();
               }}
               onDepartureChange={() => onSuccess?.()}
+              readOnly={ended}
+              audience={schedule.groupId ? '모임 멤버' : '만든 사람과 참여자'}
               wrap={(content) => <InfoRow icon={TrainFront} label="중간 지점">{content}</InfoRow>}
             />
           )}
@@ -470,10 +482,10 @@ export default function AppointmentDetailView({
 }
 
 /** 아이콘 + 글자 행. 라벨은 화면 읽기 프로그램용 */
-function InfoRow({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) {
+function InfoRow({ icon: Icon, label, children }: { icon: LucideIcon | React.ReactElement; label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[16px_minmax(0,1fr)] gap-x-3">
-      <Icon size={16} strokeWidth={1.5} className="mt-0.5 text-ink-3" aria-hidden />
+      {isValidElement(Icon) ? Icon : <Icon size={16} strokeWidth={1.5} className="mt-0.5 text-ink-3" aria-hidden />}
       <div className="min-w-0">
         <span className="sr-only">{label}</span>
         {children}
