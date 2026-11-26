@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, UserPlus, Loader2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi } from '@/lib/friend-api';
@@ -18,6 +18,14 @@ export default function FriendSearchModal({ isOpen, onClose, onSuccess }: Friend
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // 창을 닫으면 입력값·오류를 비워 다음에 열 때 깨끗하게 시작해요.
+  useEffect(() => {
+    if (isOpen) return;
+    setCustomId('');
+    setError(null);
+    setSuccess(false);
+  }, [isOpen]);
 
   const handleSendRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +56,7 @@ export default function FriendSearchModal({ isOpen, onClose, onSuccess }: Friend
       open={isOpen}
       onClose={onClose}
       title="친구 추가"
-      subtitle="친구의 8자리 아이디로 친구 신청을 보내요"
+      subtitle="친구의 8자리 아이디로 친구 신청을 보내요. 아이디는 친구 화면의 초대 링크 카드에 있어요"
       size="sm"
     >
       <form onSubmit={handleSendRequest} className="space-y-4">
@@ -62,7 +70,11 @@ export default function FriendSearchModal({ isOpen, onClose, onSuccess }: Friend
               type="text"
               value={customId}
               // 복사할 때 딸려 온 공백을 먼저 지운 뒤 8자로 맞춰요(maxLength 는 공백까지 세어 ID 를 잘라 버림).
-              onChange={(e) => setCustomId(e.target.value.replace(/\s+/g, '').slice(0, 8))}
+              onChange={(e) => {
+                setCustomId(e.target.value.replace(/\s+/g, '').slice(0, 8));
+                setError(null);
+              }}
+              autoFocus
               placeholder="8자리 아이디"
               className="form-input pl-9"
               required

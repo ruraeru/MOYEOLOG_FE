@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { MessageCircle, UserPlus, Check, Settings } from 'lucide-react';
+import { MessageCircle, UserPlus, Check, Settings, Link2 } from 'lucide-react';
 import ImageWithFallback from '@/components/ImageWithFallback';
 import { friendApi, resolveImageUrl, type UserProfileResponse } from '@/lib/friend-api';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -29,8 +29,9 @@ const STATUS_TEXT: Record<UserProfileResponse['friendStatus'], string> = {
 
 export default function UserProfileCard({ profile, onChanged, variant = 'page' }: UserProfileCardProps) {
   const { data: session } = useSession();
-  const { toast } = useAlert();
+  const { toast, confirm } = useAlert();
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const run = async (action: () => Promise<void>, success: string, failure: string) => {
     if (busy) return;
@@ -58,12 +59,15 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
   const sendRequest = () =>
     run(() => friendApi.sendRequest(profile.customId, session), '친구 신청을 보냈어요', '친구 신청을 보내지 못했어요.');
 
-  const cancelRequest = () =>
+  // 친구 목록의 '요청 취소'와 같게 한 번 묻습니다.
+  const cancelRequest = async () => {
+    if (!(await confirm(`${profile.nickname}님에게 보낸 친구 요청을 취소할까요?`, undefined, '요청 취소', '닫기'))) return;
     run(
       async () => friendApi.deleteFriendship(await findRequestId('sent'), session),
       '친구 신청을 취소했어요',
       '친구 신청을 취소하지 못했어요.',
     );
+  };
 
   const acceptRequest = () =>
     run(
@@ -72,12 +76,34 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
       '요청을 수락하지 못했어요.',
     );
 
-  const rejectRequest = () =>
+  const rejectRequest = async () => {
+    if (!(await confirm(`${profile.nickname}님의 친구 요청을 거절할까요?`, undefined, '거절', '닫기'))) return;
     run(
       async () => friendApi.deleteFriendship(await findRequestId('received'), session),
       '친구 요청을 거절했어요',
       '요청을 거절하지 못했어요.',
     );
+  };
+
+  /** 내 초대 링크 화면: 링크를 복사(모바일은 공유 시트)합니다. */
+  const shareInviteLink = async () => {
+    const link = `${window.location.origin}/invite/friend?code=${encodeURIComponent(profile.customId)}`;
+    if (typeof navigator.share === 'function' && window.matchMedia('(pointer: coarse)').matches) {
+      try {
+        await navigator.share({ title: '모여로그 친구 초대', url: link });
+      } catch {
+        // 사용자가 공유 창을 닫은 경우
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('링크를 복사하지 못했어요. 주소창의 주소를 복사해 주세요.');
+    }
+  };
 
   const image = resolveImageUrl(profile.profileImage);
   const statusText =
@@ -106,7 +132,7 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
           )}
         </div>
         <div className="min-w-0">
-          <h1 className="font-display text-2xl leading-8 text-ink truncate">{profile.nickname}</h1>
+          <h1 className="font-display text-2xl leading-8 text-ink [overflow-wrap:anywhere]">{profile.nickname}</h1>
           <p className="text-[13px] text-ink-3 truncate">@{profile.customId}</p>
         </div>
       </div>
@@ -120,7 +146,7 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
       {profile.mutualGroups?.length > 0 && (
         <div className="space-y-2 border-t border-line pt-4">
           <p className="text-xs font-medium text-ink-3">
-            함께 있는 모임 <span className="tabular-nums">{profile.mutualGroups.length}</span>
+            {profile.friendStatus === 'SELF' ? '내 모임' : '함께 있는 모임'} <span className="tabular-nums">{profile.mutualGroups.length}</span>
           </p>
           <div className="flex flex-wrap gap-1.5">
             {profile.mutualGroups.map((g) => (
@@ -140,35 +166,41 @@ export default function UserProfileCard({ profile, onChanged, variant = 'page' }
 
       <div className="flex flex-col sm:flex-row gap-2">
         {profile.friendStatus === 'NONE' && (
-          <button onClick={sendRequest} disabled={busy} className="btn-primary flex-1">
+          <button onClick={sendRequest} disabled={busy} className="btn-primary sm:flex-1">
             <UserPlus size={16} strokeWidth={1.5} />
             친구 신청
           </button>
         )}
         {profile.friendStatus === 'PENDING_SENT' && (
-          <button onClick={cancelRequest} disabled={busy} className="btn-secondary flex-1">
+          <button onClick={cancelRequest} disabled={busy} className="btn-secondary sm:flex-1">
             친구 신청 취소
           </button>
         )}
         {profile.friendStatus === 'PENDING_RECEIVED' && (
           <>
-            <button onClick={acceptRequest} disabled={busy} className="btn-primary flex-1">
+            <button onClick={acceptRequest} disabled={busy} className="btn-primary sm:flex-1">
               <Check size={16} strokeWidth={1.5} />
               수락
             </button>
-            <button onClick={rejectRequest} disabled={busy} className="btn-secondary flex-1">
+            <button onClick={rejectRequest} disabled={busy} className="btn-secondary sm:flex-1">
               거절
             </button>
           </>
         )}
         {profile.friendStatus === 'FRIEND' && (
-          <Link href={`/messages/${profile.id}`} className="btn-primary flex-1">
+          <Link href={`/messages/${profile.id}`} className="btn-primary sm:flex-1">
             <MessageCircle size={16} strokeWidth={1.5} />
             메시지 보내기
           </Link>
         )}
+        {profile.friendStatus === 'SELF' && variant === 'invite' && (
+          <button onClick={shareInviteLink} className="btn-primary sm:flex-1">
+            {copied ? <Check size={16} strokeWidth={1.5} /> : <Link2 size={16} strokeWidth={1.5} />}
+            {copied ? '복사했어요' : '초대 링크 복사'}
+          </button>
+        )}
         {profile.friendStatus === 'SELF' && variant === 'page' && (
-          <Link href="/settings" className="btn-secondary flex-1">
+          <Link href="/settings" className="btn-secondary sm:flex-1">
             <Settings size={16} strokeWidth={1.5} />
             프로필 관리
           </Link>

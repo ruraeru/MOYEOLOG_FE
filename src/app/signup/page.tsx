@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { accountApi, isEmailLike, nicknameProblem, normalizeEmail, passwordProblem, PASSWORD_MIN } from '@/lib/account-api';
 import { getApiErrorMessage } from '@/lib/axios';
+import { callbackFromLocation, loginHref, rememberAfterSignup } from '@/lib/after-signup';
 import { AccountShell, Field, FormError } from './AccountShell';
 
 type Errors = Partial<Record<'email' | 'nickname' | 'password' | 'confirm', string>>;
@@ -17,6 +18,11 @@ export default function SignupPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  // 초대 링크 등에서 왔으면 가입·인증 뒤 로그인할 때 그 화면으로 돌아가게 기억해 둬요.
+  const [callback, setCallback] = useState<string | null>(null);
+  useEffect(() => {
+    setCallback(callbackFromLocation());
+  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -34,6 +40,7 @@ export default function SignupPage() {
     setSubmitting(true);
     try {
       await accountApi.signup({ email, password, nickname });
+      rememberAfterSignup(callback);
       setSentTo(normalizeEmail(email));
       setPassword('');
       setConfirm('');
@@ -52,7 +59,7 @@ export default function SignupPage() {
           <p>이 주소로 메일을 보냈어요. 메일에 적힌 안내를 따라 30분 안에 가입을 마쳐 주세요.</p>
           <p className="text-[13px] text-ink-3">메일이 보이지 않으면 스팸함을 확인해 주세요. 주소를 잘못 썼다면 다시 신청하면 돼요.</p>
           <div className="flex flex-wrap gap-2 pt-2">
-            <Link href="/" className="btn-primary">
+            <Link href={loginHref(callback)} className="btn-primary">
               로그인 화면으로
             </Link>
             <button type="button" className="btn-secondary" onClick={() => setSentTo(null)}>
@@ -70,7 +77,7 @@ export default function SignupPage() {
       description={
         <>
           이미 계정이 있나요?{' '}
-          <Link href="/" className="text-accent underline-offset-2 hover:underline">
+          <Link href={loginHref(callback)} className="text-accent underline-offset-2 hover:underline">
             로그인
           </Link>
         </>

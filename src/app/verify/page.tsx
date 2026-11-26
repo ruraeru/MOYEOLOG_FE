@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { accountApi, type VerifyResult } from '@/lib/account-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { AccountShell, Field, FormError } from '../signup/AccountShell';
+import { loginHref, takeAfterSignup } from '@/lib/after-signup';
 
 /**
  * 메일 링크(/verify?token=...&purpose=signup|email)로 여는 화면. 로그인하지 않아도, 로그인한 채로도 열린다.
@@ -25,6 +26,7 @@ function VerifyContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<VerifyResult | null>(null);
+  const [afterSignup, setAfterSignup] = useState<string | null>(null);
 
   const onVerify = async (e: FormEvent) => {
     e.preventDefault();
@@ -40,6 +42,7 @@ function VerifyContent() {
         token,
         isEmailChange ? { session } : { password }
       );
+      if (verified.purpose === 'SIGNUP') setAfterSignup(takeAfterSignup());
       setResult(verified);
       // 설정 화면에 인증된 이메일이 바로 보이도록 내 정보 캐시를 버린다
       if (verified.purpose === 'EMAIL') await queryClient.invalidateQueries();
@@ -65,7 +68,8 @@ function VerifyContent() {
       <AccountShell title="가입을 마쳤어요">
         <p className="text-sm leading-relaxed text-ink-2">이제 이 이메일과 비밀번호로 로그인할 수 있어요.</p>
         <p className="mt-2 break-all text-sm font-medium text-ink">{result.email}</p>
-        <Link href="/" className="btn-primary mt-6">
+        {/* 가입 화면에서 기억해 둔 곳(예: 친구 초대 링크)이 있으면 로그인 뒤 그리로 */}
+        <Link href={loginHref(afterSignup)} className="btn-primary mt-6">
           로그인하기
         </Link>
       </AccountShell>
