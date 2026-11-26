@@ -1,5 +1,5 @@
 import { MapPin, Plus, ChevronRight } from 'lucide-react';
-import { type ScheduleResponse } from '@/lib/schedule-api';
+import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { type GroupResponse } from '@/lib/group-api';
@@ -60,6 +60,7 @@ export default function AppointmentListModal({
           {sorted.map((apt) => {
             const group = apt.groupId ? groups.find((g) => g.id === apt.groupId) : undefined;
             const hex = apt.groupId ? getThemeColors(group?.colorTheme).hex : 'var(--ink-3)';
+            const alert = scheduleAlert(apt);
             return (
               <div
                 key={apt.id}
@@ -69,6 +70,8 @@ export default function AppointmentListModal({
                 <Ribbon color={hex} className="h-9" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-display text-base leading-6 text-ink truncate">{apt.title}</h3>
+                  {/* 달력에서 붉게 보인 까닭(모바일 월 칸에는 글자가 없어 여기서 알린다) */}
+                  {alert && <span className="mb-0.5 inline-flex rounded bg-negative-soft px-1.5 text-[11px] leading-[18px] text-negative">{alert}</span>}
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-ink-3 min-w-0">
                     <span className="tabular-nums">
                       {isMultiDaySchedule(apt) ? formatScheduleRange(apt, tf) : `${formatTimeOnDay(apt, day, tf)} – ${format(parseISO(apt.endTime), tf, { locale: ko })}`}
