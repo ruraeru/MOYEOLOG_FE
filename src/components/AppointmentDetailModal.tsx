@@ -38,6 +38,9 @@ export default function AppointmentDetailModal({
     >
       {/* Modal(ui.tsx)과 같은 모양. 안에서 수정 창(fixed)이 열리므로 transform 애니메이션은 넣지 않는다 */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={schedule.title}
         className="w-full md:max-w-[720px] max-h-[92dvh] md:max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
