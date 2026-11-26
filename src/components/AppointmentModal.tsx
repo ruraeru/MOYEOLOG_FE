@@ -214,14 +214,20 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
       });
     } else if (isOpen) {
       const day = initialDate || format(new Date(), 'yyyy-MM-dd');
+      // 오늘이면 다음 정시부터 한 시간(23시 넘으면 23:00), 다른 날이면 12:00–13:00
+      const now = new Date();
+      const nextHour = Math.min(now.getHours() + 1, 23);
+      const start = day === format(now, 'yyyy-MM-dd') ? `${String(nextHour).padStart(2, '0')}:00` : '12:00';
+      const endAt = addHours(toDateTime(day, start), 1);
+      const eDay = format(endAt, 'yyyy-MM-dd'), eTime = format(endAt, 'HH:mm');
       setTitle(''); setMemo(''); setLocation(''); setCoords(null);
-      setDate(day); setTime('12:00');
-      setEndDate(day); setEndTime('13:00');
+      setDate(day); setTime(start);
+      setEndDate(eDay); setEndTime(eTime);
       setSelectedGroupId(defaultGroupId || '');
       setTaggedMemos([]);
       setParticipants(currentUserId ? [{ id: currentUserId, nickname: '나', profileImage: currentUserImage }] : []);
       initialKey.current = formKeyOf({
-        title: '', date: day, time: '12:00', endDate: day, endTime: '13:00', location: '', memo: '',
+        title: '', date: day, time: start, endDate: eDay, endTime: eTime, location: '', memo: '',
         groupId: defaultGroupId || '', participantIds: currentUserId ? [currentUserId] : [], memoIds: [],
       });
     }
@@ -464,6 +470,9 @@ export default function AppointmentModal({ isOpen, onClose, initialDate, onSucce
                 </div>
               ))}
               {errorOf('time')}
+              {!initialSchedule && date && date < format(new Date(), 'yyyy-MM-dd') && !fieldError && (
+                <p className="text-[13px] text-ink-3">지난 날짜예요. 이미 지난 일정으로 저장돼요.</p>
+              )}
             </div>
           </Row>
 
