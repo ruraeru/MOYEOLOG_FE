@@ -256,7 +256,7 @@ export const memoApi = {
     });
   },
 
-  /** 내가 즐겨찾기했고 지금 볼 수 있는 메모(내 메모·공유받은 메모. 모임 메모는 즐겨찾기 대상이 아니다) */
+  /** 내가 즐겨찾기했고 지금 볼 수 있는 모든 메모(내 메모·공유받은 메모·모임 메모) */
   async getFavorites(session: Session | null): Promise<MemoResponse[]> {
     const response = await axiosInstance.get<MemoResponse[]>('/api/memos/favorites', {
       headers: getAuthHeaders(session),

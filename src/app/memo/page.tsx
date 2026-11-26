@@ -34,10 +34,10 @@ import { useAlert } from '@/hooks/useAlert';
 
 type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
-/** 카드에 모임 띠 색(hex)과 작성자, 내가 공유했는지, 고정·즐겨찾기 가능 여부를 더한 것 */
+/** 카드에 모임 띠 색(hex)과 작성자, 내가 공유했는지, 고정 여부·고정 가능 여부를 더한 것 */
 type MemoCardItem = MemoCardView & {
   ribbon: string; author?: string; groupId?: string; group?: GroupResponse; sharedByMe?: boolean;
-  pinned: boolean; canPin: boolean; canFavorite: boolean;
+  pinned: boolean; canPin: boolean;
 };
 
 const TAG_PREVIEW_COUNT = 15;
@@ -194,8 +194,7 @@ function MemoContent() {
     let filtered: MemoResponse[] = [];
 
     if (filter.type === 'favorites') {
-      // 모임 메모는 즐겨찾기 대상이 아니다(서버도 빼서 주지만 예전 행이 섞여도 안 보이게)
-      filtered = (favoriteMemos ?? []).filter(m => m.isFavorite !== false && !m.groupId);
+      filtered = (favoriteMemos ?? []).filter(m => m.isFavorite !== false);
     } else if (filter.type === 'shared') {
       filtered = sharedMemos;
     } else if (filter.type === 'my') {
@@ -237,10 +236,9 @@ function MemoContent() {
         author: m.groupId || isShared ? m.authorNickname : undefined,
         date: format(new Date(m.createdAt), 'M.d', { locale: ko }),
         locked: false,
-        isFavorite: !m.groupId && m.isFavorite,
+        isFavorite: m.isFavorite,
         pinned: !!m.pinnedAt,
         canPin: getMemoPermissions(m, userId).pin,
-        canFavorite: !m.groupId,
         groupId: m.groupId,
         group,
         sharedByMe: isSharedByMe(m, userId)
@@ -320,7 +318,7 @@ function MemoContent() {
         all: combinedUniqueMemos.length,
         my: myMemos.filter(m => !m.groupId).length,
         shared: sharedMemos.length,
-        favorites: combinedUniqueMemos.filter(m => m.isFavorite && !m.groupId).length,
+        favorites: combinedUniqueMemos.filter(m => m.isFavorite).length,
       }
     : null;
 
@@ -588,7 +586,7 @@ interface MemoCardProps extends MemoCardItem {
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, canFavorite, viewMode, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, viewMode, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
     <div
@@ -619,17 +617,15 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
                 <Pin size={16} strokeWidth={1.5} className="fill-current" aria-label="고정됨" />
               </span>
             )}
-            {/* 모임 메모는 즐겨찾기 대상이 아니다 */}
-            {canFavorite && (
-              <button
-                type="button"
-                onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
-                aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
-                className={`btn-icon ${isFavorite ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
-              >
-                <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
-              </button>
-            )}
+            {/* 즐겨찾기는 모임 메모도 된다(모임 화면에서는 별을 보이지 않는다) */}
+            <button
+              type="button"
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); onToggleFavorite(e); }}
+              aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
+              className={`btn-icon ${isFavorite ? 'text-accent hover:text-accent' : 'text-ink-3'}`}
+            >
+              <Star size={16} strokeWidth={1.5} className={isFavorite ? 'fill-current' : ''} />
+            </button>
           </div>
         </div>
         {description && (

@@ -590,18 +590,15 @@ export default function MemoDetailView({
                     <Pin size={18} strokeWidth={1.5} className="fill-current" aria-label="고정됨" />
                   </span>
                 )}
-                {/* 모임 메모는 즐겨찾기 대상이 아니다 */}
-                {!memo.groupId && (
-                  <button
-                    type="button"
-                    onClick={handleToggleFavorite}
-                    className={`btn-icon ${memo.isFavorite ? 'text-accent hover:text-accent' : ''}`}
-                    title="즐겨찾기"
-                    aria-label="즐겨찾기"
-                  >
-                    <Star size={18} strokeWidth={1.5} className={memo.isFavorite ? 'fill-current' : ''} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleToggleFavorite}
+                  className={`btn-icon ${memo.isFavorite ? 'text-accent hover:text-accent' : ''}`}
+                  title="즐겨찾기"
+                  aria-label="즐겨찾기"
+                >
+                  <Star size={18} strokeWidth={1.5} className={memo.isFavorite ? 'fill-current' : ''} />
+                </button>
                 {permissions.edit && (
                   <button
                     type="button"
