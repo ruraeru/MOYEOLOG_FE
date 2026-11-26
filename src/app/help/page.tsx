@@ -1,16 +1,15 @@
-import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { PageHeader } from '@/components/ui';
+import HelpFaq, { AuthOnly, type HelpSection } from '@/components/HelpFaq';
 
 export const metadata: Metadata = {
   title: '도움말 | 모여로그',
   description: '모여로그를 쓰면서 자주 묻는 질문',
 };
 
-const SECTIONS: { title: string; items: { q: string; a: ReactNode }[] }[] = [
+const SECTIONS: HelpSection[] = [
   {
     title: '시작하기',
     items: [
@@ -131,29 +130,10 @@ export default function HelpPage() {
           <PageHeader
             title="도움말"
             description="모여로그를 쓰면서 자주 묻는 질문을 모았어요"
-            actions={<Link href="/settings" className="btn-secondary">설정 열기</Link>}
+            actions={<AuthOnly><Link href="/settings" className="btn-secondary">설정 열기</Link></AuthOnly>}
           />
 
-          {SECTIONS.map((section) => (
-            <section key={section.title} className="space-y-2">
-              <h2 className="px-1 text-[13px] font-medium text-ink-3">{section.title}</h2>
-              <div className="card divide-y divide-line overflow-hidden">
-                {section.items.map((item) => (
-                  <details key={item.q} className="group">
-                    <summary className="flex min-h-14 items-center justify-between gap-3 px-5 py-3 cursor-pointer list-none text-[15px] font-medium text-ink hover:bg-raised transition-colors [&::-webkit-details-marker]:hidden">
-                      <span>{item.q}</span>
-                      <ChevronDown
-                        size={16}
-                        strokeWidth={1.5}
-                        className="text-ink-3 shrink-0 transition-transform group-open:rotate-180"
-                      />
-                    </summary>
-                    <div className="px-5 pb-5 text-sm text-ink-2 leading-relaxed">{item.a}</div>
-                  </details>
-                ))}
-              </div>
-            </section>
-          ))}
+          <HelpFaq sections={SECTIONS} />
 
         </div>
       </main>
