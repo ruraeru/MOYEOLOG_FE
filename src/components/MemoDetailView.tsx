@@ -677,25 +677,27 @@ export default function MemoDetailView({
     <div className={`flex flex-col lg:flex-row bg-surface overflow-y-auto lg:overflow-hidden no-scrollbar ${heightClass}`}>
       {/* 본문 — 모바일에서는 화면 전체가 한 번에 스크롤되도록 안쪽 스크롤을 lg 이상에서만 쓴다 */}
       <div className="lg:flex-1 flex flex-col px-5 py-4 lg:px-8 lg:py-6 lg:overflow-y-auto no-scrollbar lg:border-r border-line lg:pb-24 shrink-0 lg:shrink min-w-0">
-        <div className="mb-3 flex items-center gap-1">
+        <div className={`mb-3 flex items-center gap-2 lg:gap-1 ${isEditing ? 'sticky top-0 z-20 -mx-5 bg-surface px-5 py-2 lg:static lg:mx-0 lg:p-0' : ''}`}>
           {isPage && !isEditing && (
             <button
-              onClick={() => router.back()}
-              className="btn-icon -ml-2"
+              type="button"
+              onClick={handleBack}
+              className="btn-icon -ml-2 max-lg:size-11"
               title="뒤로가기"
+              aria-label="뒤로가기"
             >
               <ChevronLeft size={18} strokeWidth={1.5} />
             </button>
           )}
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2 lg:gap-1">
             {isEditing ? (
               <>
                 <button
                   type="button"
                   onClick={handleCancelEdit}
                   disabled={isSaving}
-                  className="btn-secondary"
+                  className="btn-secondary max-lg:h-11"
                 >
                   취소
                 </button>
@@ -703,7 +705,7 @@ export default function MemoDetailView({
                   type="button"
                   onClick={handleSaveEdit}
                   disabled={isSaving}
-                  className="btn-primary"
+                  className="btn-primary max-lg:h-11"
                 >
                   {isSaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Check size={16} strokeWidth={1.5} />}
                   저장
@@ -715,7 +717,7 @@ export default function MemoDetailView({
                   <button
                     type="button"
                     onClick={handleTogglePin}
-                    className={`btn-icon ${pinned ? 'text-accent hover:text-accent' : ''}`}
+                    className={`btn-icon max-lg:size-11 ${pinned ? 'text-accent hover:text-accent' : ''}`}
                     title={pinLabel}
                     aria-label={pinLabel}
                     aria-pressed={pinned}
@@ -723,7 +725,7 @@ export default function MemoDetailView({
                     <Pin size={18} strokeWidth={1.5} className={pinned ? 'fill-current' : ''} />
                   </button>
                 ) : pinned && (
-                  <span className="inline-flex size-8 items-center justify-center text-ink-2" title={memo.groupId ? '모임 고정됨' : '고정됨'}>
+                  <span className="inline-flex size-8 items-center justify-center text-ink-2 max-lg:size-11" title={memo.groupId ? '모임 고정됨' : '고정됨'}>
                     <Pin size={18} strokeWidth={1.5} className="fill-current" aria-label={memo.groupId ? '모임 고정됨' : '고정됨'} />
                   </span>
                 )}
@@ -732,7 +734,7 @@ export default function MemoDetailView({
                   <button
                     type="button"
                     onClick={handleToggleFavorite}
-                    className={`btn-icon ${memo.isFavorite ? 'text-accent hover:text-accent' : ''}`}
+                    className={`btn-icon max-lg:size-11 ${memo.isFavorite ? 'text-accent hover:text-accent' : ''}`}
                     title="즐겨찾기"
                     aria-label="즐겨찾기"
                   >
@@ -743,8 +745,9 @@ export default function MemoDetailView({
                   <button
                     type="button"
                     onClick={handleStartEdit}
-                    className="btn-icon"
-                    title="메모 수정"
+                    disabled={loadingInsight}
+                    className="btn-icon max-lg:size-11"
+                    title={loadingInsight ? '분석이 끝나면 고칠 수 있어요' : '메모 수정'}
                     aria-label="메모 수정"
                   >
                     <Pencil size={18} strokeWidth={1.5} />
@@ -754,7 +757,7 @@ export default function MemoDetailView({
                   <button
                     type="button"
                     onClick={() => setIsShareModalOpen(true)}
-                    className="btn-icon"
+                    className="btn-icon max-lg:size-11"
                     title="공유하기"
                     aria-label="공유하기"
                   >
@@ -765,9 +768,9 @@ export default function MemoDetailView({
                   <button
                     type="button"
                     onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="btn-icon hover:bg-negative-soft hover:text-negative"
-                    title="삭제하기"
+                    disabled={isDeleting || loadingInsight}
+                    className="btn-icon hover:bg-negative-soft hover:text-negative max-lg:size-11"
+                    title={loadingInsight ? '분석이 끝나면 삭제할 수 있어요' : '삭제하기'}
                     aria-label="삭제하기"
                   >
                     {isDeleting ? <Loader2 size={18} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={18} strokeWidth={1.5} />}
@@ -779,7 +782,7 @@ export default function MemoDetailView({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="btn-icon"
+                      className="btn-icon max-lg:size-11"
                       aria-label="닫기"
                     >
                       <X size={18} strokeWidth={1.5} />
@@ -792,14 +795,26 @@ export default function MemoDetailView({
         </div>
 
         {isEditing ? (
-          <input
-            type="text"
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            placeholder="제목"
-            aria-label="제목"
-            className="form-input mb-5 h-12 font-display text-2xl"
-          />
+          <>
+            {remoteChanged && (
+              <div role="status" className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-raised px-4 py-2.5 text-[13px] text-ink-2">
+                <span>고치는 동안 다른 곳에서 이 메모가 바뀌었어요. 저장하면 어떻게 할지 물어봐요.</span>
+              </div>
+            )}
+            <input
+              ref={titleRef}
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              maxLength={255}
+              placeholder="제목"
+              aria-label="제목"
+              className="form-input h-12 font-display text-2xl"
+            />
+            <p className={`mb-5 mt-1 text-right text-xs ${editTitle.length >= 255 ? 'text-negative' : 'text-ink-3'}`}>
+              <span className="stamp">{editTitle.length}/255</span>
+            </p>
+          </>
         ) : (
           <>
             <h2 className="font-display text-2xl leading-8 text-ink break-words lg:text-[28px] lg:leading-9">{memo.title}</h2>
@@ -818,6 +833,24 @@ export default function MemoDetailView({
                 </>
               )}
             </div>
+            {memo.groupId && group && (
+              <Link
+                href={`/groups/${group.id}`}
+                className="mt-2 inline-flex max-w-full items-center gap-1.5 self-start text-[13px] text-ink-2 hover:text-ink"
+              >
+                <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />
+                <span className="truncate">{group.name}</span>
+                <span className="shrink-0 text-ink-3">모임 메모</span>
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => asideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="btn-ghost btn-sm -ml-2 mt-1 self-start lg:hidden"
+            >
+              분석·태그 보기
+              <ChevronRight size={16} strokeWidth={1.5} className="rotate-90" />
+            </button>
             {readOnly && (
               <p className="mt-2 text-[13px] text-ink-3">공유받은 메모라 읽기만 할 수 있어요</p>
             )}
@@ -847,13 +880,13 @@ export default function MemoDetailView({
           />
         )}
 
-        <div className="text-ink min-h-50 lg:min-h-100 relative" data-color-mode="light">
+        <div className="text-ink lg:min-h-100 relative" data-color-mode="light">
           {isEditing ? (
             <RichEditor
               value={editContent}
               onChange={setEditContent}
               mentions={{ memos: allMemos.filter((m) => m.id !== memo.id), schedules }}
-              className="h-[60vh] min-h-[300px]"
+              className="min-h-[300px] lg:h-[60vh]"
             />
           ) : (
             <EdMarkdown
@@ -873,7 +906,7 @@ export default function MemoDetailView({
       </div>
 
       {/* 오른쪽: 분석·태그·공유·연결 */}
-      <aside className="w-full lg:w-[340px] bg-canvas px-5 pt-5 pb-24 lg:p-6 lg:overflow-y-auto no-scrollbar flex flex-col gap-6 shrink-0 border-t lg:border-t-0 border-line">
+      <aside ref={asideRef} className="scroll-mt-4 w-full lg:w-[340px] bg-canvas px-5 pt-5 pb-24 lg:p-6 lg:overflow-y-auto no-scrollbar flex flex-col gap-6 shrink-0 border-t lg:border-t-0 border-line">
         <section className="rounded-xl bg-raised p-4">
           <div className="flex h-8 items-center gap-2">
             <h3 className="text-[13px] font-medium text-ink-2">분석</h3>
@@ -884,7 +917,7 @@ export default function MemoDetailView({
               {insight && !loadingInsight && !isEditing && permissions.analyze && (
                 <button
                   onClick={handleAnalyze}
-                  className="btn-icon -mr-2 hover:bg-surface"
+                  className="btn-icon -mr-2 hover:bg-surface max-lg:size-11"
                   title="다시 분석"
                   aria-label="다시 분석"
                 >
@@ -906,7 +939,7 @@ export default function MemoDetailView({
                   분석한 뒤 메모가 바뀌었어요.{permissions.analyze ? ' 다시 분석하면 지금 내용으로 정리해요.' : ''}
                 </p>
               )}
-              <p className="text-sm leading-relaxed text-ink">{insight.summary || '—'}</p>
+              <p className="text-sm leading-relaxed text-ink">{insight.summary ? tidySummary(insight.summary) : '—'}</p>
 
               {(insight.keywords ?? []).length > 0 && (
                 <div className="space-y-2">
@@ -927,7 +960,7 @@ export default function MemoDetailView({
                           key={kw}
                           onClick={() => !isAdded && addTag(kw)}
                           disabled={isAdded}
-                          className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs transition-colors duration-150 ease-out ${isAdded
+                          className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-xs transition-colors max-lg:h-11 max-lg:px-3 duration-150 ease-out ${isAdded
                             ? 'text-ink-3 cursor-default'
                             : 'border border-line-strong bg-surface text-ink-2 hover:text-ink'
                             }`}
@@ -943,10 +976,14 @@ export default function MemoDetailView({
             </div>
           ) : (
             <div className="mt-1 space-y-3">
-              <p className="text-[13px] text-ink-3">아직 분석 결과가 없어요</p>
+              {analyzeError ? (
+                <p role="alert" className="text-[13px] text-negative">분석하지 못했어요. {analyzeError}</p>
+              ) : (
+                <p className="text-[13px] text-ink-3">아직 분석 결과가 없어요</p>
+              )}
               {!isEditing && permissions.analyze && (
                 <button onClick={handleAnalyze} className="btn-secondary btn-sm">
-                  분석 시작
+                  {analyzeError ? '다시 분석' : '분석 시작'}
                 </button>
               )}
               {!permissions.analyze && (
@@ -958,6 +995,9 @@ export default function MemoDetailView({
 
         <section className="space-y-2.5">
           <h3 className="text-[13px] font-medium text-ink-3">태그</h3>
+          {isEditing && permissions.tag && (
+            <p className="text-xs text-ink-3">태그는 바꾸는 즉시 저장돼요. 수정을 취소해도 그대로예요.</p>
+          )}
           <div className="flex flex-wrap items-center gap-1.5">
             {currentTags.map((tag) => (
               <span key={tag} className="chip gap-1">
@@ -965,7 +1005,8 @@ export default function MemoDetailView({
                 {permissions.tag && (
                   <button
                     onClick={() => removeTag(tag)}
-                    className="-mr-0.5 text-ink-3 transition-colors duration-150 ease-out hover:text-negative"
+                    type="button"
+                    className="relative -mr-0.5 text-ink-3 transition-colors duration-150 ease-out after:absolute after:-inset-4 after:content-[''] hover:text-negative lg:after:-inset-1.5"
                     aria-label={`${tag} 태그 빼기`}
                   >
                     <X size={12} strokeWidth={1.5} />
@@ -992,7 +1033,7 @@ export default function MemoDetailView({
           </div>
         </section>
 
-        {!isEditing && (loadingInsight || insight?.ocrText) && (
+        {!isEditing && ((loadingInsight && memo.imageUrl) || insight?.ocrText) && (
           <section className="space-y-2.5">
             <h3 className="text-[13px] font-medium text-ink-3">이미지에서 읽은 글자</h3>
             <p className="card p-4 text-[13px] leading-relaxed text-ink-2 whitespace-pre-wrap">
@@ -1039,6 +1080,7 @@ export default function MemoDetailView({
                 >
                   <LucideCalendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
                   <h4 className="flex-1 truncate text-sm text-ink">{sch.title}</h4>
+                  {sch.startTime && <span className="stamp shrink-0">{formatDateTime(sch.startTime, tf)}</span>}
                   <ChevronRight size={16} strokeWidth={1.5} className="text-ink-3" />
                 </button>
               ))}
