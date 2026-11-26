@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import axios from 'axios';
-import { Loader2, AlertCircle, RotateCw, UserX } from 'lucide-react';
+import { Loader2, AlertCircle, RotateCw, UserX, ChevronLeft } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import { friendApi, type UserProfileResponse } from '@/lib/friend-api';
 import { getApiErrorMessage } from '@/lib/axios';
@@ -78,6 +78,15 @@ export default function ProfileIdPage() {
       <Navbar />
       <main className="flex-1 overflow-y-auto no-scrollbar px-4 pt-6 pb-24 lg:px-8 lg:pt-10 lg:pb-12">
         <div className="max-w-lg mx-auto">
+          {/* 홈 화면 웹앱(standalone)에는 브라우저 뒤로 버튼이 없어요. 이전 화면이 없으면 친구 목록으로 */}
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? router.back() : router.push('/friends'))}
+            className="btn-ghost btn-sm -ml-3 mb-3"
+          >
+            <ChevronLeft size={16} strokeWidth={1.5} />
+            뒤로
+          </button>
           {loading || status !== 'authenticated' ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-ink-3" />

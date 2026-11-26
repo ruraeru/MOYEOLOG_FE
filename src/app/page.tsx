@@ -6,6 +6,7 @@ import { useSession, signIn } from 'next-auth/react';
 import { Eye, EyeOff, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { safeCallbackPath } from '@/lib/url-safety';
+import { callbackFromLocation } from '@/lib/after-signup';
 import { normalizeEmail } from '@/lib/account-api';
 import { Ribbon } from '@/components/ui';
 import { Logo } from '@/components/Logo';
@@ -66,6 +67,7 @@ export default function LoginPage() {
   );
 
   const sessionError = session?.user?.error;
+  const callbackHref = isMounted ? callbackFromLocation() : null;
 
   useEffect(() => {
     // 오류 상태의 세션은 SessionGuard가 로그아웃시키므로 이동하지 않습니다.
@@ -293,7 +295,11 @@ export default function LoginPage() {
           </form>
           {/* 링크는 터치 높이 44px(h-11). 글자 위치는 전처럼 제출 버튼 아래 16px 쯤 */}
           <div className="mt-1 flex w-full max-w-[400px] items-center justify-between text-[13px]">
-            <Link href="/signup" className="inline-flex h-11 items-center pr-3 text-accent underline-offset-2 hover:underline">
+            {/* 돌아갈 곳(초대 링크 등)을 가입 화면에도 넘겨요 */}
+            <Link
+              href={callbackHref ? `/signup?callbackUrl=${encodeURIComponent(callbackHref)}` : '/signup'}
+              className="inline-flex h-11 items-center pr-3 text-accent underline-offset-2 hover:underline"
+            >
               이메일로 가입
             </Link>
             <button

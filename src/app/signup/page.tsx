@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { signOut, useSession } from 'next-auth/react';
 import { accountApi, isEmailLike, nicknameProblem, normalizeEmail, passwordProblem, PASSWORD_MIN } from '@/lib/account-api';
 import { getApiErrorMessage } from '@/lib/axios';
+import { callbackFromLocation, loginHref, rememberAfterSignup } from '@/lib/after-signup';
 import { AccountShell, Field, FormError, PasswordInput } from './AccountShell';
 
 type FieldName = 'email' | 'nickname' | 'password' | 'confirm';
@@ -48,6 +49,11 @@ export default function SignupPage() {
     set(value);
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
   };
+  // 초대 링크 등에서 왔으면 가입·인증 뒤 로그인할 때 그 화면으로 돌아가게 기억해 둬요.
+  const [callback, setCallback] = useState<string | null>(null);
+  useEffect(() => {
+    setCallback(callbackFromLocation());
+  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -69,6 +75,7 @@ export default function SignupPage() {
     setSubmitting(true);
     try {
       await accountApi.signup({ email, password, nickname });
+      rememberAfterSignup(callback);
       const at = Date.now();
       setSentTo(normalizeEmail(email));
       setSentAt(at);
@@ -116,7 +123,7 @@ export default function SignupPage() {
             번까지 메일을 보내요. 다시 신청했다면 마지막에 받은 메일의 링크를 그때 정한 비밀번호로 열어 주세요.
           </p>
           <div className="flex flex-wrap gap-2 pt-2">
-            <Link href="/" className="btn-primary h-11">
+            <Link href={loginHref(callback)} className="btn-primary h-11">
               로그인 화면으로
             </Link>
             <button type="button" className="btn-secondary h-11" disabled={waitLeft > 0} onClick={() => setSentTo(null)}>
@@ -134,7 +141,7 @@ export default function SignupPage() {
       description={
         <>
           이미 계정이 있나요?{' '}
-          <Link href="/" className={linkHit}>
+          <Link href={loginHref(callback)} className={linkHit}>
             로그인
           </Link>
         </>

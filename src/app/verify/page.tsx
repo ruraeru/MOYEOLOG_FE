@@ -8,6 +8,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { accountApi, type VerifyResult } from '@/lib/account-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { AccountShell, Field, FormError, PasswordInput } from '../signup/AccountShell';
+import { loginHref, takeAfterSignup } from '@/lib/after-signup';
 
 /** 링크 상태: 열자마자 미리 본다(토큰을 쓰지 않는다). 쓸 수 없으면 비밀번호를 묻지 않고 까닭부터 보여 준다 */
 type Preview = { state: 'loading' } | { state: 'ok'; email: string | null } | { state: 'unusable'; message: string };
@@ -57,6 +58,7 @@ function VerifyContent() {
       alive = false;
     };
   }, [token]);
+  const [afterSignup, setAfterSignup] = useState<string | null>(null);
 
   const onVerify = async (e: FormEvent) => {
     e.preventDefault();
@@ -71,6 +73,7 @@ function VerifyContent() {
     try {
       const verified = await accountApi.verify(token, isEmailChange ? { session } : { password });
       if (verified.purpose === 'SIGNUP' && loggedIn) setOtherAccount(session?.user?.name || '다른');
+      if (verified.purpose === 'SIGNUP') setAfterSignup(takeAfterSignup());
       setResult(verified);
       // 설정 화면에 인증된 이메일이 바로 보이도록 내 정보 캐시를 버린다
       if (verified.purpose === 'EMAIL') await queryClient.invalidateQueries();
@@ -93,7 +96,7 @@ function VerifyContent() {
       if (loggedIn) await signOut({ redirect: false });
       const r = await signIn('credentials', { redirect: false, email: result.email, password });
       if (r?.ok && !r.error) {
-        window.location.assign('/home');
+        window.location.assign(afterSignup || '/home');
         return;
       }
     } catch {
@@ -122,12 +125,13 @@ function VerifyContent() {
             : '이제 이 이메일과 비밀번호로 로그인할 수 있어요.'}
         </p>
         <p className="mt-2 break-all text-sm font-medium text-ink">{result.email}</p>
+        {/* 가입 화면에서 기억해 둔 곳(예: 친구 초대 링크)이 있으면 로그인 뒤 그리로 */}
         <div className="mt-6 space-y-2">
           <FormError message={startError} />
           <button type="button" onClick={startNow} disabled={starting} className="btn-primary h-11 w-full">
             {starting ? '로그인하는 중...' : otherAccount ? '새 계정으로 시작하기' : '바로 시작하기'}
           </button>
-          <Link href={otherAccount ? '/home' : '/'} className="btn-ghost h-11 w-full">
+          <Link href={otherAccount ? '/home' : loginHref(afterSignup)} className="btn-ghost h-11 w-full">
             {otherAccount ? '지금 계정으로 계속' : '로그인 화면으로'}
           </Link>
         </div>
