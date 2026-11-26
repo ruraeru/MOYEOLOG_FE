@@ -128,6 +128,16 @@ export default function GroupTopicDetailModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const scrollToEndRef = useRef(false);
+  // 터치 기기는 Enter 가 줄바꿈이고 보내기 버튼으로 보낸다. 데스크톱은 Enter 보내기, Shift+Enter 줄바꿈
+  // (힌트는 댓글을 고칠 때만 보여서 서버 렌더와 어긋나지 않는다)
+  const [enterSends] = useState(
+    () => typeof window === 'undefined' || !window.matchMedia('(pointer: coarse)').matches,
+  );
 
   // Mention states
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -195,6 +205,8 @@ export default function GroupTopicDetailModal({
     onSuccess: () => {
       setCommentInput('');
       setCommentMentions({});
+      // 새 댓글은 목록 맨 아래에 붙는다. 다시 받은 뒤 그리로 내려 보여 준다
+      scrollToEndRef.current = true;
       queryClient.invalidateQueries({ queryKey: ['topic', topicId] });
       onDelete?.(); // 댓글 수 갱신
     },
@@ -247,6 +259,7 @@ export default function GroupTopicDetailModal({
   const deleteTopicMutation = useMutation({
     mutationFn: () => groupTopicApi.delete(topicId!, session),
     onSuccess: () => {
+      toast.success('토픽을 삭제했어요');
       goneHandledRef.current = topicId;
       queryClient.removeQueries({ queryKey: ['topic', topicId] });
       onDelete?.();
@@ -312,15 +325,88 @@ export default function GroupTopicDetailModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose, showParticipantMentions, setShowParticipantMentions, editingCommentId]);
 
+  // 내가 쓴 댓글을 받아 오면 맨 아래로 내린다
+  useEffect(() => {
+    if (!scrollToEndRef.current || !topicDetail) return;
+    scrollToEndRef.current = false;
+    requestAnimationFrame(() => {
+      const body = bodyRef.current;
+      if (body) body.scrollTo({ top: body.scrollHeight, behavior: 'smooth' });
+    });
+  }, [topicDetail]);
+
+  // 열리면 포커스를 창 안으로 옮긴다(Tab 이 뒤 화면으로 새지 않게)
+  const hasDetail = !!topicDetail;
+  useEffect(() => {
+    if (isOpen && hasDetail) dialogRef.current?.focus({ preventScroll: true });
+  }, [isOpen, hasDetail, topicId]);
+
+  const selectMention = (m: MentionItem) => {
+    const parts = commentInput.split('@');
+    parts.pop();
+    // 입력칸에는 '@이름' 만 보이고, 보낼 때 링크 형식으로 바꿔요.
+    const name = m.nickname ?? '';
+    const newVal = parts.join('@') + `@${name} `;
+    setCommentInput(newVal);
+    if (name) setCommentMentions((prev) => ({ ...prev, [name]: m.id }));
+    setShowParticipantMentions(false);
+    setMentionIndex(0);
+    // 고른 뒤 바로 이어 쓰게 포커스와 커서를 끝으로
+    requestAnimationFrame(() => {
+      const el = commentInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(newVal.length, newVal.length);
+    });
+  };
+
+  // 댓글 칸 높이를 내용에 맞춘다(field-sizing 을 모르는 브라우저용)
+  useEffect(() => {
+    const el = commentInputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight + el.offsetHeight - el.clientHeight, 128)}px`;
+  }, [commentInput]);
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    const items = filteredParticipants as MentionItem[];
+    if (showParticipantMentions && items.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setMentionIndex((i) => (i + step + items.length) % items.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        // 목록이 열려 있으면 Enter 는 보내기가 아니라 고르기
+        e.preventDefault();
+        selectMention(items[Math.min(mentionIndex, items.length - 1)]);
+        return;
+      }
+    }
+    if (e.key === 'Enter' && !e.shiftKey && enterSends) {
+      e.preventDefault();
+      e.currentTarget.form?.requestSubmit();
+    }
+  };
+
   const handleAnalyze = () => analyzeMutation.mutate();
 
   const handleTopicDelete = async () => {
-    if (!(await confirm('이 토픽을 삭제할까요?'))) return;
+    const count = topicDetail?.comments.length ?? 0;
+    const message = count > 0
+      ? `이 토픽을 삭제할까요? 댓글 ${count}개도 함께 지워지고 되돌릴 수 없어요.`
+      : '이 토픽을 삭제할까요? 되돌릴 수 없어요.';
+    if (!(await confirm(message, undefined, '삭제', '취소'))) return;
     deleteTopicMutation.mutate();
   };
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (createCommentMutation.isPending) return;
+    // 빈 칸에서 Enter 는 조용히 무시(버튼도 비활성)
+    if (!hasVisibleText(commentInput)) return;
     const content = displayToMentions(commentInput.trim(), commentMentions);
     const problem = validateComment(content);
     if (problem) {
@@ -336,6 +422,12 @@ export default function GroupTopicDetailModal({
     setEditingCommentId(comment.id);
     setEditingContent(text);
     setEditingMentions(mentions);
+    // 아래쪽 댓글이면 수정 칸·버튼이 아래 입력줄 뒤로 숨지 않게 가운데로
+    requestAnimationFrame(() => {
+      bodyRef.current
+        ?.querySelector(`[data-comment-id="${CSS.escape(comment.id)}"]`)
+        ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
   };
 
   const submitEditComment = (comment: TopicCommentView) => {
@@ -353,7 +445,7 @@ export default function GroupTopicDetailModal({
   };
 
   const handleCommentDelete = async (commentId: string) => {
-    if (!(await confirm('이 댓글을 삭제할까요?'))) return;
+    if (!(await confirm('이 댓글을 삭제할까요?', undefined, '삭제', '취소'))) return;
     deleteCommentMutation.mutate(commentId);
   };
 
@@ -441,10 +533,12 @@ export default function GroupTopicDetailModal({
       onClick={handleClose}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={topic.title}
-        className={`flex w-full flex-col overflow-hidden bg-surface ${
+        className={`flex w-full flex-col overflow-hidden bg-surface outline-none ${
           isFullscreen
             ? 'h-[100dvh] lg:fixed lg:inset-0 lg:h-screen lg:rounded-none'
             : 'max-h-[92dvh] rounded-t-2xl animate-slide-up md:max-h-[88vh] md:max-w-[720px] md:rounded-2xl md:animate-scale-in'
@@ -452,8 +546,8 @@ export default function GroupTopicDetailModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* 머리: 모임 얼굴 + '모임 · 토픽', 제목, 작성자·시각 */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4 md:px-6">
-          <div className="min-w-0">
+        <div className="shrink-0 border-b border-line px-5 py-4 md:px-6">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2 text-xs text-ink-3">
               {group && <GroupAvatar name={group.name} src={group.profileImage} theme={group.colorTheme} size="xs" />}
               <span className="truncate">{group ? `${group.name} · 토픽` : '토픽'}</span>
@@ -464,78 +558,79 @@ export default function GroupTopicDetailModal({
                 </span>
               )}
             </div>
-            <h2 className="mt-1 break-words font-display text-xl leading-7 text-ink md:text-2xl md:leading-8">
-              {topic.title}
-            </h2>
-            <div className="mt-2 flex min-w-0 items-center gap-2">
-              <Avatar
-                src={topic.authorProfileImage ? resolveImage(topic.authorProfileImage) : undefined}
-                name={topic.authorNickname}
-                className="size-6 text-[11px]"
-              />
-              <span className="min-w-0 truncate text-[13px] text-ink-2">
-                {topic.authorNickname}
-                {topic.authorCustomId && <span className="ml-1 text-ink-3">@{topic.authorCustomId}</span>}
-              </span>
-              <span className="stamp shrink-0">{formatDateTime(topic.createdAt, tf)}</span>
+            <div className="-my-1.5 flex shrink-0 items-center gap-1 max-md:gap-2">
+              {canPin && (
+                <button
+                  onClick={() => pinMutation.mutate(!isPinned)}
+                  disabled={pinMutation.isPending}
+                  className={`btn-icon max-md:size-11 ${isPinned ? 'text-group-ink' : ''}`}
+                  title={isPinned ? '고정 해제' : '고정하기'}
+                  aria-label={isPinned ? '고정 해제' : '고정하기'}
+                  aria-pressed={isPinned}
+                >
+                  {pinMutation.isPending ? (
+                    <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
+                  ) : isPinned ? (
+                    <PinOff size={16} strokeWidth={1.5} />
+                  ) : (
+                    <Pin size={16} strokeWidth={1.5} />
+                  )}
+                </button>
+              )}
+              {isAuthor && (
+                <button
+                  onClick={() => onEdit?.(topic)}
+                  className="btn-icon max-md:size-11"
+                  title="토픽 수정"
+                  aria-label="토픽 수정"
+                >
+                  <Pencil size={16} strokeWidth={1.5} />
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  onClick={handleTopicDelete}
+                  disabled={isDeleting}
+                  className="btn-icon max-md:size-11 hover:!bg-negative-soft hover:!text-negative"
+                  title="토픽 삭제"
+                  aria-label="토픽 삭제"
+                >
+                  {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
+                </button>
+              )}
+              <button
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="btn-icon hidden lg:inline-flex"
+                title={isFullscreen ? '축소하기' : '전체화면'}
+                aria-label={isFullscreen ? '축소하기' : '전체화면'}
+              >
+                {isFullscreen ? <Minimize2 size={16} strokeWidth={1.5} /> : <Maximize2 size={16} strokeWidth={1.5} />}
+              </button>
+              <button onClick={handleClose} className="btn-icon max-md:size-11" title="닫기" aria-label="닫기">
+                <X size={18} strokeWidth={1.5} />
+              </button>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {canPin && (
-              <button
-                onClick={() => pinMutation.mutate(!isPinned)}
-                disabled={pinMutation.isPending}
-                className={`btn-icon ${isPinned ? 'text-group-ink' : ''}`}
-                title={isPinned ? '고정 해제' : '고정하기'}
-                aria-label={isPinned ? '고정 해제' : '고정하기'}
-                aria-pressed={isPinned}
-              >
-                {pinMutation.isPending ? (
-                  <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
-                ) : isPinned ? (
-                  <PinOff size={16} strokeWidth={1.5} />
-                ) : (
-                  <Pin size={16} strokeWidth={1.5} />
-                )}
-              </button>
+          <h2 className="mt-1 break-words font-display text-xl leading-7 text-ink md:text-2xl md:leading-8">
+            {topic.title}
+          </h2>
+          <div className="mt-2 flex min-w-0 items-center gap-2">
+            <Avatar
+              src={topic.authorProfileImage ? resolveImage(topic.authorProfileImage) : undefined}
+              name={topic.authorNickname}
+              className="size-6 text-[11px]"
+            />
+            {/* 닉네임은 남기고 @아이디만 줄인다 */}
+            <span className="max-w-[60%] shrink-0 truncate text-[13px] text-ink-2">{topic.authorNickname}</span>
+            {topic.authorCustomId && (
+              <span className="min-w-0 truncate text-[13px] text-ink-3">@{topic.authorCustomId}</span>
             )}
-            {isAuthor && (
-              <button
-                onClick={() => onEdit?.(topic)}
-                className="btn-icon"
-                title="토픽 수정"
-                aria-label="토픽 수정"
-              >
-                <Pencil size={16} strokeWidth={1.5} />
-              </button>
-            )}
-            {canDelete && (
-              <button
-                onClick={handleTopicDelete}
-                disabled={isDeleting}
-                className="btn-icon hover:!bg-negative-soft hover:!text-negative"
-                title="토픽 삭제"
-                aria-label="토픽 삭제"
-              >
-                {isDeleting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Trash2 size={16} strokeWidth={1.5} />}
-              </button>
-            )}
-            <button
-              onClick={() => setIsFullscreen(!isFullscreen)}
-              className="btn-icon hidden lg:inline-flex"
-              title={isFullscreen ? '축소하기' : '전체화면'}
-              aria-label={isFullscreen ? '축소하기' : '전체화면'}
-            >
-              {isFullscreen ? <Minimize2 size={16} strokeWidth={1.5} /> : <Maximize2 size={16} strokeWidth={1.5} />}
-            </button>
-            <button onClick={handleClose} className="btn-icon" title="닫기" aria-label="닫기">
-              <X size={18} strokeWidth={1.5} />
-            </button>
+            <span className="stamp shrink-0">{formatDateTime(topic.createdAt, tf)}</span>
           </div>
         </div>
 
         {/* 본문 → 이미지 → 댓글 요약 → 댓글 */}
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 md:px-6">
+        <div ref={bodyRef} className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 md:px-6">
           <div className={`break-words leading-relaxed text-ink ${markdownListClassName}`} data-color-mode="light">
             <EdMarkdown
               rehypePlugins={markdownRehypePlugins}
@@ -633,7 +728,7 @@ export default function GroupTopicDetailModal({
                   const isMine = session?.user?.id === comment.authorId;
                   const isEditing = editingCommentId === comment.id;
                   return (
-                    <li key={comment.id} className="flex gap-3">
+                    <li key={comment.id} data-comment-id={comment.id} className="flex scroll-my-24 gap-3">
                       <Avatar
                         src={comment.authorProfileImage ? resolveImage(comment.authorProfileImage) : undefined}
                         name={comment.authorNickname}
@@ -650,10 +745,10 @@ export default function GroupTopicDetailModal({
                           <span className="stamp whitespace-nowrap">{formatDateTime(comment.createdAt, tf)}</span>
                           {isEdited(comment) && <span className="text-xs text-ink-3">수정됨</span>}
                           {isMine && !isEditing && (
-                            <div className="ml-auto flex shrink-0 items-center">
+                            <div className="ml-auto flex shrink-0 items-center max-md:gap-2">
                               <button
                                 onClick={() => startEditComment(comment)}
-                                className="btn-icon size-7"
+                                className="btn-icon size-7 max-md:size-11"
                                 title="댓글 수정"
                                 aria-label="댓글 수정"
                               >
@@ -661,7 +756,7 @@ export default function GroupTopicDetailModal({
                               </button>
                               <button
                                 onClick={() => handleCommentDelete(comment.id)}
-                                className="btn-icon size-7 hover:!bg-negative-soft hover:!text-negative"
+                                className="btn-icon size-7 max-md:size-11 hover:!bg-negative-soft hover:!text-negative"
                                 title="댓글 삭제"
                                 aria-label="댓글 삭제"
                               >
@@ -682,7 +777,9 @@ export default function GroupTopicDetailModal({
                               value={editingContent}
                               onChange={(e) => setEditingContent(e.target.value)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                if (e.nativeEvent.isComposing || e.key !== 'Enter') return;
+                                // 쓰기 칸과 같게: 데스크톱은 Enter 저장(Shift+Enter 줄바꿈), Ctrl/⌘+Enter 는 어디서나 저장
+                                if (e.metaKey || e.ctrlKey || (enterSends && !e.shiftKey)) {
                                   e.preventDefault();
                                   submitEditComment(comment);
                                 }
@@ -692,19 +789,22 @@ export default function GroupTopicDetailModal({
                               aria-label="댓글 수정"
                               className="form-input min-h-[72px] resize-y"
                             />
-                            <div className="flex justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="mr-auto text-xs text-ink-3">
+                                {enterSends ? 'Enter 저장 · Shift+Enter 줄바꿈 · Esc 취소' : '저장을 눌러 고쳐요'}
+                              </span>
                               <button
                                 type="button"
                                 onClick={cancelEdit}
                                 disabled={updateCommentMutation.isPending}
-                                className="btn-secondary btn-sm"
+                                className="btn-secondary btn-sm max-md:h-11"
                               >
                                 취소
                               </button>
                               <button
                                 type="submit"
                                 disabled={updateCommentMutation.isPending || !hasVisibleText(editingContent)}
-                                className="btn-primary btn-sm"
+                                className="btn-primary btn-sm max-md:h-11"
                               >
                                 {updateCommentMutation.isPending
                                   ? <Loader2 size={14} strokeWidth={1.5} className="animate-spin" />
@@ -738,40 +838,37 @@ export default function GroupTopicDetailModal({
         </div>
 
         {/* 아래 고정: 댓글 입력칸 + 보내기. 창이 하단 탭(z-100)보다 위라 가려지지 않는다 */}
-        <div className="shrink-0 border-t border-line px-5 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] md:px-6">
-          <form onSubmit={handleCommentSubmit} className="flex items-center gap-2">
+        {/* 모바일에서 댓글을 고치는 동안은 입력칸이 둘로 보이지 않게 아래 줄을 숨긴다 */}
+        <div className={`shrink-0 border-t border-line px-5 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] md:px-6 ${editingCommentId ? 'max-md:hidden' : ''}`}>
+          <form onSubmit={handleCommentSubmit} className="flex items-end gap-2">
             <div className="relative min-w-0 flex-1">
               <AtSign
                 size={16}
                 strokeWidth={1.5}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3"
+                className="pointer-events-none absolute left-3 top-[10px] text-ink-3 max-md:top-[14px]"
                 aria-hidden
               />
-              <input
-                type="text"
+              {/* 여러 줄 댓글(10,000자까지). 다섯 줄까지 늘어나고 그 뒤는 칸 안에서 스크롤 */}
+              <textarea
+                ref={commentInputRef}
+                rows={1}
                 value={commentInput}
                 onChange={(e) => {
                   setCommentInput(e.target.value);
+                  setMentionIndex(0);
                   handleInputChange(e.target.value, 'participant');
                 }}
+                onKeyDown={handleCommentKeyDown}
                 placeholder="댓글 남기기 · @로 멘션"
                 aria-label="댓글 입력"
-                className="form-input h-9 py-0 pl-9"
+                className="form-input block max-h-32 min-h-9 resize-none py-2 pl-9 leading-5 max-md:min-h-11 max-md:py-[11px]"
               />
 
               {showParticipantMentions && (
                 <MentionList
                   items={filteredParticipants as MentionItem[]}
-                  onSelect={(m) => {
-                    const parts = commentInput.split('@');
-                    parts.pop();
-                    // 입력칸에는 '@이름' 만 보이고, 보낼 때 링크 형식으로 바꿔요.
-                    const name = m.nickname ?? '';
-                    const newVal = parts.join('@') + `@${name} `;
-                    setCommentInput(newVal);
-                    if (name) setCommentMentions((prev) => ({ ...prev, [name]: m.id }));
-                    setShowParticipantMentions(false);
-                  }}
+                  activeIndex={mentionIndex}
+                  onSelect={selectMention}
                 />
               )}
             </div>
@@ -779,7 +876,7 @@ export default function GroupTopicDetailModal({
             <button
               type="submit"
               disabled={isCommenting || !hasVisibleText(commentInput)}
-              className="btn-primary shrink-0"
+              className="btn-primary shrink-0 max-md:h-11"
               aria-label="댓글 보내기"
             >
               {isCommenting ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <Send size={16} strokeWidth={1.5} />}

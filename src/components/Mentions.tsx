@@ -51,19 +51,28 @@ interface MentionListProps {
   items: MentionItem[];
   onSelect: (item: MentionItem) => void;
   isMemo?: boolean;
+  /** 키보드로 고르는 중인 항목(↑↓). 없으면 표시하지 않는다 */
+  activeIndex?: number;
+  /** 목록을 입력칸 위(기본) 또는 아래에 띄운다 */
+  placement?: 'top' | 'bottom';
 }
 
-export function MentionList({ items, onSelect, isMemo }: MentionListProps) {
+export function MentionList({ items, onSelect, isMemo, activeIndex, placement = 'top' }: MentionListProps) {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
   return (
-    <div className="absolute z-30 bottom-full mb-2 w-full bg-surface rounded-xl shadow-float border border-line overflow-hidden p-1 max-h-48 overflow-y-auto no-scrollbar">
-      {items.map((m) => (
+    <div role="listbox" className={`absolute z-30 ${placement === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'} w-full bg-surface rounded-xl shadow-float border border-line overflow-hidden p-1 max-h-48 overflow-y-auto no-scrollbar`}>
+      {items.map((m, i) => (
         <button
           key={m.id}
           type="button"
+          role="option"
+          aria-selected={activeIndex === i}
+          // 누를 때 입력칸 포커스를 뺏지 않는다(고른 뒤 바로 이어 쓰기)
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => onSelect(m)}
-          className="w-full min-h-9 text-left px-3 py-2 rounded-lg hover:bg-raised transition-colors duration-150 ease-out text-sm text-ink"
+          ref={activeIndex === i ? (el) => el?.scrollIntoView({ block: 'nearest' }) : undefined}
+          className={`w-full min-h-9 text-left px-3 py-2 rounded-lg hover:bg-raised transition-colors duration-150 ease-out text-sm text-ink ${activeIndex === i ? 'bg-raised' : ''}`}
         >
           {isMemo ? (
             m.title
