@@ -378,9 +378,10 @@ export default function SchedulePage() {
         <main className="flex-1 flex flex-col overflow-hidden min-w-0 px-4 pt-4 pb-4 lg:px-8 lg:pt-6 lg:pb-6">
           {/* 머리: 제목 ‹ › 오늘 | 검색 · 보기 · 일정 추가 */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-3 shrink-0">
-            {/* 모바일: ‹ › 는 32px 그대로 두고 손가락 닿는 곳만 44px 로(after), 서로 겹치지 않게 12px 띄운다 */}
-            <div className="flex items-center gap-3 sm:gap-1 min-w-0">
-              <h1 className="font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9 whitespace-nowrap tabular-nums mr-1 sm:mr-2">
+            {/* 모바일: ‹ › 는 32px 그대로 두고 손가락 닿는 곳만 44px 로(globals.css 의 터치 ::after).
+                390 폭에서 주 제목·보기 전환·추가가 한 줄에 들어가도록 간격은 6px 만 둔다 */}
+            <div className="flex items-center gap-1.5 sm:gap-1 min-w-0">
+              <h1 className="font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9 whitespace-nowrap tabular-nums sm:mr-2">
                 {view === 'week' ? (
                   <span className="text-xl sm:text-2xl lg:text-[30px]">
                     {format(weekDays[0], 'M.d')}<span className="sm:mx-1">–</span>{format(weekDays[6], isSameMonth(weekDays[0], weekDays[6]) ? 'd' : 'M.d')}
@@ -393,8 +394,8 @@ export default function SchedulePage() {
                   </>
                 )}
               </h1>
-              <button onClick={goPrev} aria-label={view === 'week' ? '이전 주' : '이전 달'} className="btn-icon relative after:absolute after:-inset-1.5 lg:after:hidden"><ChevronLeft size={18} strokeWidth={1.5} /></button>
-              <button onClick={goNext} aria-label={view === 'week' ? '다음 주' : '다음 달'} className="btn-icon relative after:absolute after:-inset-1.5 lg:after:hidden"><ChevronRight size={18} strokeWidth={1.5} /></button>
+              <button onClick={goPrev} aria-label={view === 'week' ? '이전 주' : '이전 달'} className="btn-icon"><ChevronLeft size={18} strokeWidth={1.5} /></button>
+              <button onClick={goNext} aria-label={view === 'week' ? '다음 주' : '다음 달'} className="btn-icon"><ChevronRight size={18} strokeWidth={1.5} /></button>
               <button onClick={goToToday} className="btn-secondary btn-sm ml-1 hidden sm:inline-flex lg:h-9 lg:px-3.5 lg:text-[13px]">오늘</button>
             </div>
 
@@ -552,16 +553,16 @@ function dayWeather(items: ScheduleResponse[], day: Date, weatherOf: (s: Schedul
   return null;
 }
 
-/** 월 칸 일정 줄 높이(h-5 / md:h-6), 줄 사이(gap-1), '+n' 줄 높이(leading-4) */
+/** 월 칸 일정 줄 높이(h-5 / md:h-6), 줄 사이(gap-1), '+n' 줄 높이(모바일 leading-3 / md:leading-4) */
 const ITEM_H = { mobile: 20, md: 24 } as const;
 const ITEM_GAP = 4;
-const MORE_H = 16;
+const MORE_H = { mobile: 12, md: 16 } as const;
 
 /** 칸 높이 안에 들어가는 일정 수. 다 안 들어가면 '+n' 줄 자리를 남긴다. */
-function visibleCount(total: number, height: number, itemH: number) {
+function visibleCount(total: number, height: number, itemH: number, moreH: number) {
   const fits = Math.max(0, Math.floor((height + ITEM_GAP) / (itemH + ITEM_GAP)));
   if (total <= fits) return total;
-  return Math.max(0, Math.floor((height - MORE_H) / (itemH + ITEM_GAP)));
+  return Math.max(0, Math.floor((height - moreH) / (itemH + ITEM_GAP)));
 }
 
 /** 여러 날 일정이 그 날 칸에서 이어지는 쪽의 모서리를 각지게 해 띠처럼 보이게 한다 */
@@ -594,7 +595,7 @@ function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, weather
   }, []);
   const shown = listH == null
     ? Math.min(daySchedules.length, 2)
-    : visibleCount(daySchedules.length, listH, isMd ? ITEM_H.md : ITEM_H.mobile);
+    : visibleCount(daySchedules.length, listH, isMd ? ITEM_H.md : ITEM_H.mobile, isMd ? MORE_H.md : MORE_H.mobile);
   const hidden = daySchedules.length - shown;
   const dateLabel = format(day, 'M월 d일 EEEE', { locale: ko });
 
@@ -657,7 +658,8 @@ function CalendarDay({ day, lastCol, currentDate, schedules, userGroups, weather
           );
         })}
         {hidden > 0 && (
-          <div className="text-[11px] md:text-xs leading-4 text-ink-3 tabular-nums px-1 md:px-1.5 shrink-0">
+          // 모바일 칸은 일정 줄이 하나도 안 들어갈 만큼 낮을 수 있어 '+n' 줄을 12px 로 줄인다
+          <div className="text-[10px] leading-3 md:text-xs md:leading-4 text-ink-3 tabular-nums px-1 md:px-1.5 shrink-0">
             +{hidden}<span className="hidden md:inline">개 더</span>
           </div>
         )}
