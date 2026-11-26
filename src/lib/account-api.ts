@@ -29,7 +29,9 @@ export const isEmailLike = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
 
 /** 비밀번호 규칙에 맞지 않으면 안내 문구, 맞으면 null */
 export function passwordProblem(password: string): string | null {
-  if (password.length < PASSWORD_MIN) return `비밀번호는 ${PASSWORD_MIN}자 이상이어야 해요.`;
+  // 백엔드처럼 코드포인트로 센다(😀 는 1자)
+  if ([...password].length < PASSWORD_MIN) return `비밀번호는 ${PASSWORD_MIN}자 이상이어야 해요.`;
+  if (!password.trim()) return '공백만으로는 비밀번호를 만들 수 없어요.';
   if (new TextEncoder().encode(password).length > PASSWORD_MAX_BYTES) {
     return '비밀번호가 너무 길어요. 영문 기준 72자, 한글 기준 24자까지 쓸 수 있어요.';
   }
@@ -68,6 +70,12 @@ export const accountApi = {
       opts.password !== undefined ? { token, password: opts.password } : { token },
       { headers: getAuthHeaders(opts.session ?? null) }
     );
+    return response.data;
+  },
+
+  /** 메일 링크를 쓰지 않고 상태·이메일만 본다. 쓸 수 없는 링크(이미 씀·만료·여러 번 틀림)면 400 */
+  async previewVerify(token: string): Promise<VerifyResult> {
+    const response = await axiosInstance.post<VerifyResult>('/api/account/verify/preview', { token });
     return response.data;
   },
 

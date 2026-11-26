@@ -178,8 +178,9 @@ export default function LoginPage() {
               {submitting ? '로그인하는 중...' : '이메일로 로그인'}
             </button>
           </form>
-          <div className="mt-4 flex w-full max-w-[400px] items-center justify-between text-[13px]">
-            <Link href="/signup" className="text-accent underline-offset-2 hover:underline">
+          {/* 링크는 누르는 영역만 44px 로 넓힌다(글자 위치는 그대로: mt-4 - 12px) */}
+          <div className="mt-1 flex w-full max-w-[400px] items-center justify-between text-[13px]">
+            <Link href="/signup" className="inline-flex min-h-11 items-center pr-3 text-accent underline-offset-2 hover:underline">
               이메일로 가입
             </Link>
             <Link href="/reset-password" className="text-ink-2 underline-offset-2 hover:text-ink hover:underline">
