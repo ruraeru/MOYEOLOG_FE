@@ -5,7 +5,42 @@ import rehypeSanitize from 'rehype-sanitize';
  * rehype-sanitize(GitHub 기준 스키마)로 script, iframe, 이벤트 핸들러, javascript: 링크 등을 제거합니다.
  * @uiw/react-md-editor의 Markdown / previewOptions에 rehypePlugins로 전달하세요.
  */
-export const markdownRehypePlugins = [[rehypeSanitize]] as [[typeof rehypeSanitize]];
+interface HastNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+}
+
+/** 그림으로 불러올 수 있는 주소: http(s)·프로토콜 상대(//)·사이트 절대 경로(/uploads/…). */
+function isLoadableImageSrc(src: unknown): boolean {
+  return typeof src === 'string' && /^(https?:)?\/\/|^\/[^/]/i.test(src.trim());
+}
+
+/**
+ * sanitize 뒤에 돌린다. `<img src="x">` 처럼 불러올 수 없는 주소의 그림은 깨진 아이콘으로 보이므로
+ * 빼고, alt 가 있으면 그 글자로 바꾼다.
+ */
+function rehypeDropBrokenImages() {
+  const walk = (node: HastNode) => {
+    if (!node.children) return;
+    node.children = node.children.flatMap((child) => {
+      if (child.type === 'element' && child.tagName === 'img' && !isLoadableImageSrc(child.properties?.src)) {
+        const alt = child.properties?.alt;
+        return typeof alt === 'string' && alt.trim() ? [{ type: 'text', value: alt }] : [];
+      }
+      walk(child);
+      return [child];
+    });
+  };
+  return (tree: HastNode) => walk(tree);
+}
+
+export const markdownRehypePlugins = [[rehypeSanitize], [rehypeDropBrokenImages]] as [
+  [typeof rehypeSanitize],
+  [typeof rehypeDropBrokenImages],
+];
 
 /**
  * Tailwind preflight 가 ul/ol 의 글머리표를 없애므로 마크다운 렌더 영역을 감싸는 요소에 붙인다.
