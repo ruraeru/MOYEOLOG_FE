@@ -25,8 +25,6 @@ import {
   type MemoInsight,
   getMemoPermissions,
   extractMentionIds,
-  matchMentionQuery,
-  mentionMatches,
   MAX_IMAGE_BYTES,
   IMAGE_TOO_LARGE_MESSAGE,
 } from '@/lib/memo-api';
@@ -39,6 +37,7 @@ import { markdownRehypePlugins } from '@/lib/markdown';
 import { useRouter } from 'next/navigation';
 import { fileToDataUrl, convertToWebP, initialOf } from '@/lib/utils';
 import { EmptyState } from './ui';
+import RichEditor from './RichEditor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
@@ -47,7 +46,6 @@ const EdMarkdown = dynamic(
   { ssr: false }
 );
 
-const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
 interface MemoDetailViewProps {
   memoId: string;
@@ -184,12 +182,6 @@ export default function MemoDetailView({
   // 멘션 데이터 및 상태
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
-  const [mentionState, setMentionState] = useState({
-    active: false,
-    query: '',
-    startPos: 0,
-    endPos: 0
-  });
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -325,7 +317,6 @@ export default function MemoDetailView({
     setIsEditing(false);
     setEditImageFile(null);
     setEditImageRemoved(false);
-    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
   };
 
   const handleSaveEdit = async () => {
@@ -362,8 +353,7 @@ export default function MemoDetailView({
       setIsEditing(false);
       setEditImageFile(null);
       setEditImageRemoved(false);
-      setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
-      toast.success('저장했어요');
+        toast.success('저장했어요');
     } catch (error) {
       console.error('Failed to save memo:', error);
       const status = getStatus(error);
@@ -479,29 +469,6 @@ export default function MemoDetailView({
     }
   };
 
-  // 인라인 멘션 핸들러 (제목에 공백이 있어도 이어서 검색)
-  const handleEditorKeyUp = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLTextAreaElement;
-    if (target.tagName !== 'TEXTAREA') return;
-
-    const cursor = target.selectionStart;
-    const textBeforeCursor = target.value.slice(0, cursor);
-    const match = matchMentionQuery(textBeforeCursor);
-
-    if (match) {
-      setMentionState({ active: true, query: match.query, startPos: match.index, endPos: cursor });
-    } else {
-      setMentionState(prev => prev.active ? { ...prev, active: false } : prev);
-    }
-  };
-
-  const insertMention = (item: { id: string; title: string }, type: 'memo' | 'schedule') => {
-    const link = `[@${item.title}](/${type}/${item.id}) `;
-    const newContent = editContent.slice(0, mentionState.startPos) + link + editContent.slice(mentionState.endPos);
-    setEditContent(newContent);
-    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
-  };
-
   const heightClass = isPage ? 'h-full' : 'h-[100dvh] sm:h-[85vh] w-full';
 
   if (loadError && !loadingMemo) {
@@ -553,8 +520,6 @@ export default function MemoDetailView({
 
   const imageSrc = isEditing ? editImagePreview : (memo.imageUrl ? (memo.imageUrl.startsWith('/uploads/') ? `${apiUrl}${memo.imageUrl}` : memo.imageUrl) : null);
 
-  const matchedMemos = allMemos.filter(m => m.id !== memo.id && mentionMatches(m.title, mentionState.query)).slice(0, 5);
-  const matchedSchedules = schedules.filter(s => mentionMatches(s.title, mentionState.query)).slice(0, 5);
   const readOnly = !permissions.edit && !permissions.tag && !permissions.analyze;
 
   return (
@@ -712,15 +677,13 @@ export default function MemoDetailView({
           />
         )}
 
-        <div className="text-ink min-h-50 lg:min-h-100 relative" data-color-mode="light" onKeyUp={isEditing ? handleEditorKeyUp : undefined}>
+        <div className="text-ink min-h-50 lg:min-h-100 relative" data-color-mode="light">
           {isEditing ? (
-            <MDEditor
-              previewOptions={{ rehypePlugins: markdownRehypePlugins }}
+            <RichEditor
               value={editContent}
-              onChange={(val) => setEditContent(val || '')}
-              preview="live"
-              height="100%"
-              style={{ borderRadius: '0.75rem', border: '1px solid var(--color-line-strong)', minHeight: 300 }}
+              onChange={setEditContent}
+              mentions={{ memos: allMemos.filter((m) => m.id !== memo.id), schedules }}
+              className="h-[60vh] min-h-[300px]"
             />
           ) : (
             <EdMarkdown
@@ -736,33 +699,6 @@ export default function MemoDetailView({
             />
           )}
 
-          {/* 에디터 인라인 멘션 팝업 */}
-          {isEditing && mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
-            <div className="absolute z-50 bottom-4 left-4 w-72 max-w-[calc(100%-2rem)] max-h-64 overflow-y-auto bg-surface border border-line shadow-float rounded-xl p-1.5 no-scrollbar">
-              {matchedSchedules.length > 0 && (
-                <div className="mb-1">
-                  <div className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-ink-3">일정</div>
-                  {matchedSchedules.map(s => (
-                    <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-ink transition-colors duration-150 ease-out hover:bg-raised">
-                      <LucideCalendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                      <span className="truncate">{s.title}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {matchedMemos.length > 0 && (
-                <div>
-                  <div className="px-2.5 pb-1 pt-1.5 text-xs font-medium text-ink-3">메모</div>
-                  {matchedMemos.map(m => (
-                    <button key={m.id} onClick={() => insertMention(m, 'memo')} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-ink transition-colors duration-150 ease-out hover:bg-raised">
-                      <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                      <span className="truncate">{m.title}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

@@ -264,6 +264,41 @@ body {
   text-decoration: underline;
 }
 
+/* 서식 편집기(RichEditor): 본문은 .wmde-markdown 모양을 그대로 쓴다 */
+.rich-editor {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.rich-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--ink-3);
+}
+
+/* 목록 항목 안의 문단 여백을 없애 저장된 화면과 간격을 맞춘다 */
+.rich-editor li > p,
+.rich-editor li > div > p {
+  margin: 0;
+}
+
+.rich-editor ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.rich-editor ul[data-type='taskList'] > li {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.rich-editor ul[data-type='taskList'] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -329,10 +364,8 @@ body {
     font-size: 16px !important;
   }
 
-  /* 마크다운 편집기는 입력칸(textarea)과 그 아래 색칠용 글자(pre)가 겹쳐 있어 둘의 크기·줄 높이가 같아야 한다 */
-  .w-md-editor .w-md-editor-text,
-  .w-md-editor .w-md-editor-text-pre > code {
-    font-size: 16px !important;
-    line-height: 22px !important;
+  /* 서식 편집기도 입력칸이다(contenteditable) */
+  .rich-editor {
+    font-size: 16px;
   }
 }

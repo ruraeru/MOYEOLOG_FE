@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useSyncExternalStore } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   X,
   Upload,
@@ -17,13 +17,10 @@ import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { useMentions } from '@/hooks/useMentions';
 import { MentionList, type MentionItem } from './Mentions';
 import { useSession } from 'next-auth/react';
-import dynamic from 'next/dynamic';
-import { markdownRehypePlugins, markdownListClassName, hasVisibleText } from '@/lib/markdown';
-import '@uiw/react-md-editor/markdown-editor.css';
-import '@uiw/react-markdown-preview/markdown.css';
+import RichEditor from './RichEditor';
+import { hasVisibleText } from '@/lib/markdown';
 import type { TopicResponse } from '@/types/topic';
 
-const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
 const IMAGE_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
 const NOT_IMAGE_MESSAGE = 'JPG, PNG, GIF, WEBP 이미지만 올릴 수 있어요';
@@ -51,15 +48,6 @@ function canDecode(dataUrl: string): Promise<boolean> {
   });
 }
 
-const NARROW_QUERY = '(max-width: 1023px)';
-function subscribeNarrow(callback: () => void) {
-  const mql = window.matchMedia(NARROW_QUERY);
-  mql.addEventListener('change', callback);
-  return () => mql.removeEventListener('change', callback);
-}
-const getNarrow = () => window.matchMedia(NARROW_QUERY).matches;
-const getNarrowServer = () => false;
-
 interface GroupTopicCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -82,7 +70,6 @@ export default function GroupTopicCreateModal({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isNarrow = useSyncExternalStore(subscribeNarrow, getNarrow, getNarrowServer);
 
   // Mention states
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
@@ -272,22 +259,12 @@ export default function GroupTopicCreateModal({
           {/* 본문 편집기 */}
           <div className="space-y-1.5">
             <span className="text-[13px] font-medium text-ink-2">내용</span>
-            <div
-              className={`h-[300px] overflow-hidden rounded-[10px] border border-line-strong md:h-[340px] ${markdownListClassName}`}
-              data-color-mode="light"
-            >
-              <MDEditor
-                previewOptions={{ rehypePlugins: markdownRehypePlugins }}
-                value={content}
-                onChange={(val) => setContent(val || '')}
-                preview={isNarrow ? 'edit' : 'live'}
-                height="100%"
-                className="no-scrollbar"
-                textareaProps={{
-                  placeholder: '자유롭게 써 주세요. 마크다운을 쓸 수 있어요'
-                }}
-              />
-            </div>
+            <RichEditor
+              value={content}
+              onChange={setContent}
+              placeholder="자유롭게 써 주세요"
+              className="h-[300px] md:h-[340px]"
+            />
           </div>
 
           {/* 사진 */}

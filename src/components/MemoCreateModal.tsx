@@ -4,9 +4,7 @@ import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   X,
   Upload,
-  Loader2,
-  Calendar,
-  FileText
+  Loader2
 } from 'lucide-react';
 import { Modal } from '@/components/ui';
 import { fileToDataUrl, convertToWebP } from '@/lib/utils';
@@ -14,8 +12,6 @@ import {
   memoApi,
   type MemoResponse,
   extractMentionIds,
-  matchMentionQuery,
-  mentionMatches,
   MAX_IMAGE_BYTES,
   IMAGE_TOO_LARGE_MESSAGE,
 } from '@/lib/memo-api';
@@ -23,12 +19,7 @@ import { scheduleApi, type ScheduleResponse } from '@/lib/schedule-api';
 import { groupApi, type GroupResponse } from '@/lib/group-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { useSession } from 'next-auth/react';
-import dynamic from 'next/dynamic';
-import { markdownRehypePlugins } from '@/lib/markdown';
-import '@uiw/react-md-editor/markdown-editor.css';
-import '@uiw/react-markdown-preview/markdown.css';
-
-const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
+import RichEditor from '@/components/RichEditor';
 
 interface MemoCreateModalProps {
   isOpen: boolean;
@@ -61,14 +52,6 @@ export default function MemoCreateModal({
   const [allMemos, setAllMemos] = useState<MemoResponse[]>([]);
   const [schedules, setSchedules] = useState<ScheduleResponse[]>([]);
 
-  // 인라인 멘션 상태
-  const [mentionState, setMentionState] = useState({
-    active: false,
-    query: '',
-    startPos: 0,
-    endPos: 0
-  });
-
   useEffect(() => {
     if (isOpen && session) {
       Promise.all([
@@ -82,8 +65,6 @@ export default function MemoCreateModal({
       if (!groupId) {
         groupApi.getAll(session).then(setGroups).catch(() => setGroups([]));
       }
-    } else {
-      setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
     }
   }, [isOpen, session, groupId]);
 
@@ -96,7 +77,6 @@ export default function MemoCreateModal({
     setImageFile(null);
     setSelectedGroupId('');
     setError(null);
-    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
   }, []);
 
   const handleClose = () => {
@@ -134,30 +114,6 @@ export default function MemoCreateModal({
     setTagInput('');
   };
 
-  // 인라인 멘션 키보드 감지 로직
-  const handleEditorKeyUp = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLTextAreaElement;
-    if (target.tagName !== 'TEXTAREA') return;
-
-    const cursor = target.selectionStart;
-    const textBeforeCursor = target.value.slice(0, cursor);
-    const match = matchMentionQuery(textBeforeCursor);
-
-    if (match) {
-      setMentionState({ active: true, query: match.query, startPos: match.index, endPos: cursor });
-    } else {
-      setMentionState(prev => prev.active ? { ...prev, active: false } : prev);
-    }
-  };
-
-  // 마크다운 링크 삽입 로직
-  const insertMention = (item: { id: string; title: string }, type: 'memo' | 'schedule') => {
-    const link = `[@${item.title}](/${type}/${item.id}) `;
-    const newContent = content.slice(0, mentionState.startPos) + link + content.slice(mentionState.endPos);
-    setContent(newContent);
-    setMentionState({ active: false, query: '', startPos: 0, endPos: 0 });
-  };
-
   const handleSave = async () => {
     if (!title.trim()) {
       setError('제목을 입력해 주세요');
@@ -193,10 +149,6 @@ export default function MemoCreateModal({
   };
 
   if (!isOpen) return null;
-
-  // 멘션 필터링
-  const matchedMemos = allMemos.filter(m => mentionMatches(m.title, mentionState.query)).slice(0, 5);
-  const matchedSchedules = schedules.filter(s => mentionMatches(s.title, mentionState.query)).slice(0, 5);
 
   return (
     <Modal
@@ -337,47 +289,13 @@ export default function MemoCreateModal({
 
         <div className="space-y-1.5">
           <p className="text-[13px] font-medium text-ink-2">내용</p>
-          <div className="relative" data-color-mode="light" onKeyUp={handleEditorKeyUp}>
-            <MDEditor
-              previewOptions={{ rehypePlugins: markdownRehypePlugins }}
-              value={content}
-              onChange={(val) => setContent(val || '')}
-              preview="live"
-              height={320}
-              style={{ borderRadius: '10px', border: '1px solid var(--line-strong)', boxShadow: 'none' }}
-              textareaProps={{
-                placeholder: '내용을 써 보세요. @를 누르면 일정이나 메모를 연결할 수 있어요'
-              }}
-            />
-
-            {/* 에디터 인라인 멘션 팝업 */}
-            {mentionState.active && (matchedMemos.length > 0 || matchedSchedules.length > 0) && (
-              <div className="absolute bottom-4 left-4 z-50 max-h-64 w-72 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float no-scrollbar">
-                {matchedSchedules.length > 0 && (
-                  <div className="mb-1">
-                    <div className="px-2.5 py-1 text-xs font-medium text-ink-3">일정</div>
-                    {matchedSchedules.map(s => (
-                      <button key={s.id} onClick={() => insertMention(s, 'schedule')} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-ink transition-colors hover:bg-raised">
-                        <Calendar size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                        <span className="truncate">{s.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {matchedMemos.length > 0 && (
-                  <div>
-                    <div className="px-2.5 py-1 text-xs font-medium text-ink-3">메모</div>
-                    {matchedMemos.map(m => (
-                      <button key={m.id} onClick={() => insertMention(m, 'memo')} className="flex h-9 w-full items-center gap-2 rounded-lg px-2.5 text-left text-sm text-ink transition-colors hover:bg-raised">
-                        <FileText size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" />
-                        <span className="truncate">{m.title}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <RichEditor
+            value={content}
+            onChange={setContent}
+            placeholder="내용을 써 보세요. @를 누르면 일정이나 메모를 연결할 수 있어요"
+            mentions={{ memos: allMemos, schedules }}
+            className="h-80"
+          />
           <p className="text-xs leading-relaxed text-ink-3">
             @로 연결한 일정·메모는 저장할 때 서로 이어져요. 저장한 뒤 메모 화면에서 분석을 시작하면 이미지 글자를 읽고 요약과 키워드를 추천해요.
           </p>
