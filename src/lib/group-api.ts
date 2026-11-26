@@ -34,6 +34,13 @@ export interface GroupInvitationResponse {
   invitedAt: string;
 }
 
+/** POST /api/groups/{id}/invitations 응답 */
+export interface GroupInviteResult {
+  invitedCount: number;
+  alreadyInvitedCount: number;
+  alreadyMemberCount: number;
+}
+
 export interface GroupActivityResponse {
   type: 'MEMO' | 'TOPIC' | 'SCHEDULE' | 'COMMENT';
   groupId: string;
@@ -159,11 +166,13 @@ export const groupApi = {
     return response.data;
   },
 
-  async inviteMembers(groupId: string, userIds: string[], session: Session | null): Promise<void> {
+  /** 실제로 보낸 수와 건너뛴 수(이미 대기 중·이미 멤버)를 돌려준다. 예전 서버는 본문이 없어 null */
+  async inviteMembers(groupId: string, userIds: string[], session: Session | null): Promise<GroupInviteResult | null> {
     try {
-      await axiosInstance.post(`/api/groups/${groupId}/invitations`, { userIds }, {
+      const response = await axiosInstance.post<GroupInviteResult | ''>(`/api/groups/${groupId}/invitations`, { userIds }, {
         headers: getAuthHeaders(session),
       });
+      return response.data && typeof response.data === 'object' ? response.data : null;
     } catch (error) {
       throw toGroupApiError(error, '초대를 보내지 못했어요.');
     }

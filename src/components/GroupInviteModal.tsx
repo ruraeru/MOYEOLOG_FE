@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, Search, Check } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2, Search, Check, Link as LinkIcon } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { friendApi, type FriendResponse } from '@/lib/friend-api';
 import { groupApi } from '@/lib/group-api';
@@ -18,6 +18,8 @@ interface GroupInviteModalProps {
   groupName: string;
   /** 이미 모임에 있는 사람 (목록에서 뺀다) */
   memberIds?: string[];
+  /** 초대할 친구가 없을 때 '초대 링크 복사' 를 보여 준다 */
+  inviteCode?: string;
   onSuccess?: () => void;
 }
 
@@ -27,6 +29,7 @@ export default function GroupInviteModal({
   groupId,
   groupName,
   memberIds,
+  inviteCode,
   onSuccess,
 }: GroupInviteModalProps) {
   const { data: session } = useSession();
@@ -38,6 +41,28 @@ export default function GroupInviteModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // 마우스 기기에서는 열리자마자 검색칸에 쓸 수 있게 한다(터치 기기는 키보드가 화면을 가리므로 그대로)
+  useEffect(() => {
+    if (!isOpen) return;
+    if (typeof window === 'undefined' || !window.matchMedia('(pointer: fine)').matches) return;
+    const t = setTimeout(() => searchRef.current?.focus(), 50);
+    return () => clearTimeout(t);
+  }, [isOpen]);
+
+  const handleCopyLink = async () => {
+    if (!inviteCode) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/invite/group?code=${inviteCode}`);
+      setLinkCopied(true);
+      toast.success('초대 링크를 복사했어요');
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast.error(`복사하지 못했어요. 초대 코드는 ${inviteCode} 이에요`);
+    }
+  };
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -75,8 +100,17 @@ export default function GroupInviteModal({
     try {
       setInviting(true);
       setError(null);
-      await groupApi.inviteMembers(groupId, selectedUserIds, session);
-      toast.success(`${selectedUserIds.length}명에게 초대를 보냈어요`);
+      const result = await groupApi.inviteMembers(groupId, selectedUserIds, session);
+      // 이미 대기 중인 초대는 서버가 건너뛴다. 실제로 보낸 수만 말한다
+      const sent = result ? result.invitedCount : selectedUserIds.length;
+      const skipped = result ? result.alreadyInvitedCount + result.alreadyMemberCount : 0;
+      if (sent > 0 && skipped > 0) {
+        toast.success(`${sent}명에게 초대를 보냈어요. ${skipped}명은 이미 초대했거나 멤버예요`);
+      } else if (sent > 0) {
+        toast.success(`${sent}명에게 초대를 보냈어요`);
+      } else {
+        toast.info('이미 초대한 친구예요. 응답을 기다리고 있어요');
+      }
       onSuccess?.();
       onClose();
       setSelectedUserIds([]);
@@ -90,6 +124,7 @@ export default function GroupInviteModal({
   const query = searchQuery.trim().toLowerCase();
   const filteredFriends = friends
     .filter(friend => !memberIds?.includes(friend.userId))
+    .sort((a, b) => a.nickname.localeCompare(b.nickname, 'ko'))
     .filter(friend =>
       !query ||
       friend.nickname.toLowerCase().includes(query) ||
@@ -126,6 +161,7 @@ export default function GroupInviteModal({
         <div className="relative">
           <Search size={16} strokeWidth={1.5} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3" />
           <input
+            ref={searchRef}
             type="text"
             placeholder="이름이나 아이디로 찾기"
             value={searchQuery}
@@ -203,7 +239,13 @@ export default function GroupInviteModal({
         ) : (
           <EmptyState
             title={query ? '찾는 친구가 없어요' : '초대할 친구가 없어요'}
-            description={query ? '다른 이름으로 찾아보세요' : '친구만 초대할 수 있고, 이미 모임에 있는 친구는 빠져 있어요'}
+            description={query ? '다른 이름으로 찾아보세요' : '친구만 초대할 수 있고, 이미 모임에 있는 친구는 빠져 있어요. 친구가 아닌 사람에게는 초대 링크를 보내 주세요'}
+            action={!query && inviteCode ? (
+              <button type="button" onClick={handleCopyLink} className="btn-secondary">
+                {linkCopied ? <Check size={16} strokeWidth={1.5} /> : <LinkIcon size={16} strokeWidth={1.5} />}
+                {linkCopied ? '복사했어요' : '초대 링크 복사'}
+              </button>
+            ) : undefined}
           />
         )}
       </div>

@@ -163,6 +163,7 @@ export function GroupModals({
         groupId={groupId}
         groupName={group.name}
         memberIds={group.members.map(m => m.id)}
+        inviteCode={group.inviteCode}
       />}
     </div>
   );

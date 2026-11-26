@@ -95,7 +95,7 @@ function ErrorState({ title, message, onRetry }: { title: string; message: strin
 function NotificationsContent() {
   const tf = useTimeFormat();
   const { data: session } = useSession();
-  const { toast } = useAlert();
+  const { toast, confirm } = useAlert();
   const router = useRouter();
   const searchParams = useSearchParams();
   const filter: 'all' | 'invitations' = searchParams.get('tab') === 'invites' ? 'invitations' : 'all';
@@ -223,6 +223,13 @@ function NotificationsContent() {
   /** 초대 수락·거절. 이미 처리됐거나(409) 모임·초대가 사라졌으면(404) 안내하고 카드를 없앱니다. */
   const handleInvitation = async (invite: GroupInvitationResponse, kind: 'accept' | 'reject') => {
     if (processingId) return;
+    // 거절은 되돌릴 수 없고, 방장이 아닌 멤버는 며칠 동안 다시 초대하지 못한다
+    if (kind === 'reject' && !(await confirm(
+      '거절하면 이 초대는 사라지고, 다시 참여하려면 새 초대를 받아야 해요.',
+      `'${invite.groupName}' 모임 초대를 거절할까요?`,
+      '거절',
+      '취소',
+    ))) return;
     setProcessingId(invite.id);
     try {
       if (kind === 'accept') await groupApi.acceptInvitation(invite.id, session);
@@ -230,6 +237,8 @@ function NotificationsContent() {
       setInvitations((prev) => prev.filter((i) => i.id !== invite.id));
       toast.success(kind === 'accept' ? `"${invite.groupName}" 모임에 참여했어요` : '모임 초대를 거절했어요');
       refreshUnreadCounts();
+      // 수락하면 바로 그 모임으로 간다
+      if (kind === 'accept') router.push(`/groups/${invite.groupId}`);
     } catch (error) {
       const code = axios.isAxiosError(error) ? error.response?.status : undefined;
       if (code === 409) {
@@ -327,8 +336,9 @@ function NotificationsContent() {
                         <Users size={16} strokeWidth={1.5} aria-hidden />
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3">
-                          <p className="text-sm text-ink-2 leading-relaxed break-words pt-1">
+                        {/* 모바일은 시각을 위 줄로 올려 본문이 카드 폭을 다 쓰게 한다 */}
+                        <div className="flex flex-col-reverse gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                          <p className="text-sm text-ink-2 leading-relaxed break-words break-keep pt-1">
                             <span className="font-medium text-ink">{invite.inviterNickname}</span>님이{' '}
                             <span className="font-medium text-ink">{invite.groupName}</span> 모임에 초대했어요
                           </p>
@@ -338,14 +348,14 @@ function NotificationsContent() {
                           <button
                             onClick={() => handleInvitation(invite, 'accept')}
                             disabled={processingId === invite.id}
-                            className="btn-primary btn-sm"
+                            className="btn-primary btn-sm max-md:h-11 max-md:px-5 max-md:text-sm"
                           >
                             수락
                           </button>
                           <button
                             onClick={() => handleInvitation(invite, 'reject')}
                             disabled={processingId === invite.id}
-                            className="btn-secondary btn-sm"
+                            className="btn-secondary btn-sm max-md:h-11 max-md:px-5 max-md:text-sm"
                           >
                             거절
                           </button>

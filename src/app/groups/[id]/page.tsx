@@ -390,11 +390,12 @@ function GroupDetailContent() {
 
   const handleKickMember = async (memberId: string, nickname: string) => {
     if (!session || !group) return;
-    if (!(await confirm(`${nickname} 님은 초대 코드로 다시 들어올 수 없게 돼요. 방장이 직접 초대하면 다시 들어올 수 있어요.`, '이 멤버를 내보낼까요?', '내보내기', '취소'))) return;
+    if (!(await confirm(`${nickname} 님은 초대 코드로 다시 들어올 수 없게 돼요. 방장이 직접 초대하면 다시 들어올 수 있어요.\n\n초대 링크도 새로 바뀌어서, 전에 보낸 초대 링크는 더 쓸 수 없어요.`, '이 멤버를 내보낼까요?', '내보내기', '취소'))) return;
     try {
       await groupApi.kickMember(group.id, memberId, session);
       fetchGroupData(true);
-      toast.success('멤버를 내보냈어요');
+      // 내보내면 서버가 초대 코드를 새로 만든다(GroupService.kickMember). 전에 보낸 링크가 죽는다는 것을 알린다
+      toast.success(`${nickname} 님을 내보냈어요. 초대 링크가 새로 바뀌었어요`);
     } catch (error) {
       console.error('Failed to kick member:', error);
       toast.error(error instanceof Error ? error.message : '멤버를 내보내지 못했어요');
@@ -834,12 +835,17 @@ function GroupDetailContent() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-sm font-medium text-ink-2">
-                    멤버 <span className="tabular-nums">{group.members.length}</span>
-                  </h2>
+                {/* 인원은 탭 숫자에 이미 있어 제목 대신 할 일(초대·링크·나가기)을 둔다 */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={() => setIsInviteModalOpen(true)} className="btn-secondary max-md:h-11">
+                    <UserPlus size={16} strokeWidth={1.5} /> 친구 초대
+                  </button>
+                  <button onClick={handleCopyInviteLink} className="btn-secondary max-md:h-11">
+                    {copied ? <Check size={16} strokeWidth={1.5} /> : <LinkIcon size={16} strokeWidth={1.5} />}
+                    {copied ? '복사했어요' : '초대 링크 복사'}
+                  </button>
                   {!isOwner && (
-                    <button onClick={handleLeave} disabled={leaving} className="btn-danger whitespace-nowrap">
+                    <button onClick={handleLeave} disabled={leaving} className="btn-danger ml-auto whitespace-nowrap max-md:h-11">
                       {leaving ? <Loader2 size={16} strokeWidth={1.5} className="animate-spin" /> : <LogOut size={16} strokeWidth={1.5} />}
                       모임 나가기
                     </button>
@@ -857,6 +863,13 @@ function GroupDetailContent() {
                     />
                   ))}
                 </div>
+                {group.members.length <= 1 && (
+                  <EmptyState
+                    icon={UserPlus}
+                    title="아직 혼자 있는 모임이에요"
+                    description="친구를 골라 초대하거나, 초대 링크를 보내 함께할 사람을 불러 보세요"
+                  />
+                )}
                 {isOwner && (
                   <p className="text-xs text-ink-3">방장은 모임을 나갈 수 없어요. 모임을 없애려면 모임 설정에서 삭제해 주세요.</p>
                 )}
@@ -939,9 +952,10 @@ function GroupErrorView({ error, onRetry, onGoList }: { error: GroupLoadError; o
   let canRetry = true;
 
   if (error.status === 403) {
-    title = error.wasMember ? '이 모임에 더 이상 들어갈 수 없어요' : '이 모임의 멤버가 아니에요';
+    // 이 화면에서 직접 나가면 목록으로 옮겨 가므로, 보고 있던 중 403 이 되면 대개 방장이 내보낸 경우다
+    title = error.wasMember ? '모임에서 내보내졌어요' : '이 모임의 멤버가 아니에요';
     description = error.wasMember
-      ? '모임에서 내보내졌거나 모임을 나갔어요.'
+      ? '방장이 이 모임에서 내보냈어요. 다른 창에서 직접 나갔다면 다시 들어오려면 초대를 받아야 해요.'
       : '모임에 참여하려면 초대 링크나 초대 코드가 필요해요.';
     canRetry = false;
   } else if (error.status === 404 || error.status === 400) {
