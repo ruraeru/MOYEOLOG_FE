@@ -44,7 +44,7 @@ export interface MemoResponse {
   groupId?: string;
   tags: string[];
   taggedMemos?: { id: string; title: string }[];
-  taggedSchedules?: { id: string; title: string }[];
+  taggedSchedules?: { id: string; title: string; startTime?: string }[];
   insight?: MemoInsight;
   isFavorite: boolean;
   /** 내 고정 시각(오프셋 없는 한국 시간, 보는 사람 기준). 고정 안 됐으면 null */
