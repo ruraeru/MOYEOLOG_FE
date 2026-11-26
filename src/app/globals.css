@@ -279,8 +279,25 @@ body {
   background: transparent !important;
 }
 
+/* Tailwind preflight 가 목록 기호를 없애므로 되살린다 */
+.wmde-markdown ul {
+  list-style: disc;
+}
+.wmde-markdown ol {
+  list-style: decimal;
+}
+.wmde-markdown ul ul {
+  list-style: circle;
+}
+
+/* 문장 속 코드는 본문 글꼴 우선(고정폭 글꼴엔 한글이 없어 대체 글꼴과 섞이며 공백만 넓어진다). 코드 블록은 그대로 */
+.wmde-markdown :not(pre) > code {
+  font-family: var(--font-sans), monospace !important;
+}
+
+/* 모임 화면 안(--group-ink 가 깔린 곳)에서는 모임 색의 진한 톤 */
 .wmde-markdown a {
-  color: var(--accent) !important;
+  color: var(--group-ink, var(--accent)) !important;
   font-weight: 500;
   text-decoration: none;
 }
