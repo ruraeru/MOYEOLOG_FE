@@ -280,7 +280,7 @@ export default function LoginPage() {
           </form>
           {/* 링크는 터치 높이 44px(h-11). 글자 위치는 전처럼 제출 버튼 아래 16px 쯤 */}
           <div className="mt-1 flex w-full max-w-[400px] items-center justify-between text-[13px]">
-            <Link href="/signup" className="inline-flex h-11 items-center text-accent underline-offset-2 hover:underline">
+            <Link href="/signup" className="inline-flex h-11 items-center pr-3 text-accent underline-offset-2 hover:underline">
               이메일로 가입
             </Link>
             <button
