@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, isValid, parseISO } from 'date-fns';
@@ -56,7 +56,7 @@ function formatStamp(value: string | null | undefined, timeFormat: string) {
 export default function SecuritySection({ user }: { user: UserResponse }) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const { confirm, alert } = useAlertStore();
+  const { confirm } = useAlertStore();
   const hour12 = usePref('hour12');
   const timeFormat = hour12 === 'true' ? 'a h:mm' : 'HH:mm';
 
@@ -75,6 +75,16 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawText, setWithdrawText] = useState('');
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
+
+  // 폼을 열면 첫 입력칸에 포커스를 주고, 버튼 줄까지 보이게 스크롤한다(모바일 하단 탭에 가리지 않게 scroll-mb-24)
+  const formsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const key = openForm ?? (withdrawOpen ? 'withdraw' : null);
+    if (!key) return;
+    const form = formsRef.current?.querySelector<HTMLFormElement>(`form[data-form="${key}"]`);
+    form?.querySelector<HTMLInputElement>('input:not([hidden]):not([readonly])')?.focus({ preventScroll: true });
+    form?.scrollIntoView({ block: 'nearest' });
+  }, [openForm, withdrawOpen]);
 
   // 연결 결과 쿼리는 한 번만 알린다(새로고침해도 다시 뜨지 않게 주소에서 뺀다).
   useEffect(() => {
@@ -125,7 +135,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
       setOpenForm(null);
       setLoginNotice({
         type: 'success',
-        text: `${email} 주소로 인증 메일을 보냈어요. 메일의 링크를 눌러야 반영돼요. 메일이 안 보이면 스팸함도 확인해 주세요.`,
+        text: `${email} 주소로 인증 메일을 보냈어요. 메일의 링크를 눌러야 반영돼요. 메일이 안 보이면 스팸함도 확인해 주세요. 이미 다른 계정이 쓰는 주소라면 메일이 가지 않아요.`,
       });
     },
     onError: (err) => handleLoginFormError(err, '인증 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.'),
@@ -141,9 +151,9 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
     onSuccess: async () => {
       setOpenForm(null);
       if (hasPassword) {
-        // 비밀번호를 바꾸면 백엔드가 모든 기기의 로그인을 끊는다
-        await alert('비밀번호를 바꿨어요. 모든 기기에서 로그아웃했으니 새 비밀번호로 다시 로그인해 주세요.', '비밀번호 변경');
-        await signOut({ callbackUrl: '/' });
+        // 비밀번호를 바꾸면 백엔드가 모든 기기의 로그인을 끊는다. 이 탭의 토큰도 곧 401 이 되어 세션 감시가 로그아웃시키므로,
+        // 안내 창을 띄우지 않고 바로 로그아웃하고 안내는 로그인 화면(?notice=password-changed)에서 보여 준다.
+        await signOut({ callbackUrl: '/?notice=password-changed' });
         return;
       }
       setLoginNotice({
@@ -235,6 +245,10 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
       setFormError(problem);
       return;
     }
+    if (hasPassword && newPassword === currentPassword) {
+      setFormError('지금과 같은 비밀번호예요. 다른 비밀번호를 입력해 주세요.');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setFormError('새 비밀번호가 서로 달라요. 다시 확인해 주세요.');
       return;
@@ -300,14 +314,14 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
   const withdrawMutation = useMutation({
     mutationFn: () => userApi.deleteMe(session),
     onMutate: () => setWithdrawError(null),
-    onSuccess: () => signOut({ callbackUrl: '/' }),
+    onSuccess: () => signOut({ callbackUrl: '/?notice=withdrawn' }),
     onError: (err) => setWithdrawError(getApiErrorMessage(err, '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.')),
   });
 
   const sessions: LoginSession[] = sessionsQuery.data ?? [];
 
   return (
-    <div className="space-y-10">
+    <div ref={formsRef} className="space-y-10">
       <div className="space-y-3">
         <SettingsGroup title="로그인 방법" description="한 계정에 이메일 로그인과 카카오 로그인을 함께 붙일 수 있어요.">
           <SettingsRow
@@ -336,7 +350,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
             )}
           </SettingsRow>
           {openForm === 'email' && (
-            <form className="space-y-3 px-5 py-4 lg:px-6" onSubmit={handleEmailSubmit} noValidate>
+            <form data-form="email" className="scroll-mb-24 space-y-3 px-5 py-4 lg:px-6" onSubmit={handleEmailSubmit} noValidate>
               <label htmlFor="security-new-email" className="block text-sm text-ink">
                 {user.emailVerified ? '새 이메일' : '인증할 이메일'}
               </label>
@@ -382,7 +396,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
             )}
           </SettingsRow>
           {openForm === 'password' && (
-            <form className="space-y-3 px-5 py-4 lg:px-6" onSubmit={handlePasswordSubmit} noValidate>
+            <form data-form="password" className="scroll-mb-24 space-y-3 px-5 py-4 lg:px-6" onSubmit={handlePasswordSubmit} noValidate>
               {/* 비밀번호 관리자가 계정을 알아보도록 */}
               <input type="email" autoComplete="username" value={user.email ?? ''} readOnly hidden />
               {hasPassword && currentPasswordField}
@@ -398,7 +412,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="form-input"
                 />
-                <p className="text-[13px] text-ink-3">
+                <p className="break-keep text-pretty text-[13px] text-ink-3">
                   8자 이상으로 입력해 주세요{hasPassword ? '. 바꾸면 모든 기기에서 로그아웃돼요' : ''}
                 </p>
               </div>
@@ -455,7 +469,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
             )}
           </SettingsRow>
           {openForm === 'kakao' && (
-            <form className="space-y-3 px-5 py-4 lg:px-6" onSubmit={handleUnlinkSubmit} noValidate>
+            <form data-form="kakao" className="scroll-mb-24 space-y-3 px-5 py-4 lg:px-6" onSubmit={handleUnlinkSubmit} noValidate>
               <input type="email" autoComplete="username" value={user.email ?? ''} readOnly hidden />
               <p className="text-sm leading-relaxed text-ink-2">
                 해제하면 카카오로는 이 계정에 로그인할 수 없어요. 해제한 뒤 카카오로 시작하면 빈 새 계정이 만들어져요. 다음부터는 이메일(<span className="break-all">{user.email}</span>)과
@@ -524,7 +538,9 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
           ) : sessions.length === 0 ? (
             <p className="px-5 py-6 text-sm text-ink-3 lg:px-6">로그인된 기기 정보가 없어요</p>
           ) : (
-            sessions.map((item, index) => {
+            sessions.map((item) => {
+              // '다른 기기' 번호는 지금 기기를 빼고 1부터 센다
+              const otherNumber = sessions.filter((other) => !other.current).indexOf(item) + 1;
               const created = formatStamp(item.createdAt, timeFormat);
               const lastUsed = formatStamp(item.lastUsedAt, timeFormat);
               return (
@@ -532,7 +548,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
                   <Laptop size={18} strokeWidth={1.5} className="shrink-0 text-ink-3" />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-2 text-sm font-medium text-ink">
-                      {item.current ? '지금 이 기기' : `다른 기기 ${index + 1}`}
+                      {item.current ? '지금 이 기기' : `다른 기기 ${otherNumber}`}
                     </p>
                     <p className="mt-0.5 flex flex-wrap gap-x-3">
                       {created && <span className="stamp">로그인 {created}</span>}
@@ -543,15 +559,16 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
               );
             })
           )}
-          <div className="flex flex-wrap justify-end gap-2 px-5 py-3 lg:px-6">
-            <button type="button" onClick={() => signOut({ callbackUrl: '/' })} className="btn-secondary">
+          {/* 좁은 화면에서는 두 버튼을 같은 폭으로 쌓는다(폭이 달라 줄바꿈되면 오른쪽 끝이 어긋난다) */}
+          <div className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:flex-wrap sm:justify-end lg:px-6">
+            <button type="button" onClick={() => signOut({ callbackUrl: '/' })} className="btn-secondary w-full sm:w-auto">
               <LogOut size={16} strokeWidth={1.5} />이 기기에서 로그아웃
             </button>
             <button
               type="button"
               onClick={handleLogoutAll}
               disabled={logoutAllMutation.isPending}
-              className="btn-danger"
+              className="btn-danger w-full sm:w-auto"
             >
               {logoutAllMutation.isPending && <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />}
               모든 기기에서 로그아웃
@@ -575,7 +592,8 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
             </div>
           ) : (
             <form
-              className="space-y-3"
+              data-form="withdraw"
+              className="scroll-mb-24 space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (withdrawText.trim() !== WITHDRAW_PHRASE || withdrawMutation.isPending) return;
@@ -583,14 +601,13 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
               }}
             >
               <label htmlFor="withdraw-confirm" className="block text-sm text-ink">
-                계속하려면 <span className="font-medium">{WITHDRAW_PHRASE}</span> 를 입력해 주세요
+                계속하려면 <span className="font-medium">‘{WITHDRAW_PHRASE}’</span>를 입력해 주세요
               </label>
               <input
                 id="withdraw-confirm"
                 value={withdrawText}
                 onChange={(e) => setWithdrawText(e.target.value)}
                 autoComplete="off"
-                placeholder={WITHDRAW_PHRASE}
                 className="form-input"
               />
               {withdrawError && <InlineError message={withdrawError} />}

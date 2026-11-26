@@ -29,6 +29,16 @@ const EMAIL_FORM_KEY = 'login-email-form';
 /** 아주 기본적인 형식 검사(@ 앞뒤에 글자, 뒤에 점). 실제 확인은 서버가 한다 */
 const looksLikeEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
+/** 설정에서 로그아웃시키며 넘겨준 안내(?notice=). 비밀번호 변경·회원 탈퇴 뒤 왜 이 화면에 왔는지 알려 준다 */
+const LOGIN_NOTICES: Record<string, string> = {
+  'password-changed': '비밀번호를 바꿨어요. 모든 기기에서 로그아웃했으니 새 비밀번호로 다시 로그인해 주세요.',
+  withdrawn: '탈퇴했어요. 그동안 모여로그를 써 주셔서 고마워요.',
+};
+const getLoginNotice = () => {
+  const code = new URLSearchParams(window.location.search).get('notice');
+  return code ? (LOGIN_NOTICES[code] ?? null) : null;
+};
+
 /** NextAuth 오류 코드 → 문구. CredentialsSignin·TooManyAttempts 는 auth.ts 의 credentials 로그인이 낸다 */
 const loginErrorMessage = (code: string | null | undefined) => {
   // 백엔드는 잠금(10회 실패)도 계정 유무를 숨기려고 같은 401 을 준다. 그래서 두 경우를 한 문구로 알린다.
@@ -107,10 +117,15 @@ export default function LoginPage() {
   // 로그인한 사용자는 미들웨어가 '/' 에서 먼저 보내므로, 세션 확인을 기다리지 않고 바로 화면을 그린다.
   if (status === 'authenticated') return null;
 
-  // 주소의 error·callbackUrl 은 브라우저에서만 읽는다(서버 렌더에서는 오류 없이 그린다).
+  // 주소의 error·callbackUrl·notice 는 브라우저에서만 읽는다(서버 렌더에서는 오류 없이 그린다).
   const loginError = isMounted && !queryErrorCleared ? getLoginError() : null;
-  // 이메일 폼은 접어 둔다. 이메일 로그인 오류로 돌아왔으면 펼친 채로 보여 준다.
-  const showEmail = emailOpen || loginError === 'CredentialsSignin' || loginError === 'TooManyAttempts';
+  const loginNotice = isMounted ? getLoginNotice() : null;
+  // 이메일 폼은 접어 둔다. 이메일 로그인 오류나 비밀번호 변경으로 돌아왔으면 펼친 채로 보여 준다.
+  const showEmail =
+    emailOpen ||
+    loginError === 'CredentialsSignin' ||
+    loginError === 'TooManyAttempts' ||
+    (isMounted && new URLSearchParams(window.location.search).get('notice') === 'password-changed');
 
   const closeEmail = () => {
     setEmailOpen(false);
@@ -198,6 +213,11 @@ export default function LoginPage() {
             장소 정하기부터 함께 보는 일정과 메모까지, 모임의 모든 일을 한곳에서 해결해요
           </p>
 
+          {loginNotice && !loginError && (
+            <p role="status" className="mt-6 w-full max-w-[400px] rounded-[10px] bg-raised px-4 py-3 text-sm text-ink">
+              {loginNotice}
+            </p>
+          )}
           {loginError && !formError && (
             <p role="alert" className="mt-6 w-full max-w-[400px] rounded-[10px] bg-negative-soft px-4 py-3 text-sm text-negative">
               {loginErrorMessage(loginError)}

@@ -39,17 +39,20 @@ export function SettingsRow({
   htmlFor?: string;
 }) {
   return (
-    <div className="flex min-h-16 flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 lg:px-6">
-      <div className="min-w-0">
-        {htmlFor ? (
-          <label htmlFor={htmlFor} className="text-[15px] font-medium text-ink">
-            {label}
-          </label>
-        ) : (
+    // 조작(스위치·버튼)은 자리가 되면 설명 오른쪽에 두고, 넓은 조작(Segmented)만 좁은 화면에서 아래 줄로 내린다
+    <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 lg:px-6">
+      {htmlFor ? (
+        // 조작과 이어진 행은 이름·설명 전체가 label 이라 글자 어디를 눌러도 스위치가 바뀐다
+        <label htmlFor={htmlFor} className="block min-w-0 flex-1 basis-[180px] cursor-pointer">
+          <span className="block text-[15px] font-medium text-ink">{label}</span>
+          {description && <span className="mt-0.5 block text-[13px] text-ink-3">{description}</span>}
+        </label>
+      ) : (
+        <div className="min-w-0 flex-1 basis-[180px]">
           <p className="text-[15px] font-medium text-ink">{label}</p>
-        )}
-        {description && <div className="mt-0.5 text-[13px] text-ink-3">{description}</div>}
-      </div>
+          {description && <div className="mt-0.5 text-[13px] text-ink-3">{description}</div>}
+        </div>
+      )}
       {children && <div className="shrink-0">{children}</div>}
     </div>
   );
@@ -78,7 +81,8 @@ export function Toggle({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+      // 보이는 크기는 44×24, 누르는 영역은 위아래로 10px 씩 넓혀 44×44
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-[''] disabled:opacity-50 ${
         checked ? 'bg-accent' : 'bg-line-strong'
       }`}
     >
@@ -104,7 +108,7 @@ export function Segmented<T extends string>({
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex h-9 items-center gap-0.5 rounded-[10px] bg-raised p-[3px]">
+    <div role="radiogroup" aria-label={label} className="inline-flex h-11 items-center gap-0.5 rounded-[10px] bg-raised p-[3px] sm:h-9">
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -114,7 +118,8 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(option.value)}
-            className={`h-[30px] rounded-lg px-3 text-[13px] transition-colors ${
+            // 터치 기기 폭에서는 칸을 44px 이상으로(높이 38 + 위아래 3px 누름 영역)
+            className={`relative h-[38px] min-w-11 rounded-lg px-3 text-[13px] transition-colors before:absolute before:inset-x-0 before:-inset-y-[3px] before:content-[''] sm:h-[30px] sm:min-w-0 ${
               active ? 'bg-surface font-medium text-ink shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:text-ink'
             }`}
           >

@@ -35,6 +35,8 @@ function VerifyContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const isEmailChange = searchParams.get('purpose') === 'email';
+  // 메일 링크에 붙은 바꿀 주소(보여 주기만 한다. 실제로 바뀌는 주소는 서버가 토큰으로 정한다)
+  const targetEmail = searchParams.get('email');
   const { data: session, status } = useSession();
   const loggedIn = status === 'authenticated' && !!session?.user?.accessToken && !session.user.error;
   const queryClient = useQueryClient();
@@ -197,9 +199,13 @@ function VerifyContent() {
       title="이메일 인증"
       description={
         <>
-          {preview.email && <span className="block break-all font-medium text-ink">{preview.email}</span>}
+          {(preview.email || targetEmail) && (
+            <span className="block break-all font-medium text-ink">{preview.email || targetEmail}</span>
+          )}
           {isEmailChange
-            ? '아래 버튼을 누르면 이 계정의 이메일을 이 주소로 바꿔요.'
+            ? preview.email || targetEmail
+              ? '아래 버튼을 누르면 이 계정의 이메일을 이 주소로 바꿔요.'
+              : '아래 버튼을 누르면 이 계정의 이메일을 메일을 받은 주소로 바꿔요.'
             : '가입할 때 정한 비밀번호를 입력하면 가입을 마쳐요.'}
           {!isEmailChange && loggedIn && (
             <span className="mt-1 block text-ink-3">
