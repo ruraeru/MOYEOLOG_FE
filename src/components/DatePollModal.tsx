@@ -325,11 +325,15 @@ export default function DatePollModal({
 
   const remove = async () => {
     if (!detail || busy) return;
-    const ok = await confirm(
+    // 되돌릴 수 없는 동작이라 확인 버튼을 위험 색으로(5번째 인자 danger 는 q25 가 useAlert confirm 에 더한다.
+    // 합치기 전에는 무시되는 인자라 타입만 넓혀 넘긴다)
+    const confirmDanger = confirm as (message: string, title?: string, confirmText?: string, cancelText?: string, danger?: boolean) => Promise<boolean>;
+    const ok = await confirmDanger(
       detail.scheduleId ? '만들어진 일정은 그대로 남아요.' : '멤버들이 고른 날짜도 함께 지워져요.',
       `'${detail.title}' 조율을 지울까요?`,
       '지우기',
       '취소',
+      true,
     );
     if (!ok) return;
     setBusy(true);
