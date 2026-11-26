@@ -27,6 +27,8 @@ interface MemoCreateModalProps {
   userId: string;
   onSuccess?: () => void;
   groupId?: string;
+  /** 처음 골라 둘 모임(바꿀 수 있다). /memo 의 모임 폴더에서 열 때 */
+  defaultGroupId?: string;
 }
 
 export default function MemoCreateModal({
@@ -34,6 +36,7 @@ export default function MemoCreateModal({
   onClose,
   onSuccess,
   groupId,
+  defaultGroupId,
 }: MemoCreateModalProps) {
   const { data: session } = useSession();
   const [title, setTitle] = useState('');
@@ -67,6 +70,11 @@ export default function MemoCreateModal({
       }
     }
   }, [isOpen, session, groupId]);
+
+  // 열 때 기본 모임을 골라 둔다
+  useEffect(() => {
+    if (isOpen && !groupId) setSelectedGroupId(defaultGroupId ?? '');
+  }, [isOpen, groupId, defaultGroupId]);
 
   const resetForm = useCallback(() => {
     setTitle('');
