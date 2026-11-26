@@ -230,7 +230,7 @@ export default function HomePage() {
           ) : (
             <>
               {/* 이번 주 7칸. 누르면 그 날 일정 목록 */}
-              <div className="grid grid-cols-7 gap-1.5 lg:gap-2">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5 lg:gap-2">
                 {weekSchedules.map(({ day, items }) => {
                   const isToday = isSameDay(day, today);
                   // 그날 일정의 색(모임 색·개인 중립색)을 겹치지 않게 3개까지
