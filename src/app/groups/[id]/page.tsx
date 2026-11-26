@@ -27,7 +27,7 @@ import { groupTopicApi } from '@/lib/group-topic-api';
 import { datePollApi, type DatePollSummary } from '@/lib/date-poll-api';
 import DatePollModal, { DatePollCreateModal, pollDateLabel, pollRangeLabel } from '@/components/DatePollModal';
 import { groupNoticeApi, type NoticeSummary } from '@/lib/group-notice-api';
-import GroupNoticeModal from '@/components/GroupNoticeModal';
+import GroupNoticeModal, { msUntil } from '@/components/GroupNoticeModal';
 import GroupNoticeFormModal from '@/components/GroupNoticeFormModal';
 import { scheduleAlert, type ScheduleResponse } from '@/lib/schedule-api';
 import { memoApi, compareGroupPinned, type MemoResponse } from '@/lib/memo-api';
@@ -114,6 +114,8 @@ function GroupDetailContent() {
   const groupId = params?.id as string;
   const topicParam = searchParams.get('topic');
   const tabParam = searchParams.get('tab');
+  // ?notice={id}: 공지 알림에서 들어오면 그 공지를 연다
+  const noticeParam = searchParams.get('notice');
 
   const [group, setGroup] = useState<GroupResponse | null>(null);
   const [groupError, setGroupError] = useState<GroupLoadError | null>(null);
@@ -127,6 +129,11 @@ function GroupDetailContent() {
   const [notices, setNotices] = useState<NoticeSummary[]>([]);
   const [openNoticeId, setOpenNoticeId] = useState<string | null>(null);
   const [isNoticeFormOpen, setIsNoticeFormOpen] = useState(false);
+  const [seenNoticeParam, setSeenNoticeParam] = useState<string | null>(null);
+  if (noticeParam !== seenNoticeParam) {
+    setSeenNoticeParam(noticeParam);
+    if (noticeParam) setOpenNoticeId(noticeParam);
+  }
   const hadGroupRef = useRef(false);
 
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false);
@@ -318,7 +325,24 @@ function GroupDetailContent() {
 
   const refreshQuietly = useCallback(() => { fetchGroupData(true); }, [fetchGroupData]);
   const closePoll = useCallback(() => setOpenPollId(null), [setOpenPollId]);
-  const closeNotice = useCallback(() => setOpenNoticeId(null), [setOpenNoticeId]);
+  const closeNotice = useCallback(() => {
+    setOpenNoticeId(null);
+    // 알림으로 열었으면 쿼리를 지워 새로고침해도 다시 열리지 않게
+    if (noticeParam) router.replace(`/groups/${groupId}?tab=notice`, { scroll: false });
+  }, [setOpenNoticeId, noticeParam, router, groupId]);
+
+  // 목록의 '투표 중' 칩이 마감 시각에 '투표 마감'으로 바뀌도록 가장 이른 마감 시각에 다시 부른다(서버는 그 시각에 알려 주지 않는다)
+  const nextNoticeClose = notices
+    .filter(n => n.hasPoll && !n.pollClosed && n.pollClosesAt)
+    .map(n => n.pollClosesAt as string)
+    .sort()[0] ?? null;
+  useEffect(() => {
+    if (!nextNoticeClose) return;
+    const ms = msUntil(nextNoticeClose);
+    if (ms > 24 * 60 * 60 * 1000) return;
+    const timer = setTimeout(() => fetchGroupData(true), Math.max(0, ms) + 1000);
+    return () => clearTimeout(timer);
+  }, [nextNoticeClose, fetchGroupData]);
 
   // 상세를 열면 서버가 읽음 처리한다. 읽음 이벤트는 방장에게만 가므로 내 목록의 점·읽음 수는 여기서 바로 고친다
   const handleOpenNotice = (notice: NoticeSummary) => {
@@ -647,6 +671,7 @@ function GroupDetailContent() {
                                 {n.pollClosed ? '투표 마감' : '투표 중'}
                               </span>
                             )}
+                            {n.hasPoll && !n.pollClosed && !n.myVoted && <span className="chip">투표 전</span>}
                           </span>
                         </span>
                         <ChevronRight size={16} strokeWidth={1.5} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
