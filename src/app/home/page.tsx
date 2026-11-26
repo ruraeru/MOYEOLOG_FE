@@ -201,7 +201,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-ink font-sans">
       <Navbar />
-      <main className="mx-auto w-full max-w-[1400px] flex-1 grid grid-cols-1 gap-8 px-4 pt-5 pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:px-8 lg:pt-8 lg:pb-8 xl:grid-cols-[minmax(0,1fr)_464px]">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 grid content-start grid-cols-1 gap-8 px-4 pt-5 pb-24 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8 lg:px-8 lg:pt-8 lg:pb-8 xl:grid-cols-[minmax(0,1fr)_464px]">
 
         {/* 왼쪽: 날짜 머리 + 이번 주 + 일정 기록 */}
         <section className="flex flex-col gap-5 lg:rounded-xl lg:border lg:border-line lg:bg-surface lg:p-8 lg:self-start">
@@ -230,7 +230,7 @@ export default function HomePage() {
           ) : (
             <>
               {/* 이번 주 7칸. 누르면 그 날 일정 목록 */}
-              <div className="grid grid-cols-7 gap-0.5 sm:gap-1.5 lg:gap-2">
+              <div className="grid grid-cols-7 gap-0.5 sm:gap-2">
                 {weekSchedules.map(({ day, items }) => {
                   const isToday = isSameDay(day, today);
                   // 그날 일정의 색(모임 색·개인 중립색)을 겹치지 않게 3개까지

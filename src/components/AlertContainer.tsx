@@ -26,13 +26,14 @@ export default function AlertContainer() {
         const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
         const next = e.shiftKey ? (i <= 0 ? buttons.length - 1 : i - 1) : (i + 1) % buttons.length;
         e.preventDefault();
+        e.stopImmediatePropagation(); // 뒤에 열린 Modal 의 포커스 가두기가 가져가지 않게
         buttons[next].focus();
       }
     };
     document.addEventListener('keydown', onKey, true);
     return () => {
       document.removeEventListener('keydown', onKey, true);
-      prevFocus?.focus?.();
+      if (prevFocus && prevFocus.isConnected) prevFocus.focus({ preventScroll: true });
     };
   }, [modal, closeModal]);
 
@@ -51,10 +52,10 @@ export default function AlertContainer() {
 
   if (!mounted) return null;
 
-  // 되돌릴 수 없는 동작이면 확인 버튼을 위험색으로 (본문·확인 버튼 글자로 판단)
+  // 되돌릴 수 없는 동작이면 확인 버튼을 위험색으로: 부르는 쪽이 danger 를 주거나, 본문·확인 버튼 글자로 판단
   const destructiveWords = ['삭제', '내보내기', '내보낼', '나가기', '거절', '지울', '지우기'];
   const isDestructive = modal
-    ? destructiveWords.some((w) => modal.message?.includes(w) || modal.confirmText?.includes(w))
+    ? !!modal.danger || destructiveWords.some((w) => modal.message?.includes(w) || modal.confirmText?.includes(w))
     : false;
 
   return (

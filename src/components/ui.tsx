@@ -4,14 +4,14 @@
  * 화면 공통 부품 (캠핑 테마). 새 화면도 여기 것을 쓴다.
  * - PageHeader: 화면 제목(주아) + 개수 + 오른쪽 동작(만들기 버튼은 여기에 하나만)
  * - Ribbon: 모임 색 띠. 모임 색은 띠·점으로만 쓴다
- * - UnderlineTabs: 밑줄 탭 (선택 = 주아 + 주황 밑줄. 모임 화면 안에서는 모임 색 밑줄)
+ * - UnderlineTabs: 밑줄 탭 (선택 = 주아 + 주황 밑줄. 모임 화면 안에서는 모임 색의 진한 톤 밑줄)
  * - Segmented: 보기 전환 (월/주/목록, 카드/목록)
  * - EmptyState: 빈 상태
  * - Modal: 창 껍데기 (모바일은 아래에서 올라오는 시트, Esc·바깥 클릭으로 닫힘)
  * - SideItem / SideLabel: 왼쪽 목록 메뉴 행
  */
 
-import React, { useEffect, useId } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { X, type LucideIcon } from 'lucide-react';
 
 export function PageHeader({
@@ -28,15 +28,16 @@ export function PageHeader({
   className?: string;
 }) {
   return (
+    // 제목은 최소 10rem 을 잡고 남는 폭에서 말줄임. 동작 버튼이 그 옆에 안 들어갈 때만 다음 줄로 내려간다
     <div className={`flex flex-wrap items-center justify-between gap-3 ${className}`}>
-      <div className="min-w-0">
-        <div className="flex items-baseline gap-2.5">
+      <div className="min-w-0 flex-1 basis-40">
+        <div className="flex min-w-0 items-baseline gap-2.5">
           <h1 className="font-display text-2xl leading-8 text-ink lg:text-[30px] lg:leading-9 truncate">{title}</h1>
-          {count != null && <span className="stamp text-sm text-ink-3">{count}</span>}
+          {count != null && <span className="stamp shrink-0 whitespace-nowrap text-sm text-ink-3">{count}</span>}
         </div>
         {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2 lg:gap-3">{actions}</div>}
+      {actions && <div className="flex shrink-0 items-center gap-2 lg:gap-3">{actions}</div>}
     </div>
   );
 }
@@ -72,8 +73,19 @@ export function UnderlineTabs<K extends string>({
   onChange: (key: K) => void;
   className?: string;
 }) {
+  // 키보드: 선택 탭만 Tab 정지점, ←/→/Home/End 로 탭을 옮기며 바로 연다
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const i = items.findIndex((it) => it.key === active);
+    const n = items.length;
+    const next =
+      e.key === 'ArrowRight' ? (i + 1) % n : e.key === 'ArrowLeft' ? (i - 1 + n) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
+    if (next < 0 || n === 0) return;
+    e.preventDefault();
+    onChange(items[next].key);
+    e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+  };
   return (
-    <div role="tablist" className={`flex gap-6 overflow-x-auto no-scrollbar border-b border-line ${className}`}>
+    <div role="tablist" onKeyDown={onKeyDown} className={`flex gap-6 overflow-x-auto no-scrollbar border-b border-line ${className}`}>
       {items.map((it) => {
         const on = it.key === active;
         return (
@@ -81,14 +93,19 @@ export function UnderlineTabs<K extends string>({
             key={it.key}
             role="tab"
             aria-selected={on}
+            tabIndex={on ? 0 : -1}
             onClick={() => onChange(it.key)}
-            className="relative flex shrink-0 items-center gap-1.5 pb-2.5 pt-1"
+            className="touch-hit relative flex shrink-0 items-center gap-1.5 pb-2.5 pt-1 pointer-coarse:pt-2.5"
           >
-            <span className={on ? 'font-display text-base text-ink' : 'text-[15px] text-ink-2 hover:text-ink'}>{it.label}</span>
+            {/* 선택 글꼴(주아)로 폭을 미리 잡아 두어 선택이 바뀌어도 탭 폭이 흔들리지 않는다 */}
+            <span className="inline-grid">
+              <span className={`col-start-1 row-start-1 ${on ? 'font-display text-base text-ink' : 'text-[15px] text-ink-2 hover:text-ink'}`}>{it.label}</span>
+              <span aria-hidden className="invisible col-start-1 row-start-1 h-0 font-display text-base">{it.label}</span>
+            </span>
             {it.count != null && <span className="stamp text-xs">{it.count}</span>}
             <span
               aria-hidden
-              className={`absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-group transition-[width,opacity] duration-200 ${on ? 'w-full opacity-100' : 'w-2 opacity-0'}`}
+              className={`absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-[var(--group-ink,var(--mark))] transition-[width,opacity] duration-200 ${on ? 'w-full opacity-100' : 'w-2 opacity-0'}`}
             />
           </button>
         );
@@ -123,7 +140,7 @@ export function Segmented<K extends string>({
             aria-checked={on}
             title={it.title}
             onClick={() => onChange(it.key)}
-            className={`inline-flex ${ih} items-center justify-center gap-1 rounded-lg transition-colors ${
+            className={`touch-hit inline-flex ${ih} items-center justify-center gap-1 rounded-lg transition-colors ${
               on ? 'bg-surface text-group-sel font-medium shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:text-ink'
             }`}
           >
@@ -152,11 +169,14 @@ export function EmptyState({
     <div className={`flex flex-col items-center justify-center gap-2 px-6 py-12 text-center ${className}`}>
       {Icon && <Icon size={20} strokeWidth={1.5} className="mb-1 text-ink-3" aria-hidden />}
       <p className="font-display text-lg text-ink">{title}</p>
-      {description && <p className="max-w-xs text-sm text-ink-3">{description}</p>}
+      {description && <p className="max-w-xs break-keep text-sm text-ink-3">{description}</p>}
       {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[contenteditable="true"],[tabindex]:not([tabindex="-1"])';
 
 /**
  * 창 껍데기. 내용·버튼은 children/footer 로.
@@ -189,6 +209,59 @@ export function Modal({
   closeOnEsc?: boolean;
 }) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // 키보드 사용자: 열면 창 안으로 포커스, Tab 은 창 안에서만 돌고, 닫으면 연 버튼으로 돌아간다
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const dialog = dialogRef.current;
+    const focusables = () =>
+      dialog
+        ? [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.getClientRects().length > 0)
+        : [];
+    const isTop = () => {
+      const all = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      return all[all.length - 1] === dialog;
+    };
+    // 창 안의 autoFocus 가 먼저 잡았으면 그대로 둔다. 아니면 첫 입력칸 → 닫기가 아닌 첫 버튼 → 창 자체
+    const t = window.setTimeout(() => {
+      if (!dialog || dialog.contains(document.activeElement)) return;
+      const els = focusables();
+      const first =
+        els.find((el) => el.matches('input:not([type=hidden]),textarea,select,[contenteditable="true"]')) ??
+        els.find((el) => el.getAttribute('aria-label') !== '닫기') ??
+        dialog;
+      first.focus({ preventScroll: true });
+    }, 0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !dialog || !isTop()) return;
+      const els = focusables();
+      if (els.length === 0) {
+        e.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = els[0];
+      const last = els[els.length - 1];
+      const cur = document.activeElement;
+      if (!dialog.contains(cur)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && (cur === first || cur === dialog)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && cur === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener('keydown', onKey);
+      if (opener && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [open]);
   useEffect(() => {
     if (!open || !closeOnEsc) return;
     const onKey = (e: KeyboardEvent) => {
@@ -202,11 +275,13 @@ export function Modal({
   return (
     <div className={`fixed inset-0 ${zIndex} flex items-end justify-center bg-black/40 md:items-center md:p-4`} onClick={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-labelledby={title ? titleId : undefined}
         onClick={(e) => e.stopPropagation()}
-        className={`flex max-h-[92dvh] w-full ${w} flex-col overflow-hidden rounded-t-2xl bg-surface animate-slide-up md:max-h-[88vh] md:rounded-2xl md:animate-scale-in`}
+        className={`flex max-h-[92dvh] w-full ${w} flex-col overflow-hidden rounded-t-2xl bg-surface animate-slide-up md:max-h-[88vh] md:rounded-2xl md:animate-scale-in outline-none`}
       >
         {(title || headerExtra) && (
           <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4 md:px-6">

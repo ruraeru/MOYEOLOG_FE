@@ -116,7 +116,7 @@ export default function SettingsPage() {
       <main className="flex-1 overflow-hidden flex flex-col lg:flex-row">
         {/* 넓은 화면: 왼쪽 메뉴 (폭 264, 오른쪽 hairline) */}
         <aside className="hidden w-[264px] shrink-0 flex-col border-r border-line px-4 py-8 lg:flex">
-          <h2 className="px-3 font-display text-2xl leading-8 text-ink">설정</h2>
+          <h1 className="px-3 font-display text-2xl leading-8 text-ink">설정</h1>
 
           <nav className="mt-5 flex flex-col gap-1" aria-label="설정 메뉴">
             {menuItems.map((item) => {
@@ -153,7 +153,7 @@ export default function SettingsPage() {
           className="lg:hidden shrink-0 border-b border-line px-4 pt-5 sm:px-6"
           aria-label="설정 메뉴"
         >
-          <h2 className="font-display text-2xl leading-8 text-ink">설정</h2>
+          <h1 className="font-display text-2xl leading-8 text-ink">설정</h1>
           {/* 좁은 화면에서도 5칸이 모두 보이게 줄을 바꾼다(가로 스크롤이면 끝 칸이 가려져 있는지 알 수 없다) */}
           <div className="mt-3 flex flex-wrap gap-2 pb-3">
             {menuItems.map((item) => {
@@ -165,7 +165,7 @@ export default function SettingsPage() {
                   onClick={() => selectMenu(item.id)}
                   aria-current={active ? 'page' : undefined}
                   className={`flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors sm:h-9 ${
-                    active ? 'bg-accent font-medium text-white' : 'bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line)]'
+                    active ? 'bg-accent-soft font-medium text-accent' : 'bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line)]'
                   }`}
                 >
                   <item.icon size={16} strokeWidth={1.5} aria-hidden />

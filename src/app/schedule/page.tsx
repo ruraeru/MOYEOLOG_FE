@@ -403,7 +403,7 @@ export default function SchedulePage() {
               <Segmented items={VIEW_ITEMS} active={view} onChange={changeView} size="sm" ariaLabel="보기 전환" />
               <button
                 onClick={() => handleOpenCreate(addDefaultDate())}
-                className="btn-primary relative h-8 px-3 lg:h-9 lg:px-3.5 after:absolute after:inset-x-0 after:-inset-y-1.5 lg:after:hidden"
+                className="btn-primary px-3 lg:px-3.5"
               >
                 <Plus size={16} strokeWidth={1.5} />
                 <span><span className="hidden sm:inline">일정 </span>추가</span>
@@ -411,10 +411,10 @@ export default function SchedulePage() {
             </div>
 
             {/* 작은 화면: 오늘 · 검색 · 필터 */}
-            <div className="w-full flex gap-2 xl:hidden">
+            <div className="w-full flex flex-wrap gap-2 xl:hidden">
               <button onClick={goToToday} className="btn-secondary shrink-0 sm:hidden">오늘</button>
-              {searchInput('flex-1 min-w-0', '검색')}
-              <div className="relative lg:hidden shrink-0 w-36">
+              {searchInput('order-last basis-full min-[380px]:order-none min-[380px]:basis-0 flex-1 min-w-0', '검색')}
+              <div className="relative lg:hidden flex-1 min-[380px]:flex-none min-[380px]:w-36">
                 <select value={filterValue} onChange={(e) => onFilterSelect(e.target.value)} aria-label="일정 필터" className="form-input h-9 appearance-none pr-8 truncate">
                   <option value="all">전체 일정</option>
                   <option value="my">개인 일정</option>
