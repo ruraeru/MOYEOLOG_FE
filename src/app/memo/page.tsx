@@ -36,7 +36,7 @@ type FilterType = 'all' | 'my' | 'shared' | 'group' | 'favorites' | 'tag';
 
 /** 카드에 모임 띠 색(hex)과 작성자, 내가 공유했는지, 고정 여부·고정 가능 여부를 더한 것 */
 type MemoCardItem = MemoCardView & {
-  ribbon: string; author?: string; groupId?: string; group?: GroupResponse; sharedByMe?: boolean;
+  ribbon: string; author?: string; groupId?: string; group?: GroupResponse; sharedByMe?: boolean; sharedTitle?: string; sharedChip?: string;
   pinned: boolean; canPin: boolean;
 };
 
@@ -192,6 +192,7 @@ function MemoContent() {
 
   const memos = useMemo((): MemoCardItem[] => {
     let filtered: MemoResponse[] = [];
+    const sharedIds = new Set(sharedMemos.map(m => m.id));
 
     if (filter.type === 'favorites') {
       filtered = (favoriteMemos ?? []).filter(m => m.isFavorite !== false);
@@ -225,6 +226,10 @@ function MemoContent() {
       const permissions = getMemoPermissions(m, userId);
       const group = m.groupId ? userGroups.find(g => g.id === m.groupId) : undefined;
       const isShared = !m.groupId && !!userId && m.authorId !== userId;
+      // 남의 개인 메모가 친구 공유 목록에 없으면 모임에 공유된 것이다('공유받은 메모' 보기에는 나오지 않는다)
+      const viaGroup = isShared && !sharedIds.has(m.id);
+      const sharedFriendCount = m.sharedWith?.length ?? 0;
+      const sharedGroupCount = m.sharedGroupIds?.length ?? 0;
       const theme = getThemeColors(group?.colorTheme);
 
       return {
@@ -233,7 +238,7 @@ function MemoContent() {
         description: stripMarkdown(m.content),
         image: getFileUrl(m.imageUrl) || undefined,
         tags: m.tags || [],
-        category: m.groupId ? (group ? group.name : '모임 메모') : (isShared ? '공유받음' : '내 메모'),
+        category: m.groupId ? (group ? group.name : '모임 메모') : (viaGroup ? '모임에 공유됨' : isShared ? '공유받음' : '내 메모'),
         categoryColor: m.groupId ? theme.dot : (isShared ? 'bg-accent' : 'bg-ink-3'),
         ribbon: m.groupId ? theme.hex : (isShared ? 'var(--accent)' : 'var(--line-strong)'),
         author: m.groupId || isShared ? m.authorNickname : undefined,
@@ -244,7 +249,14 @@ function MemoContent() {
         canPin: groupView ? permissions.groupPin : permissions.pin,
         groupId: m.groupId,
         group,
-        sharedByMe: isSharedByMe(m, userId)
+        sharedByMe: isSharedByMe(m, userId),
+        // 칩 글자로 친구 공유·모임 공유를 나눈다
+        sharedChip: sharedFriendCount > 0 && sharedGroupCount > 0 ? '친구·모임 공유'
+          : sharedGroupCount > 0 ? '모임 공유' : `공유 ${sharedFriendCount}명`,
+        sharedTitle: [
+          sharedFriendCount > 0 ? `친구 ${sharedFriendCount}명` : '',
+          sharedGroupCount > 0 ? `모임 ${sharedGroupCount}곳` : '',
+        ].filter(Boolean).join(' · ') + '에 공유함'
       };
     });
   }, [filter, myMemos, sharedMemos, groupMemos, favoriteMemos, userGroups, combinedUniqueMemos, selectedTags, searchQuery, userId]);
@@ -593,7 +605,7 @@ interface MemoCardProps extends MemoCardItem {
   onTagClick: (e: React.MouseEvent, tag: string) => void;
 }
 
-function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, pinned, canPin, viewMode, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
+function MemoCard({ title, description, image, tags, category, ribbon, author, group, date, locked, isFavorite, sharedByMe, sharedTitle, sharedChip, pinned, canPin, viewMode, onClick, onToggleFavorite, onTogglePin, onTagClick }: MemoCardProps) {
   const isList = viewMode === 'list';
   return (
     <div
@@ -607,7 +619,7 @@ function MemoCard({ title, description, image, tags, category, ribbon, author, g
           <div className="-mr-1.5 -mt-1 flex shrink-0 items-center gap-1">
             {locked && <Lock size={16} strokeWidth={1.5} className="text-ink-3" />}
             {/* 내가 친구나 모임에 공유한 메모 */}
-            {sharedByMe && <span className="chip">공유함</span>}
+            {sharedByMe && <span className="chip" title={sharedTitle}>{sharedChip}</span>}
             {canPin ? (
               <button
                 type="button"
