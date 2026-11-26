@@ -135,7 +135,7 @@ export default function SecuritySection({ user }: { user: UserResponse }) {
       setOpenForm(null);
       setLoginNotice({
         type: 'success',
-        text: `${email} 주소로 인증 메일을 보냈어요. 메일의 링크를 눌러야 반영돼요. 메일이 안 보이면 스팸함도 확인해 주세요.`,
+        text: `${email} 주소로 인증 메일을 보냈어요. 메일의 링크를 눌러야 반영돼요. 메일이 안 보이면 스팸함도 확인해 주세요. 이미 다른 계정이 쓰는 주소라면 메일이 가지 않아요.`,
       });
     },
     onError: (err) => handleLoginFormError(err, '인증 메일을 보내지 못했어요. 잠시 후 다시 시도해 주세요.'),

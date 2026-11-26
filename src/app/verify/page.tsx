@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { accountApi, type VerifyResult } from '@/lib/account-api';
+import { isAxiosError } from 'axios';
 import { getApiErrorMessage } from '@/lib/axios';
 import { AccountShell, Field, FormError } from '../signup/AccountShell';
 
@@ -18,12 +19,16 @@ function VerifyContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const isEmailChange = searchParams.get('purpose') === 'email';
+  // 메일 링크에 붙은 바꿀 주소(보여 주기만 한다. 실제로 바뀌는 주소는 서버가 토큰으로 정한다)
+  const targetEmail = searchParams.get('email');
   const { data: session, status } = useSession();
   const loggedIn = status === 'authenticated' && !!session?.user?.accessToken && !session.user.error;
   const queryClient = useQueryClient();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 링크 자체가 못 쓰는 것(400)이면 다시 눌러도 소용없다
+  const [linkInvalid, setLinkInvalid] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
 
   const onVerify = async (e: FormEvent) => {
@@ -45,6 +50,7 @@ function VerifyContent() {
       if (verified.purpose === 'EMAIL') await queryClient.invalidateQueries();
     } catch (err) {
       setError(getApiErrorMessage(err, '인증하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+      setLinkInvalid(isAxiosError(err) && err.response?.status === 400);
     } finally {
       setSubmitting(false);
     }
@@ -107,10 +113,15 @@ function VerifyContent() {
       title="이메일 인증"
       description={
         isEmailChange
-          ? '아래 버튼을 누르면 이 계정의 이메일을 이 주소로 바꿔요.'
+          ? targetEmail
+            ? '아래 버튼을 누르면 이 계정의 이메일을 다음 주소로 바꿔요.'
+            : '아래 버튼을 누르면 이 계정의 이메일을 메일을 받은 주소로 바꿔요.'
           : '가입할 때 정한 비밀번호를 입력하면 가입을 마쳐요.'
       }
     >
+      {isEmailChange && targetEmail && (
+        <p className="mb-4 break-all text-sm font-medium text-ink">{targetEmail}</p>
+      )}
       <form className="space-y-4" onSubmit={onVerify} noValidate>
         {!isEmailChange && (
           <Field id="verify-password" label="가입 때 정한 비밀번호">
@@ -125,16 +136,29 @@ function VerifyContent() {
           </Field>
         )}
         <FormError message={error} />
-        <button type="submit" disabled={submitting} className="btn-primary h-10 w-full">
-          {submitting ? '인증하는 중...' : '이메일 인증하기'}
-        </button>
+        {/* 이메일 변경 링크가 이미 쓰였거나 만료되면 같은 버튼을 다시 눌러도 같은 오류라 설정으로 보낸다 */}
+        {isEmailChange && linkInvalid ? (
+          <Link href="/settings?menu=security" className="btn-primary h-10 w-full">
+            설정으로
+          </Link>
+        ) : (
+          <button type="submit" disabled={submitting} className="btn-primary h-10 w-full">
+            {submitting ? '인증하는 중...' : '이메일 인증하기'}
+          </button>
+        )}
         {error && (
           <p className="text-[13px] text-ink-3">
-            링크가 만료됐다면{' '}
-            <Link href="/signup" className="text-accent underline-offset-2 hover:underline">
-              가입
-            </Link>
-            이나 설정의 이메일 등록을 다시 해 주세요.
+            {isEmailChange ? (
+              '링크가 만료됐거나 이미 쓰였다면 설정의 계정 및 보안에서 인증 메일을 다시 받아 주세요.'
+            ) : (
+              <>
+                링크가 만료됐다면{' '}
+                <Link href="/signup" className="text-accent underline-offset-2 hover:underline">
+                  가입
+                </Link>
+                을 다시 해 주세요.
+              </>
+            )}
           </p>
         )}
       </form>

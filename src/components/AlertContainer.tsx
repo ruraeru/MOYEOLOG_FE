@@ -2,7 +2,7 @@
 
 import { useAlertStore } from '@/hooks/useAlert';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 const emptySubscribe = () => () => {};
 
@@ -10,6 +10,19 @@ export default function AlertContainer() {
   const { toasts, removeToast, modal, closeModal } = useAlertStore();
   // Hydration safety: 서버 렌더링과 첫 하이드레이션에서는 그리지 않습니다.
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
+
+  // Esc = 취소(안내 창은 확인). 창 밖 화면을 막고 있으니 키보드로도 닫을 수 있어야 한다.
+  useEffect(() => {
+    if (!modal) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      closeModal(modal.type === 'alert');
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [modal, closeModal]);
 
   if (!mounted) return null;
 
@@ -63,14 +76,20 @@ export default function AlertContainer() {
       {/* 확인 창: 다른 창과 같은 모양 (바탕 black/40, r16, 왼쪽 정렬, 버튼 오른쪽) */}
       {modal && (
         <div className="fixed inset-0 bg-black/40 z-[9998] flex items-center justify-center p-4">
-          <div className="w-full max-w-[400px] rounded-2xl bg-surface animate-scale-in">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby={modal.title ? 'alert-modal-title' : undefined}
+            aria-describedby="alert-modal-message"
+            className="w-full max-w-[400px] rounded-2xl bg-surface animate-scale-in"
+          >
             <div className="px-6 pt-6 pb-5">
               {modal.title && (
-                <h3 className="font-display text-xl leading-7 text-ink mb-2">
+                <h3 id="alert-modal-title" className="font-display text-xl leading-7 text-ink mb-2">
                   {modal.title}
                 </h3>
               )}
-              <p className={`whitespace-pre-wrap leading-relaxed ${modal.title ? 'text-sm text-ink-2' : 'text-[15px] text-ink'}`}>
+              <p id="alert-modal-message" className={`whitespace-pre-wrap leading-relaxed ${modal.title ? 'text-sm text-ink-2' : 'text-[15px] text-ink'}`}>
                 {modal.message}
               </p>
             </div>
@@ -78,16 +97,20 @@ export default function AlertContainer() {
             <div className="flex justify-end gap-2 border-t border-line px-6 py-3">
               {modal.type === 'confirm' && (
                 <button
+                  // 첫 포커스는 취소(실수로 Enter 를 눌러도 아무 일 없게)
+                  autoFocus
                   onClick={() => closeModal(false)}
-                  className="btn-secondary"
+                  className="btn-secondary max-sm:h-11"
                 >
                   {modal.cancelText || '취소'}
                 </button>
               )}
 
               <button
+                autoFocus={modal.type === 'alert'}
                 onClick={() => closeModal(true)}
-                className={isDestructive ? 'btn-danger' : 'btn-primary'}
+                // 좁은 화면(터치)에서는 누르는 높이 44px
+                className={`${isDestructive ? 'btn-danger' : 'btn-primary'} max-sm:h-11`}
               >
                 {modal.confirmText || '확인'}
               </button>

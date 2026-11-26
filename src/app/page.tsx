@@ -21,6 +21,16 @@ const getCallbackPath = () =>
 
 const getLoginError = () => new URLSearchParams(window.location.search).get('error');
 
+/** 설정에서 로그아웃시키며 넘겨준 안내(?notice=). 비밀번호 변경·회원 탈퇴 뒤 왜 이 화면에 왔는지 알려 준다 */
+const LOGIN_NOTICES: Record<string, string> = {
+  'password-changed': '비밀번호를 바꿨어요. 모든 기기에서 로그아웃했으니 새 비밀번호로 다시 로그인해 주세요.',
+  withdrawn: '탈퇴했어요. 그동안 모여로그를 써 주셔서 고마워요.',
+};
+const getLoginNotice = () => {
+  const code = new URLSearchParams(window.location.search).get('notice');
+  return code ? (LOGIN_NOTICES[code] ?? null) : null;
+};
+
 /** NextAuth 오류 코드 → 문구. CredentialsSignin·TooManyAttempts 는 auth.ts 의 credentials 로그인이 낸다 */
 const loginErrorMessage = (code: string | null | undefined) => {
   if (code === 'CredentialsSignin') return '이메일 또는 비밀번호가 올바르지 않아요.';
@@ -70,8 +80,13 @@ export default function LoginPage() {
   if (status === 'authenticated') return null;
 
   const loginError = getLoginError();
-  // 이메일 폼은 접어 둔다. 이메일 로그인 오류로 돌아왔으면 펼친 채로 보여 준다.
-  const showEmail = emailOpen || loginError === 'CredentialsSignin' || loginError === 'TooManyAttempts';
+  const loginNotice = getLoginNotice();
+  // 이메일 폼은 접어 둔다. 이메일 로그인 오류나 비밀번호 변경으로 돌아왔으면 펼친 채로 보여 준다.
+  const showEmail =
+    emailOpen ||
+    loginError === 'CredentialsSignin' ||
+    loginError === 'TooManyAttempts' ||
+    new URLSearchParams(window.location.search).get('notice') === 'password-changed';
 
   const onEmailLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -109,6 +124,11 @@ export default function LoginPage() {
             장소 정하기부터 함께 보는 일정과 메모까지, 모임의 모든 일을 한곳에서 해결해요
           </p>
 
+          {loginNotice && !loginError && (
+            <p role="status" className="mt-6 w-full max-w-[400px] rounded-[10px] bg-raised px-4 py-3 text-sm text-ink">
+              {loginNotice}
+            </p>
+          )}
           {loginError && (
             <p role="alert" className="mt-6 w-full max-w-[400px] rounded-[10px] bg-negative-soft px-4 py-3 text-sm text-negative">
               {loginErrorMessage(loginError)}
