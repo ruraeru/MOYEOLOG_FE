@@ -28,7 +28,7 @@ export function pollRangeLabel(start: string, end: string): string {
   return start === end ? pollDateLabel(start) : `${pollDateLabel(start)}~${pollDateLabel(end)}`;
 }
 
-/** 날짜 조율 만들기 (모임장) */
+/** 날짜 조율 만들기 (모임 멤버 누구나) */
 export function DatePollCreateModal({
   open,
   onClose,
@@ -131,7 +131,6 @@ export default function DatePollModal({
   onClose,
   groupId,
   pollId,
-  isOwner,
   session,
   onChanged,
   onOpenSchedule,
@@ -140,7 +139,6 @@ export default function DatePollModal({
   onClose: () => void;
   groupId: string;
   pollId: string | null;
-  isOwner: boolean;
   session: Session | null;
   /** 조율이 바뀌었을 때(저장·확정·삭제) 바깥 목록을 다시 불러오게 */
   onChanged: () => void;
@@ -209,11 +207,13 @@ export default function DatePollModal({
   useLiveTopics([`group:${groupId}`], () => load(true), watching);
 
   const readOnly = detail?.status !== 'OPEN';
+  // 이 날로 정하기·응답 재촉·지우기: 조율을 만든 사람 또는 모임장
+  const canManage = !!detail?.canManage;
   const myId = session?.user?.id;
-  // 재촉은 나(모임장)를 빼고 보낸다
+  // 재촉은 나(재촉하는 사람)를 빼고 보낸다
   const remindCount = detail ? detail.notResponded.filter((u) => u.id !== myId).length : 0;
   const serverMine = useMemo(() => new Set(detail?.myDates ?? []), [detail]);
-  // 고르는 중에 모임장이 확정하면(읽기 전용) 저장 안 한 선택은 버린다
+  // 고르는 중에 다른 사람이 확정하면(읽기 전용) 저장 안 한 선택은 버린다
   const mine = (!readOnly && draft) || serverMine;
   const dirty = !readOnly && draft !== null;
 
@@ -410,10 +410,10 @@ export default function DatePollModal({
                       c.isMine ? 'border-2 border-group-ink' : focusDate === c.date ? 'border-line-strong' : 'border-line'
                     } ${readOnly ? 'cursor-default' : c.isMine ? '' : 'hover:border-line-strong'}`}
                   >
-                    {/* 좁은 화면(칸 44px)에서는 체크가 '11/27' 글자와 겹쳐 테두리로만 표시한다 */}
+                    {/* 좁은 화면(칸 44px)에서는 체크가 '11/27' 글자와 겹쳐 테두리로만 표시한다. 날짜는 모든 칸이 M/d 라 좁은 화면에서 12px 로 줄인다 */}
                     {c.isMine && <Check size={12} strokeWidth={2} aria-hidden className="absolute right-0.5 top-0.5 text-group-ink max-sm:hidden" />}
-                    <span className={`stamp text-[13px] ${getDay(d) === 0 ? 'text-negative' : 'text-ink'}`}>
-                      {c.date === detail.startDate || format(d, 'd') === '1' ? format(d, 'M/d') : format(d, 'd')}
+                    <span className={`stamp whitespace-nowrap text-xs sm:text-[13px] ${getDay(d) === 0 ? 'text-negative' : 'text-ink'}`}>
+                      {format(d, 'M/d')}
                     </span>
                     <span className={`stamp text-[11px] ${c.count ? 'text-group-ink' : 'text-ink-3'}`}>{c.count}명</span>
                   </button>
@@ -429,7 +429,7 @@ export default function DatePollModal({
                   <span className="text-ink-2">
                     {focusVoters.length ? focusVoters.map((v) => v.nickname).join(', ') : '가능한 사람이 없어요'}
                   </span>
-                  {isOwner && !readOnly && (
+                  {canManage && !readOnly && (
                     <button type="button" onClick={() => setConfirmDate(focus.date)} className="btn-secondary btn-sm ml-auto">
                       이 날로 정하기
                     </button>
@@ -441,8 +441,8 @@ export default function DatePollModal({
             </div>
           </section>
 
-          {/* 모임장: 날짜 확정 */}
-          {isOwner && !readOnly && confirmDate && (
+          {/* 만든 사람·모임장: 날짜 확정 */}
+          {canManage && !readOnly && confirmDate && (
             <section className="rounded-xl border border-line p-4">
               <h3 className="font-display text-base text-ink">{pollDateLabel(confirmDate)}로 정하기</h3>
               <p className="mt-1 text-xs text-ink-3">
@@ -545,7 +545,7 @@ export default function DatePollModal({
             <PeopleList title="아직이에요" people={detail.notResponded} />
           </section>
 
-          {isOwner && (
+          {canManage && (
             <section className="flex flex-wrap justify-end gap-2 border-t border-line pt-4">
               {!readOnly && remindCount > 0 && (
                 <button type="button" onClick={remind} disabled={busy} className="btn-secondary btn-sm">응답 재촉</button>

@@ -628,51 +628,47 @@ function GroupDetailContent() {
                 <ErrorState message={listError} onRetry={() => fetchGroupData()} />
               ) : (
                 <div className="space-y-3">
-                  {(isOwner || polls.length > 0) && (
-                    <div className="space-y-2">
-                      {isOwner && (
-                        <div className="flex justify-end">
-                          <button type="button" onClick={() => setIsPollCreateOpen(true)} className="btn-secondary">
-                            <CalendarCheck size={16} strokeWidth={1.5} /> 날짜 조율
-                          </button>
-                        </div>
-                      )}
-                      {polls.filter(p => p.status === 'OPEN').map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setOpenPollId(p.id)}
-                          className="card flex w-full items-center gap-3 px-4 py-3 text-left hover:border-line-strong"
-                        >
-                          <span aria-hidden className="w-[3px] shrink-0 self-stretch rounded-full bg-group" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-display text-[15px] leading-5 text-ink">{p.title}</span>
-                            <span className="stamp mt-0.5 block text-xs text-ink-3">
-                              {pollRangeLabel(p.startDate, p.endDate)} · {p.memberCount}명 중 {p.respondedCount}명 응답
-                            </span>
-                          </span>
-                          {!p.myResponded && (
-                            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-accent">
-                              <span aria-hidden className="size-1.5 rounded-full bg-mark" /> 내 날짜 고르기
-                            </span>
-                          )}
-                          <ChevronRight size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
-                        </button>
-                      ))}
-                      {polls.filter(p => p.status === 'CONFIRMED' && p.confirmedDate).map(p => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => setOpenPollId(p.id)}
-                          className="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[13px] text-ink-3 hover:text-ink-2"
-                        >
-                          <Check size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
-                          <span className="truncate">{p.title}</span>
-                          <span className="shrink-0">· {pollDateLabel(p.confirmedDate!)}로 정해짐</span>
-                        </button>
-                      ))}
+                  <div className="space-y-2">
+                    <div className="flex justify-end">
+                      <button type="button" onClick={() => setIsPollCreateOpen(true)} className="btn-secondary">
+                        <CalendarCheck size={16} strokeWidth={1.5} /> 날짜 조율
+                      </button>
                     </div>
-                  )}
+                    {polls.filter(p => p.status === 'OPEN').map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setOpenPollId(p.id)}
+                        className="card flex w-full items-center gap-3 px-4 py-3 text-left hover:border-line-strong"
+                      >
+                        <span aria-hidden className="w-[3px] shrink-0 self-stretch rounded-full bg-group" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-display text-[15px] leading-5 text-ink">{p.title}</span>
+                          <span className="stamp mt-0.5 block text-xs text-ink-3">
+                            {pollRangeLabel(p.startDate, p.endDate)} · {p.memberCount}명 중 {p.respondedCount}명 응답
+                          </span>
+                        </span>
+                        {!p.myResponded && (
+                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs text-accent">
+                            <span aria-hidden className="size-1.5 rounded-full bg-mark" /> 내 날짜 고르기
+                          </span>
+                        )}
+                        <ChevronRight size={16} strokeWidth={1.5} className="shrink-0 text-ink-3" aria-hidden />
+                      </button>
+                    ))}
+                    {polls.filter(p => p.status === 'CONFIRMED' && p.confirmedDate).map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setOpenPollId(p.id)}
+                        className="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[13px] text-ink-3 hover:text-ink-2"
+                      >
+                        <Check size={14} strokeWidth={1.5} className="shrink-0" aria-hidden />
+                        <span className="truncate">{p.title}</span>
+                        <span className="shrink-0">· {pollDateLabel(p.confirmedDate!)}로 정해짐</span>
+                      </button>
+                    ))}
+                  </div>
                   <div className="group-cal card overflow-hidden p-2 md:p-4">
                     <Calendar locale="ko-KR" formatDay={(_, date) => format(date, 'd')} calendarType="gregory" onClickDay={handleOpenListModal} tileContent={getTileContent} className="w-full border-none font-sans" />
                   </div>
@@ -802,7 +798,6 @@ function GroupDetailContent() {
           onClose={closePoll}
           groupId={groupId}
           pollId={openPollId}
-          isOwner={isOwner}
           session={session}
           onChanged={refreshQuietly}
           onOpenSchedule={handleOpenPollSchedule}
