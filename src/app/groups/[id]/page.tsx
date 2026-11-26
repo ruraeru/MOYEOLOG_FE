@@ -338,7 +338,9 @@ function GroupDetailContent() {
       result = result.filter(m => m.authorId === session?.user?.id);
     }
     // 고정된 메모를 맨 위로(고정 시각 최신순), 나머지는 서버 순서 그대로
-    result.sort(comparePinned);
+    // 모임에 공유된 개인 메모(groupId 없음)의 고정은 보는 사람 개인 것이라 모임 정렬에 쓰지 않는다
+    const groupPin = (m: MemoResponse) => (m.groupId ? m : { ...m, pinnedAt: null });
+    result.sort((a, b) => comparePinned(groupPin(a), groupPin(b)));
 
     if (selectedTags.length > 0) {
       result = result.filter(m =>
