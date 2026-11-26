@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { User as UserIcon, Bell, Lock, Monitor, Globe, LogOut, Loader2 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { userApi } from '@/lib/user-api';
 import { getApiErrorMessage } from '@/lib/axios';
+import { useAlertStore } from '@/hooks/useAlert';
 import ProfileSection from './_components/ProfileSection';
 import NotificationSection from './_components/NotificationSection';
 import SecuritySection from './_components/SecuritySection';
@@ -29,6 +30,30 @@ const NEEDS_USER: MenuId[] = ['profile', 'security'];
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [activeMenu, setActiveMenu] = useState<MenuId>('profile');
+  const { confirm } = useAlertStore();
+  // 프로필에 저장하지 않은 변경이 있는지(메뉴를 바꾸면 프로필 폼이 사라져 입력이 날아간다)
+  const profileDirty = useRef(false);
+  const handleProfileDirty = useCallback((dirty: boolean) => {
+    profileDirty.current = dirty;
+  }, []);
+
+  /** 메뉴를 바꾸고 주소(?menu=)에도 남긴다. 새로고침해도 보던 메뉴가 열린다. */
+  const selectMenu = async (id: MenuId) => {
+    if (id === activeMenu) return;
+    if (activeMenu === 'profile' && profileDirty.current) {
+      const ok = await confirm(
+        '저장하지 않은 프로필 변경이 있어요. 다른 메뉴로 가면 지금 입력한 내용은 사라져요.',
+        '저장하지 않은 변경',
+        '이동'
+      );
+      if (!ok) return;
+      profileDirty.current = false;
+    }
+    setActiveMenu(id);
+    const url = new URL(window.location.href);
+    url.searchParams.set('menu', id);
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+  };
 
   // ?menu=security 처럼 메뉴를 지정해 들어온 경우(카카오 연결·이메일 인증 뒤 돌아올 때). 서버 렌더와 어긋나지 않게 마운트 뒤에 바꾼다.
   useEffect(() => {
@@ -67,7 +92,12 @@ export default function SettingsPage() {
 
     switch (activeMenu) {
       case 'profile':
-        return <ProfileSection user={userQuery.data!} />;
+        return (
+          <ProfileSection
+            user={userQuery.data!}
+            onDirtyChange={handleProfileDirty}
+          />
+        );
       case 'notif':
         return <NotificationSection />;
       case 'security':
@@ -95,7 +125,7 @@ export default function SettingsPage() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveMenu(item.id)}
+                  onClick={() => selectMenu(item.id)}
                   aria-current={active ? 'page' : undefined}
                   className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-3 text-left text-sm transition-colors ${
                     active ? 'bg-surface font-medium text-ink shadow-[inset_0_0_0_1px_var(--line)]' : 'text-ink-2 hover:bg-raised hover:text-ink'
@@ -120,20 +150,21 @@ export default function SettingsPage() {
 
         {/* 좁은 화면: 위쪽 가로 메뉴 */}
         <nav
-          className="lg:hidden shrink-0 border-b border-line px-4 pt-5"
+          className="lg:hidden shrink-0 border-b border-line px-4 pt-5 sm:px-6"
           aria-label="설정 메뉴"
         >
           <h2 className="font-display text-2xl leading-8 text-ink">설정</h2>
-          <div className="no-scrollbar -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4 pb-3">
+          {/* 좁은 화면에서도 5칸이 모두 보이게 줄을 바꾼다(가로 스크롤이면 끝 칸이 가려져 있는지 알 수 없다) */}
+          <div className="mt-3 flex flex-wrap gap-2 pb-3">
             {menuItems.map((item) => {
               const active = activeMenu === item.id;
               return (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveMenu(item.id)}
+                  onClick={() => selectMenu(item.id)}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors ${
+                  className={`flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm transition-colors sm:h-9 ${
                     active ? 'bg-accent font-medium text-white' : 'bg-surface text-ink-2 shadow-[inset_0_0_0_1px_var(--line)]'
                   }`}
                 >

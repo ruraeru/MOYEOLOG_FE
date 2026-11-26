@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 import { userApi, type NotificationPreferences } from '@/lib/user-api';
 import { getApiErrorMessage } from '@/lib/axios';
 import { InlineError, LoadError, SettingsGroup, SettingsRow, Toggle } from './ui';
@@ -18,39 +18,57 @@ const ITEMS: { key: keyof NotificationPreferences; label: string; description: s
 ];
 
 const QUERY_KEY = ['notifications', 'preferences'];
+const SAVE_KEY = ['notifications', 'preferences', 'save'];
 
 export default function NotificationSection() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
-  const { data, isLoading, isError, error: loadError, refetch, isRefetching } = useQuery({
+  const { data, isLoading, isError, error: loadError, refetch } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: () => userApi.getNotificationPreferences(session),
     enabled: !!session?.user?.accessToken,
   });
 
+  // 저장 안내('저장했어요')를 잠깐 보여 준다
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (savedTimer.current) clearTimeout(savedTimer.current);
+  }, []);
+
+  // 스위치를 연달아 눌러도 모두 반영되게: 화면은 바로 바꾸고(낙관적), 저장 요청은 같은 scope 로 차례대로 보낸다.
+  // 각 요청은 그때까지 바뀐 값을 모두 담고, 마지막 요청의 응답만 화면에 덮어쓴다.
   const mutation = useMutation({
+    mutationKey: SAVE_KEY,
+    scope: { id: 'notification-preferences' },
     mutationFn: (next: NotificationPreferences) => userApi.updateNotificationPreferences(next, session),
-    onMutate: async (next) => {
+    onMutate: async () => {
       setError(null);
       await queryClient.cancelQueries({ queryKey: QUERY_KEY });
-      const previous = queryClient.getQueryData<NotificationPreferences>(QUERY_KEY);
-      queryClient.setQueryData(QUERY_KEY, next);
-      return { previous };
     },
-    onError: (err, _next, context) => {
-      if (context?.previous) queryClient.setQueryData(QUERY_KEY, context.previous);
+    onError: (err) => {
+      setSaved(false);
       setError(getApiErrorMessage(err, '알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.'));
+      // 서버에 실제로 저장된 값으로 되돌린다
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
     },
-    onSuccess: (saved) => {
-      queryClient.setQueryData(QUERY_KEY, saved);
+    onSuccess: (result) => {
+      if (queryClient.isMutating({ mutationKey: SAVE_KEY }) > 1) return; // 뒤에 보낼 요청이 남아 있다
+      queryClient.setQueryData(QUERY_KEY, result);
+      setSaved(true);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
+      savedTimer.current = setTimeout(() => setSaved(false), 2000);
     },
   });
 
   const toggle = (key: keyof NotificationPreferences, value: boolean) => {
-    if (!data) return;
-    mutation.mutate({ ...data, [key]: value });
+    const current = queryClient.getQueryData<NotificationPreferences>(QUERY_KEY) ?? data;
+    if (!current) return;
+    const next = { ...current, [key]: value };
+    queryClient.setQueryData(QUERY_KEY, next);
+    mutation.mutate(next);
   };
 
   return (
@@ -72,7 +90,6 @@ export default function NotificationSection() {
                 id={`notif-${item.key}`}
                 label={`${item.label} 알림`}
                 checked={data[item.key] !== false}
-                disabled={mutation.isPending || isRefetching}
                 onChange={(next) => toggle(item.key, next)}
               />
             </SettingsRow>
@@ -80,6 +97,12 @@ export default function NotificationSection() {
         )}
       </SettingsGroup>
       {error && <InlineError message={error} />}
+      {saved && !error && (
+        <p role="status" className="flex items-center gap-1.5 px-1 text-sm text-ink-2">
+          <CheckCircle2 size={16} strokeWidth={1.5} className="text-positive" aria-hidden />
+          저장했어요
+        </p>
+      )}
     </div>
   );
 }
