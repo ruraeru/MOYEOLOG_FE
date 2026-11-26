@@ -350,6 +350,8 @@ async function authorizeCredentials(
   }
   user.id = String(user.backendUser.id);
   user.name = user.backendUser.nickname;
+  // 이메일로 로그인한 계정은 그 이메일을 세션에 담는다(프로필 메뉴가 session.user.email 을 보여 준다)
+  user.email = email.trim().toLowerCase();
   return user;
 }
 

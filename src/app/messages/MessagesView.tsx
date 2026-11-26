@@ -548,7 +548,7 @@ function ChatPanel({ friendId, conversation, onRead, onSent }: ChatPanelProps) {
                 rows={1}
                 placeholder="메시지 쓰기 (줄바꿈은 Shift+Enter)"
                 aria-label="메시지 입력"
-                className="form-input block resize-none max-h-32 min-h-9 py-[7px] leading-5"
+                className="form-input block resize-none max-h-32 min-h-9 pointer-coarse:min-h-11 pointer-coarse:py-[11px] py-[7px] leading-5"
               />
               {length > MESSAGE_MAX_LENGTH - 200 && (
                 <p className={`text-xs mt-1 tabular-nums ${tooLong ? 'text-negative' : 'text-ink-3'}`}>
